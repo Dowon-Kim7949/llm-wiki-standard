@@ -1,4 +1,4 @@
----
+﻿---
 title: LLM-WIKI Standard Package Gate Review
 tags:
   - llm-wiki
@@ -45,12 +45,12 @@ This document prepares Gate 5 implementation review for `packages/llm-wiki-stand
 | Area | Recommendation | Reason |
 | --- | --- | --- |
 | Release level | Ship as internal prerelease only. | The package is useful for review and CI trials, but Gate 2 through Gate 4 are still `needs_review`. |
-| Package identity | Use `@dowonk-7949/llm-wiki-standard` and `0.0.1-internal.2` for the npmjs public internal prerelease. | npmjs scope ownership follows the npm account `dowonk-7949`; the release remains non-stable and `needs_review`. |
-| CLI command set | Keep `doctor`, `validate`, `validate-frontmatter`, `audit`, `init --dry-run`, and `migrate --dry-run`. | This covers review workflows without writing project files. |
+| Package identity | Use `@dowonk-7949/llm-wiki-standard` and `0.0.1-internal.4` for the npmjs public internal prerelease. | npmjs scope ownership follows the npm account `dowonk-7949`; the release remains non-stable and `needs_review`. |
+| CLI command set | Keep `doctor`, `validate`, `validate-frontmatter`, `audit`, `init --dry-run`, `init --write`, and `migrate --dry-run`. | This covers review workflows and explicit zero-base initialization. |
 | `validate` behavior | Keep `validate` audit-backed for prerelease; do not split stricter validators yet. | The audit-backed path is already tested and easier for teams to adopt incrementally. |
 | CI default | Start with `llm-wiki validate` as warning-friendly. Delay `--strict` until missing docs are intentionally resolved. | Current repositories can adopt checks without immediate build failures from review-only warnings. |
 | Report artifacts | Allow `--out` reports for PR/review attachments. Commit reports only when they document an approved migration or audit milestone. | Avoid noisy generated artifacts while preserving review evidence when useful. |
-| Adapter handling | Keep root adapter creation/modification opt-in and dry-run/suggestion oriented through repeated `--agent`. | Existing `AGENTS.md`, `CLAUDE.md`, and Antigravity files can contain team-specific policy. |
+| Adapter handling | Keep adapter checks and missing-file creation opt-in through repeated `--agent`; never overwrite existing adapter files. | Existing `AGENTS.md`, `CLAUDE.md`, and Antigravity files can contain team-specific policy. |
 | Antigravity | Keep `ANTIGRAVITY.md` as an info-level candidate until the tool contract is confirmed. | The actual loading filename is still tool-contract dependent. |
 | Distribution path | Publish through the public npm registry and keep `Dowon-Kim7949/llm-wiki-standard` as a public source repository. | Public npmjs distribution allows npm, npx, and yarn consumers to install without GitHub Packages authentication. |
 | Missing docs in this repository | Keep the current five audit findings as review items. Do not create them in this package-hardening task. | The user explicitly constrained missing docs to dry-run/report/review handling. |
@@ -66,26 +66,28 @@ Implemented prototype commands:
 - `llm-wiki validate-frontmatter`
 - `llm-wiki audit`
 - `llm-wiki init --dry-run`
+- `llm-wiki init --write`
 - `llm-wiki migrate --dry-run`
 
 Implemented safety behavior:
 
-- `init` without `--dry-run` is blocked.
+- `init` writes only when `--write` is explicit; plain `init` is blocked.
+- Existing wiki docs are kept by default and overwritten only with `--existing overwrite`; `docs/llm-wiki/log.md` is append-only and is never overwritten.
 - `migrate --apply` is blocked until Gate 4 approves automatic migration scope.
-- `audit`, `validate`, `init --dry-run`, and `migrate --dry-run` can save UTF-8 Markdown or JSON reports with `--out`.
+- `audit`, `validate`, `init --dry-run`, `init --write`, and `migrate --dry-run` can save UTF-8 Markdown or JSON reports with `--out`.
 - `--profile` can be repeated to add profile-specific review coverage without changing the detected or explicit `--type`.
 - `--agent` can be repeated to opt into Codex, Claude Code, or Antigravity adapter checks and dry-run suggestions.
-- No-agent `audit`, `validate`, `init --dry-run`, and `migrate --dry-run` do not require adapter files or emit adapter suggestions.
+- No-agent `audit`, `validate`, `init --dry-run`, `init --write`, and `migrate --dry-run` do not require adapter files or emit adapter suggestions.
 - `--agent all` expands to Codex, Claude Code, and Antigravity; Antigravity remains info-level only.
-- `package.json` is configured with `name: @dowonk-7949/llm-wiki-standard`, `version: 0.0.1-internal.2`, no `publishConfig`, and the public source repository URL.
+- `package.json` is configured with `name: @dowonk-7949/llm-wiki-standard`, `version: 0.0.1-internal.4`, no `publishConfig`, and the public source repository URL.
 - Package-level `.npmrc` is not required for npmjs public consumers.
 - The repository `Dowon-Kim7949/llm-wiki-standard` was switched to public for easier source inspection.
-- `@dowonk-7949/llm-wiki-standard@0.0.1-internal.2` was published to npmjs with public access and verified with npm, npx, and yarn on Windows.
+- `@dowonk-7949/llm-wiki-standard@0.0.1-internal.4` was published to npmjs with public access and verified with npm, npx, and yarn on Windows.
 - `--format markdown` prints Markdown report output, while `--format json` prints structured JSON.
 - Unknown options, missing option values, and unsupported output formats are rejected with usage error exit code `3`.
 - Markdown reports include `needs_review` frontmatter.
 - Generated reports are scanned before write and refused if sensitive-looking content would be written.
-- Adapter handling remains template/dry-run only; root adapter files are not overwritten.
+- Adapter handling can create missing Codex/Claude adapter files during `init --write`; `docs/llm-wiki/log.md` and existing adapter files are not overwritten, and Antigravity remains info-level only.
 
 ## Verification Summary
 
@@ -109,6 +111,7 @@ Current repository checks to rerun before review:
 & 'C:\Users\samkj\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' --test tests/*.test.js
 & 'C:\Users\samkj\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' bin/llm-wiki.js validate-frontmatter
 & 'C:\Users\samkj\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' bin/llm-wiki.js init --dry-run --cwd ..\.. --agent claude
+& 'C:\Users\samkj\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' bin/llm-wiki.js init --write --cwd <zero-base-temp> --type frontend --agent codex
 & 'C:\Users\samkj\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' bin/llm-wiki.js audit --cwd ..\.. --agent claude
 ```
 
@@ -147,8 +150,10 @@ These files should not be created in this review-preparation step. They remain m
 
 - [needs_review] This package remains a prototype and internal prerelease; `0.0.1-internal.0` exists on GitHub Packages, while npmjs public distribution uses the npm account scope `@dowonk-7949`.
 - [needs_review] `0.0.1-internal.1` remains the first npmjs public prerelease; `0.0.1-internal.2` refreshes package README/tarball documentation.
+- [needs_review] `0.0.1-internal.3` was published with explicit zero-base `init --write`; `0.0.1-internal.4` supersedes it with append-only `docs/llm-wiki/log.md` overwrite protection.
 - [needs_review] macOS and Linux shell execution still require direct verification.
 - [needs_review] Secret-pattern detection is conservative and can produce false positives.
 - [needs_review] Gate 5 should not be treated as approval for migration apply behavior.
 - [needs_review] CLI parsing remains minimal and should be revisited if short aliases become release requirements.
 - [needs_review] Earlier five-warning repository expectations included adapter findings by default; the prerelease candidate now makes adapter warnings selected-agent only, so no-agent root validation reports the three missing wiki docs instead.
+

@@ -1,4 +1,4 @@
----
+﻿---
 title: LLM-WIKI Standard Package Prerelease Checklist
 tags:
   - llm-wiki
@@ -33,6 +33,7 @@ Use this checklist before sharing `packages/llm-wiki-standard/` as an internal p
 - [ ] Run `node --test tests/*.test.js` from `packages/llm-wiki-standard/`.
 - [ ] Run `node bin/llm-wiki.js validate-frontmatter` from `packages/llm-wiki-standard/`.
 - [ ] Run `node bin/llm-wiki.js init --dry-run --cwd ..\.. --agent claude` from `packages/llm-wiki-standard/`.
+- [ ] Run `node bin/llm-wiki.js init --write --cwd <zero-base-temp> --type frontend --agent codex` from `packages/llm-wiki-standard/`.
 - [ ] Run `node bin/llm-wiki.js audit --cwd ..\.. --agent claude` from `packages/llm-wiki-standard/`.
 - [ ] Run `node packages/llm-wiki-standard/bin/llm-wiki.js validate` from the repository root.
 - [ ] Confirm repository warnings are the expected review-only findings listed in `GATE_REVIEW.md`.
@@ -40,10 +41,14 @@ Use this checklist before sharing `packages/llm-wiki-standard/` as an internal p
 
 ## Safety Gates
 
-- [ ] Confirm `init` without `--dry-run` is still blocked.
+- [ ] Confirm plain `init` without `--dry-run` or `--write` is still blocked.
+- [ ] Confirm `init --write` creates missing wiki docs with `status: needs_review`.
+- [ ] Confirm `init --write --existing skip` keeps existing wiki docs.
+- [ ] Confirm `init --write --existing overwrite` rewrites only wiki docs when explicit and keeps `docs/llm-wiki/log.md`.
 - [ ] Confirm `migrate --apply` is still blocked.
 - [ ] Confirm adapter checks and suggestions require explicit `--agent` selection.
-- [ ] Confirm adapter files are templates or dry-run suggestions only.
+- [ ] Confirm missing Codex/Claude adapter files can be created only by explicit `init --write --agent ...`.
+- [ ] Confirm existing adapter files are not overwritten.
 - [ ] Confirm no-agent `audit` and `validate` do not require `CLAUDE.md` or `ANTIGRAVITY.md`.
 - [ ] Confirm generated reports keep `status: needs_review`.
 - [ ] Confirm sensitive-looking values are redacted and never written raw.
@@ -51,7 +56,7 @@ Use this checklist before sharing `packages/llm-wiki-standard/` as an internal p
 ## Release Metadata
 
 - [ ] Confirm package name is `@dowonk-7949/llm-wiki-standard`.
-- [ ] Confirm version is `0.0.1-internal.2`.
+- [ ] Confirm version is `0.0.1-internal.4`.
 - [ ] Confirm package has no `publishConfig` override so npmjs default registry is used.
 - [ ] Confirm package-level `.npmrc` is absent.
 - [ ] Confirm `repository.url` points to `https://github.com/Dowon-Kim7949/llm-wiki-standard.git`.
@@ -81,6 +86,12 @@ Use this checklist before sharing `packages/llm-wiki-standard/` as an internal p
 - [x] Verify `npm install @dowonk-7949/llm-wiki-standard@0.0.1-internal.2`.
 - [x] Verify `npx @dowonk-7949/llm-wiki-standard@0.0.1-internal.2 doctor`.
 - [x] Verify `yarn add @dowonk-7949/llm-wiki-standard@0.0.1-internal.2`.
+- [x] Publish `@dowonk-7949/llm-wiki-standard@0.0.1-internal.3` with `npm publish --access public`.
+- [x] Treat `0.0.1-internal.3` as superseded by `0.0.1-internal.4` because `docs/llm-wiki/log.md` overwrite protection was added after publish.
+- [x] Publish `@dowonk-7949/llm-wiki-standard@0.0.1-internal.4` with `npm publish --access public`.
+- [x] Verify `npm install @dowonk-7949/llm-wiki-standard@0.0.1-internal.4`.
+- [x] Verify `npx @dowonk-7949/llm-wiki-standard@0.0.1-internal.4 doctor`.
+- [x] Verify `yarn add @dowonk-7949/llm-wiki-standard@0.0.1-internal.4`.
 
 ## External Verification
 
@@ -105,3 +116,4 @@ No-go for stable publication until:
 - macOS/Linux shell verification passes,
 - Gate 2 through Gate 4 are reviewed,
 - migration apply policy is explicitly accepted or intentionally omitted.
+

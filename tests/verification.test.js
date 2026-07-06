@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -31,6 +31,116 @@ test("init dry-run detects frontend projects", async () => {
   assert.ok(result.planned.some((line) => line.includes("AGENTS.md adapter would be suggested")));
   assert.ok(result.planned.some((line) => line.includes("CLAUDE.md adapter would be suggested")));
   assert.ok(result.planned.some((line) => line.includes("ANTIGRAVITY.md remains an info-level adapter candidate")));
+});
+
+test("parseArgs supports init write and existing policy", () => {
+  const parsed = parseArgs(["init", "--write", "--existing", "overwrite", "--agent", "codex"]);
+
+  assert.equal(parsed.command, "init");
+  assert.equal(parsed.options.write, true);
+  assert.equal(parsed.options.existing, "overwrite");
+  assert.deepEqual(parsed.options.agents, ["codex"]);
+  assert.deepEqual(parsed.errors, []);
+});
+
+test("parseArgs rejects unsupported existing policy", () => {
+  const parsed = parseArgs(["init", "--write", "--existing", "merge"]);
+
+  assert.deepEqual(parsed.errors, ["Unsupported existing policy: merge"]);
+});
+
+test("init write creates zero-base wiki docs and selected adapter", async () => {
+  const cwd = await makeProject("write-zero-");
+  await writeJson(path.join(cwd, "package.json"), {
+    dependencies: { vue: "^3.0.0" },
+    devDependencies: { vite: "^6.0.0" }
+  });
+
+  const result = await initCommand({
+    cwd,
+    dryRun: false,
+    write: true,
+    minimal: false,
+    withAdapters: false,
+    type: "frontend",
+    profiles: [],
+    agents: ["codex"],
+    existing: "skip"
+  });
+
+  assert.equal(result.write, true);
+  assert.equal(result.result, "pass");
+  assert.ok(result.created.some((line) => line.includes("docs/llm-wiki/index.md created")));
+  assert.ok(result.created.some((line) => line.includes("AGENTS.md created")));
+
+  const index = await readFile(path.join(cwd, "docs", "llm-wiki", "index.md"), { encoding: "utf8" });
+  const agents = await readFile(path.join(cwd, "AGENTS.md"), { encoding: "utf8" });
+
+  assert.ok(index.includes("status: needs_review"));
+  assert.ok(index.includes("# LLM-WIKI Index"));
+  assert.ok(agents.includes("docs/llm-wiki/index.md"));
+});
+
+test("init write keeps existing wiki docs by default and overwrites only when explicit", async () => {
+  const cwd = await makeProject("write-existing-");
+  const indexPath = path.join(cwd, "docs", "llm-wiki", "index.md");
+  const logPath = path.join(cwd, "docs", "llm-wiki", "log.md");
+  await mkdir(path.dirname(indexPath), { recursive: true });
+  await writeFile(indexPath, "CUSTOM INDEX\n", { encoding: "utf8" });
+  await writeFile(logPath, "CUSTOM LOG\n", { encoding: "utf8" });
+
+  const skipped = await initCommand({
+    cwd,
+    dryRun: false,
+    write: true,
+    minimal: true,
+    withAdapters: false,
+    type: "unknown",
+    profiles: [],
+    agents: [],
+    existing: "skip"
+  });
+
+  assert.ok(skipped.skipped.some((line) => line.includes("docs/llm-wiki/index.md exists")));
+  assert.equal(await readFile(indexPath, { encoding: "utf8" }), "CUSTOM INDEX\n");
+
+  const overwritten = await initCommand({
+    cwd,
+    dryRun: false,
+    write: true,
+    minimal: true,
+    withAdapters: false,
+    type: "unknown",
+    profiles: [],
+    agents: [],
+    existing: "overwrite"
+  });
+
+  assert.ok(overwritten.overwritten.some((line) => line.includes("docs/llm-wiki/index.md overwritten")));
+  assert.ok(overwritten.skipped.some((line) => line.includes("docs/llm-wiki/log.md exists; kept append-only log")));
+  assert.ok((await readFile(indexPath, { encoding: "utf8" })).includes("status: needs_review"));
+  assert.equal(await readFile(logPath, { encoding: "utf8" }), "CUSTOM LOG\n");
+});
+
+test("init write never overwrites existing adapter files", async () => {
+  const cwd = await makeProject("write-adapter-existing-");
+  const agentsPath = path.join(cwd, "AGENTS.md");
+  await writeFile(agentsPath, "CUSTOM AGENTS\n", { encoding: "utf8" });
+
+  const result = await initCommand({
+    cwd,
+    dryRun: false,
+    write: true,
+    minimal: true,
+    withAdapters: false,
+    type: "unknown",
+    profiles: [],
+    agents: ["codex"],
+    existing: "overwrite"
+  });
+
+  assert.ok(result.skipped.some((line) => line.includes("AGENTS.md exists; kept existing adapter file")));
+  assert.equal(await readFile(agentsPath, { encoding: "utf8" }), "CUSTOM AGENTS\n");
 });
 
 test("audit detects backend profile document needs", async () => {
@@ -202,7 +312,7 @@ test("package metadata targets npmjs public publish without committed tokens", a
   const packageJson = JSON.parse(await readFile(path.join(process.cwd(), "package.json"), { encoding: "utf8" }));
 
   assert.equal(packageJson.name, "@dowonk-7949/llm-wiki-standard");
-  assert.equal(packageJson.version, "0.0.1-internal.2");
+  assert.equal(packageJson.version, "0.0.1-internal.4");
   assert.equal(packageJson.private, false);
   assert.equal(packageJson.publishConfig, undefined);
   assert.equal(packageJson.repository.url, "git+https://github.com/Dowon-Kim7949/llm-wiki-standard.git");
@@ -267,3 +377,4 @@ contains_sensitive_info: false
 ${body}
 `;
 }
+

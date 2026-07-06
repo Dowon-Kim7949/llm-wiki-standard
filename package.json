@@ -1,6 +1,6 @@
 {
   "name": "@dowonk-7949/llm-wiki-standard",
-  "version": "0.0.1-internal.2",
+  "version": "0.0.1-internal.4",
   "private": false,
   "type": "module",
   "description": "Prototype CLI for the cross-platform LLM-WIKI common standard.",
@@ -36,3 +36,4 @@
   },
   "license": "UNLICENSED"
 }
+

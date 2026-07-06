@@ -1,4 +1,4 @@
----
+﻿---
 title: LLM-WIKI Standard Package Verification Report
 tags:
   - llm-wiki
@@ -37,6 +37,10 @@ The following scenarios are covered by automated Node tests:
 - Front-end project `init --dry-run`
 - Back-end project `audit`
 - Full Stack project `init --dry-run`
+- zero-base project `init --write`
+- `init --write --existing skip` keeps existing wiki docs
+- `init --write --existing overwrite` rewrites existing wiki docs only when explicit, except append-only `docs/llm-wiki/log.md`
+- `init --write --agent codex` creates missing `AGENTS.md` without overwriting existing adapter files
 - existing LLM-WIKI project `validate-frontmatter`
 - audit-backed `validate` command for CI-oriented checks
 - existing LLM-WIKI project `migrate --dry-run`
@@ -58,6 +62,7 @@ The current repository was also checked with:
 - `llm-wiki validate-frontmatter`
 - `llm-wiki audit`
 - `llm-wiki init --dry-run --agent claude`
+- `llm-wiki init --write --type frontend --agent codex` against a temporary zero-base project
 - `llm-wiki audit --agent claude`
 - `llm-wiki migrate --dry-run`
 - `llm-wiki migrate --apply`
@@ -65,7 +70,7 @@ The current repository was also checked with:
 - `llm-wiki doctor --format markdown` from the package root
 - `gh auth status` for the source repository account
 - `npm pack --dry-run` from the package staging directory
-- `npm pack --dry-run` for `@dowonk-7949/llm-wiki-standard@0.0.1-internal.2`
+- `npm pack --dry-run` for `@dowonk-7949/llm-wiki-standard@0.0.1-internal.4`
 - `npm publish --access public` attempt for npmjs public distribution
 
 ## Current Repository Result
@@ -75,16 +80,17 @@ The current repository was also checked with:
 - frontmatter validation: pass
 - audit result: warning
 - dry-run migration: no files written
+- explicit init write: creates missing LLM-WIKI docs and selected missing adapter files
 - apply migration: blocked by design
 - report output: UTF-8 Markdown with `needs_review` frontmatter
-- package metadata: prepared for `@dowonk-7949/llm-wiki-standard@0.0.1-internal.2`
+- package metadata: prepared for `@dowonk-7949/llm-wiki-standard@0.0.1-internal.4`
 - publish registry: `https://registry.npmjs.org`
 - package scope mapping: no package-level `.npmrc` required for public npmjs consumers
 - public source repository: `https://github.com/Dowon-Kim7949/llm-wiki-standard`
-- npmjs published package: `@dowonk-7949/llm-wiki-standard@0.0.1-internal.2`
+- npmjs published package: `@dowonk-7949/llm-wiki-standard@0.0.1-internal.4`
 - npm install: pass; installed CLI ran `llm-wiki doctor`
-- npx: pass; `npx @dowonk-7949/llm-wiki-standard@0.0.1-internal.2 doctor` ran successfully
-- yarn: pass; `yarn add @dowonk-7949/llm-wiki-standard@0.0.1-internal.2` and `yarn llm-wiki doctor` ran successfully
+- npx: pass; `npx @dowonk-7949/llm-wiki-standard@0.0.1-internal.4 doctor` ran successfully
+- yarn: pass; `yarn add @dowonk-7949/llm-wiki-standard@0.0.1-internal.4`, `yarn llm-wiki init --write`, and `yarn llm-wiki validate` ran successfully
 
 Current warnings:
 
@@ -103,7 +109,7 @@ Selected-agent adapter findings:
 - Treat this package as an internal prerelease candidate, not a stable package.
 - Keep `migrate --apply` blocked.
 - Use `validate` as the initial CI/review command and reserve `--strict` for later adoption.
-- Keep root adapter creation and selected-agent adapter findings as dry-run/report review items.
+- Keep adapter creation selected-agent based; create missing Codex/Claude files only during explicit `init --write`, and never overwrite existing adapter files.
 - Use npmjs public package distribution for authentication-free npm, npx, and yarn testing.
 
 ## Caveats
@@ -116,3 +122,4 @@ Selected-agent adapter findings:
 - [needs_review] CLI usage parsing is still intentionally small and does not yet support combined short flags.
 - [needs_review] npmjs public publish requires the npm account scope `@dowonk-7949`; GitHub username scope `@dowon-kim7949` is not available on npmjs for the current account.
 - [needs_review] npm/npx/yarn consumer checks passed on Windows; macOS/Linux shell checks remain external follow-ups.
+

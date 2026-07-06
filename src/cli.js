@@ -13,6 +13,7 @@ const COMMANDS = new Map([
 
 const SUPPORTED_FORMATS = new Set(["text", "json", "markdown"]);
 const SUPPORTED_AGENTS = new Set(["codex", "claude", "antigravity", "all"]);
+const SUPPORTED_EXISTING_POLICIES = new Set(["skip", "overwrite"]);
 const ALL_AGENTS = ["codex", "claude", "antigravity"];
 
 export async function main(argv) {
@@ -58,10 +59,12 @@ export function parseArgs(argv) {
     type: null,
     format: "text",
     dryRun: false,
+    write: false,
     apply: false,
     strict: false,
     minimal: false,
     withAdapters: false,
+    existing: "skip",
     out: null,
     profiles: [],
     agents: []
@@ -105,8 +108,16 @@ export function parseArgs(argv) {
         options.out = path.resolve(value);
         index += 1;
       }
+    } else if (arg === "--existing") {
+      const value = readOptionValue(rest, index, arg, errors);
+      if (value) {
+        options.existing = value;
+        index += 1;
+      }
     } else if (arg === "--dry-run") {
       options.dryRun = true;
+    } else if (arg === "--write") {
+      options.write = true;
     } else if (arg === "--apply") {
       options.apply = true;
     } else if (arg === "--strict") {
@@ -126,6 +137,9 @@ export function parseArgs(argv) {
   }
 
   options.agents = normalizeAgents(options.agents, options.withAdapters, errors);
+  if (!SUPPORTED_EXISTING_POLICIES.has(options.existing)) {
+    errors.push(`Unsupported existing policy: ${options.existing}`);
+  }
 
   return { command, options, errors };
 }
@@ -176,10 +190,12 @@ Usage:
   llm-wiki validate-frontmatter [--cwd <path>] [--strict]
   llm-wiki audit [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--strict] [--format text|json|markdown] [--out <path>]
   llm-wiki init --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--minimal] [--format text|json|markdown] [--out <path>]
+  llm-wiki init --write [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--existing skip|overwrite] [--minimal] [--format text|json|markdown] [--out <path>]
   llm-wiki migrate --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--format text|json|markdown] [--out <path>]
 
 Safety:
-  init without --dry-run and migrate --apply are blocked in this Phase 7 prototype.
+  init writes only when --write is explicit. Existing wiki docs default to --existing skip.
+  Existing adapter files are never overwritten. migrate --apply remains blocked.
   Adapter checks and suggestions are opt-in with --agent. ANTIGRAVITY.md remains an info-level candidate.
 `);
 }
