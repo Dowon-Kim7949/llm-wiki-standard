@@ -1,4 +1,4 @@
-import { REQUIRED_FRONTMATTER_FIELDS, VALID_STATUSES, VALID_VISIBILITIES } from "./config.js";
+import { schemaEnumValues, schemaRequiredFields } from "./frontmatter-schema.js";
 
 export function parseFrontmatter(markdown) {
   const normalized = markdown.replace(/^\uFEFF/, "");
@@ -57,7 +57,7 @@ export function validateFrontmatter(frontmatter, options = {}) {
     return [{ severity: "error", rule: "frontmatter.exists", message: "YAML frontmatter is required." }];
   }
 
-  for (const field of REQUIRED_FRONTMATTER_FIELDS) {
+  for (const field of schemaRequiredFields()) {
     if (!(field in frontmatter)) {
       findings.push({
         severity: "error",
@@ -67,7 +67,7 @@ export function validateFrontmatter(frontmatter, options = {}) {
     }
   }
 
-  if ("status" in frontmatter && !VALID_STATUSES.has(frontmatter.status)) {
+  if ("status" in frontmatter && !schemaEnumValues("status").includes(frontmatter.status)) {
     findings.push({
       severity: "error",
       rule: "frontmatter.status",
@@ -83,7 +83,7 @@ export function validateFrontmatter(frontmatter, options = {}) {
     });
   }
 
-  for (const arrayField of ["tags", "source_files", "related"]) {
+  for (const arrayField of ["tags", "source_files", "related", "aliases"]) {
     if (arrayField in frontmatter && !Array.isArray(frontmatter[arrayField])) {
       findings.push({
         severity: "error",
@@ -93,7 +93,7 @@ export function validateFrontmatter(frontmatter, options = {}) {
     }
   }
 
-  if ("visibility" in frontmatter && !VALID_VISIBILITIES.has(frontmatter.visibility)) {
+  if ("visibility" in frontmatter && !schemaEnumValues("visibility").includes(frontmatter.visibility)) {
     findings.push({
       severity: "warning",
       rule: "frontmatter.visibility",

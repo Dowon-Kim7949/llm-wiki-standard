@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { scanSensitiveInfo } from "../src/sensitive-info.js";
 import { parseFrontmatter, validateFrontmatter } from "../src/frontmatter.js";
+import { FRONTMATTER_SCHEMA } from "../src/frontmatter-schema.js";
 import { renderWikiDocumentTemplate } from "../src/template-renderer.js";
 
 test("validates standard frontmatter subset", () => {
@@ -85,4 +88,66 @@ contains_sensitive_info: false
 
   assert.equal(standardFindings.find((finding) => finding.rule === "frontmatter.verified_review")?.severity, "warning");
   assert.equal(strictFindings.find((finding) => finding.rule === "frontmatter.verified_review")?.severity, "error");
+});
+
+test("published frontmatter JSON Schema matches runtime contract", async () => {
+  const schemaPath = path.join(process.cwd(), "rules", "frontmatter.schema.json");
+  const publishedSchema = JSON.parse(await readFile(schemaPath, { encoding: "utf8" }));
+
+  assert.deepEqual(publishedSchema, FRONTMATTER_SCHEMA);
+  assert.ok(publishedSchema.required.includes("status"));
+  assert.deepEqual(publishedSchema.properties.status.enum, ["draft", "needs_review", "verified", "deprecated"]);
+  assert.deepEqual(publishedSchema.properties.visibility.enum, ["internal", "public", "restricted"]);
+  assert.deepEqual(publishedSchema.allOf[0].then.required, ["reviewed_by", "reviewed_at"]);
+});
+
+test("validates optional aliases as an array field", () => {
+  const valid = parseFrontmatter(`---
+title: Alias Sample
+tags:
+  - llm-wiki
+status: needs_review
+doc_type: concept
+project: sample
+last_updated: 2026-07-08
+author: ai-generated
+last_edited_by: Codex
+wiki_block_version: v1
+source_files:
+  - package.json
+related:
+  - docs/llm-wiki/log.md
+visibility: internal
+contains_sensitive_info: false
+aliases:
+  - Sample Alias
+---
+
+# Alias Sample
+`);
+  const invalid = parseFrontmatter(`---
+title: Alias Sample
+tags:
+  - llm-wiki
+status: needs_review
+doc_type: concept
+project: sample
+last_updated: 2026-07-08
+author: ai-generated
+last_edited_by: Codex
+wiki_block_version: v1
+source_files:
+  - package.json
+related:
+  - docs/llm-wiki/log.md
+visibility: internal
+contains_sensitive_info: false
+aliases: Sample Alias
+---
+
+# Alias Sample
+`);
+
+  assert.deepEqual(validateFrontmatter(valid.frontmatter), []);
+  assert.equal(validateFrontmatter(invalid.frontmatter).find((finding) => finding.message === "aliases must be an array.")?.severity, "error");
 });

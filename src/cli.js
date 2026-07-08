@@ -1,5 +1,5 @@
 import path from "node:path";
-import { audit, doctor, handoffCommand, initCommand, migrateCommand, quickstartCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "./commands.js";
+import { audit, doctor, handoffCommand, initCommand, migrateCommand, promptCommand, quickstartCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "./commands.js";
 import { printResult } from "./report.js";
 
 const COMMANDS = new Map([
@@ -10,6 +10,7 @@ const COMMANDS = new Map([
   ["audit", audit],
   ["quickstart", quickstartCommand],
   ["handoff", handoffCommand],
+  ["prompt", promptCommand],
   ["init", initCommand],
   ["migrate", migrateCommand]
 ]);
@@ -65,6 +66,7 @@ export function parseArgs(argv) {
   const usedOptions = new Set();
   const options = {
     cwd: process.cwd(),
+    task: null,
     type: null,
     format: "text",
     dryRun: false,
@@ -86,6 +88,13 @@ export function parseArgs(argv) {
       const value = readOptionValue(rest, index, arg, errors);
       if (value) {
         options.cwd = path.resolve(value);
+        index += 1;
+      }
+    } else if (arg === "--task") {
+      usedOptions.add("task");
+      const value = readOptionValue(rest, index, arg, errors);
+      if (value) {
+        options.task = value;
         index += 1;
       }
     } else if (arg === "--type") {
@@ -176,6 +185,7 @@ const COMMAND_OPTION_RULES = {
   audit: new Set(["cwd", "type", "profile", "agent", "strict", "format", "out"]),
   quickstart: new Set(["cwd", "type", "profile", "agent", "existing", "minimal", "dry-run", "write", "format", "out"]),
   handoff: new Set(["cwd", "type", "profile", "agent", "format", "out"]),
+  prompt: new Set(["cwd", "task", "type", "profile", "agent", "format", "out"]),
   init: new Set(["cwd", "type", "profile", "agent", "existing", "minimal", "dry-run", "write", "format", "out", "with-adapters", "no-adapters"]),
   migrate: new Set(["cwd", "type", "profile", "agent", "dry-run", "apply", "format", "out"])
 };
@@ -196,6 +206,10 @@ function validateCommandOptions(command, usedOptions, errors) {
     if (usedOptions.has(left) && usedOptions.has(right)) {
       errors.push(`Options --${left} and --${right} cannot be used together.`);
     }
+  }
+
+  if (command === "prompt" && !usedOptions.has("task")) {
+    errors.push("Missing required option for prompt: --task.");
   }
 }
 
@@ -248,6 +262,7 @@ Usage:
   llm-wiki quickstart --write [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--existing skip|overwrite] [--minimal] [--format text|json|markdown] [--out <path>]
   llm-wiki quickstart --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--minimal] [--format text|json|markdown] [--out <path>]
   llm-wiki handoff [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--format text|json|markdown] [--out <path>]
+  llm-wiki prompt --task <feature|fix|refactor|docs-sync|okf-extract> [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--format text|json|markdown] [--out <path>]
   llm-wiki init --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--minimal] [--format text|json|markdown] [--out <path>]
   llm-wiki init --write [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--existing skip|overwrite] [--minimal] [--format text|json|markdown] [--out <path>]
   llm-wiki migrate --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--format text|json|markdown] [--out <path>]
@@ -257,6 +272,7 @@ Safety:
   quickstart writes only when --write is explicit and prints the next Codex/Claude Code handoff prompt.
   Existing adapter files are never overwritten. migrate --apply remains blocked.
   Adapter checks and suggestions are opt-in with --agent. ANTIGRAVITY.md remains an info-level candidate.
+  prompt prints repeatable post-wiki agent workflows and does not write project files unless --out is used for the report.
 
 Use llm-wiki help <command> for command-specific guidance.
 `);
@@ -307,6 +323,14 @@ Usage:
 
 Purpose:
   Prints the next prompt to run in Codex or Claude Code after CLI setup, with project-type-specific source evidence guidance. Antigravity handoff remains blocked until the adapter contract is confirmed.
+`,
+  prompt: `llm-wiki prompt
+
+Usage:
+  llm-wiki prompt --task <feature|fix|refactor|docs-sync|okf-extract> [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--format text|json|markdown] [--out <path>]
+
+Purpose:
+  Prints a repeatable post-wiki agent workflow prompt. Use feature, fix, or refactor for code-and-doc tasks, docs-sync for stale wiki updates without unrelated code edits, and okf-extract for prompt-assisted OKF v0.1 extraction.
 `,
   init: `llm-wiki init
 

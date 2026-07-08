@@ -1,0 +1,14 @@
+{
+  "status": "needs_review",
+  "projectType": "okf-v0.1",
+  "activeProfiles": ["core", "okf-v0.1"],
+  "requiredDocuments": [
+    "docs/llm-wiki/profiles/okf-v0.1.md",
+    "docs/llm-wiki/templates/OKF_CONCEPT.template.md",
+    "docs/llm-wiki/templates/OKF_PROJECT.template.md",
+    "docs/llm-wiki/templates/OKF_API_REFERENCE.template.md",
+    "docs/llm-wiki/templates/OKF_MEETING_NOTE.template.md",
+    "docs/llm-wiki/templates/OKF_EVENT.template.md",
+    "docs/llm-wiki/OKF_CONVERSION_GUIDE.md"
+  ]
+}

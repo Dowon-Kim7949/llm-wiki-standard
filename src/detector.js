@@ -2,7 +2,7 @@ import path from "node:path";
 import { pathExists } from "./files.js";
 import { readUtf8 } from "./encoding.js";
 
-const KNOWN_PROFILES = new Set(["frontend", "backend", "fullstack", "library", "mixed", "unknown"]);
+const KNOWN_PROFILES = new Set(["frontend", "backend", "fullstack", "library", "mixed", "unknown", "okf-v0.1"]);
 
 export async function detectProject(cwd, explicitType, explicitProfiles = []) {
   const signals = [];

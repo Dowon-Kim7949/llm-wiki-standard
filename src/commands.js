@@ -10,6 +10,7 @@ import { parseFrontmatter, validateFrontmatter } from "./frontmatter.js";
 import { renderTextReport } from "./report.js";
 import { scanSensitiveInfo } from "./sensitive-info.js";
 import { renderWikiDocumentTemplate } from "./template-renderer.js";
+import { apiServiceInventoryChecklist, buildTaskPrompt } from "./task-prompts.js";
 
 const TEMPLATE_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "templates");
 
@@ -121,13 +122,18 @@ export async function statusCommand(options) {
   }));
   const structureFindings = await findMissingDocs(options.cwd, detection.projectType, options.profiles);
   const sourceFileFindings = await scanSourceFiles(options.cwd);
-  const linkFindings = await scanMarkdownLinks(options.cwd);
+  const okfFindings = await scanOkfProfile(options.cwd, detection.activeProfiles);
+  const linkFindings = [
+    ...(await scanMarkdownLinks(options.cwd)),
+    ...(await scanWikiLinks(options.cwd))
+  ];
   const adapterFindings = await scanAdapters(options.cwd, agents);
   const findings = [
     ...detectionFindings,
     ...documentStatus.findings,
     ...structureFindings,
     ...sourceFileFindings,
+    ...okfFindings,
     ...linkFindings,
     ...adapterFindings
   ];
@@ -185,7 +191,11 @@ export async function audit(options) {
   const encodingFindings = await scanEncoding(options.cwd);
   const sensitiveFindings = await scanSensitive(options.cwd);
   const sourceFileFindings = await scanSourceFiles(options.cwd);
-  const linkFindings = await scanMarkdownLinks(options.cwd);
+  const okfFindings = await scanOkfProfile(options.cwd, detection.activeProfiles);
+  const linkFindings = [
+    ...(await scanMarkdownLinks(options.cwd)),
+    ...(await scanWikiLinks(options.cwd))
+  ];
   const adapterFindings = await scanAdapters(options.cwd, agents);
 
   const findings = [
@@ -195,6 +205,7 @@ export async function audit(options) {
     ...encodingFindings,
     ...sensitiveFindings,
     ...sourceFileFindings,
+    ...okfFindings,
     ...linkFindings,
     ...adapterFindings
   ];
@@ -339,6 +350,41 @@ export async function handoffCommand(options) {
     { title: "Next Step", body: [handoff.message] },
     { title: "Handoff Prompt", body: `\`\`\`text\n${handoff.prompt}\n\`\`\`` },
     { title: "Caveats", body: ["Run this prompt in the selected agent after CLI setup. Keep generated or edited documents as needs_review until human review."] }
+  ]);
+}
+
+export async function promptCommand(options) {
+  const detection = await detectProject(options.cwd, options.type, options.profiles);
+  const taskPrompt = buildTaskPrompt({
+    task: options.task,
+    cwd: options.cwd,
+    projectType: detection.projectType,
+    profiles: detection.activeProfiles,
+    agents: selectedAgents(options)
+  });
+
+  if (taskPrompt.result === "blocked") {
+    return withText({
+      command: "prompt",
+      result: "blocked",
+      detection,
+      taskPrompt,
+      findings: taskPrompt.findings
+    }, "LLM-WIKI Task Prompt Blocked", [
+      { title: "Blocked", body: taskPrompt.findings.map(formatFinding) }
+    ]);
+  }
+
+  return withText({
+    command: "prompt",
+    result: "pass",
+    detection,
+    taskPrompt,
+    findings: taskPrompt.findings
+  }, "LLM-WIKI Task Prompt", [
+    { title: "Task", body: [`task: ${taskPrompt.task}`, `project_type: ${taskPrompt.projectType}`, `active_profiles: ${taskPrompt.profiles.join(", ") || "none"}`, `selected_agents: ${taskPrompt.agents.join(", ")}`] },
+    { title: "Prompt", body: `\`\`\`text\n${taskPrompt.prompt}\n\`\`\`` },
+    { title: "Caveats", body: ["Run this prompt in the selected agent after the initial LLM-WIKI is created and enriched. AI-edited wiki documents remain needs_review until human review."] }
   ]);
 }
 
@@ -615,6 +661,53 @@ function isExternalSourceReference(source) {
   return /^https?:\/\//i.test(source) || source.startsWith("#");
 }
 
+async function scanOkfProfile(cwd, activeProfiles = []) {
+  if (!activeProfiles.includes("okf-v0.1")) return [];
+
+  const wikiRoot = path.join(cwd, "docs", "llm-wiki");
+  const markdownFiles = await listTargetMarkdown(cwd);
+  const targetFiles = (await pathExists(wikiRoot))
+    ? markdownFiles.filter((file) => toPosix(path.relative(cwd, file)).startsWith("docs/llm-wiki/"))
+    : markdownFiles;
+  const findings = [];
+
+  for (const file of targetFiles) {
+    const rel = toPosix(path.relative(cwd, file));
+    const content = await readUtf8(file);
+    const parsed = parseFrontmatter(content);
+    if (!parsed.frontmatter) continue;
+
+    if (!parsed.frontmatter.type) {
+      findings.push({
+        severity: "error",
+        rule: "okf.type_required",
+        path: rel,
+        message: "OKF v0.1 profile requires frontmatter field: type."
+      });
+    } else if (typeof parsed.frontmatter.type !== "string") {
+      findings.push({
+        severity: "error",
+        rule: "okf.type_shape",
+        path: rel,
+        message: "OKF v0.1 frontmatter field type must be a string."
+      });
+    }
+
+    for (const arrayField of ["aliases", "tags"]) {
+      if (arrayField in parsed.frontmatter && !Array.isArray(parsed.frontmatter[arrayField])) {
+        findings.push({
+          severity: "error",
+          rule: "okf.array_shape",
+          path: rel,
+          message: `OKF v0.1 frontmatter field ${arrayField} must be an array when present.`
+        });
+      }
+    }
+  }
+
+  return findings;
+}
+
 async function scanMarkdownLinks(cwd) {
   const wikiRoot = path.join(cwd, "docs", "llm-wiki");
   if (!(await pathExists(wikiRoot))) return [];
@@ -642,6 +735,37 @@ async function scanMarkdownLinks(cwd) {
   return findings;
 }
 
+async function scanWikiLinks(cwd) {
+  const wikiRoot = path.join(cwd, "docs", "llm-wiki");
+  if (!(await pathExists(wikiRoot))) return [];
+
+  const markdownFiles = await listMarkdownFiles(wikiRoot);
+  const targetIndex = await buildWikiLinkTargetIndex(cwd, wikiRoot, markdownFiles);
+  const findings = [];
+
+  for (const file of markdownFiles) {
+    const rel = toPosix(path.relative(cwd, file));
+    const content = await readUtf8(file);
+
+    for (const rawTarget of extractWikiLinkTargets(content)) {
+      const target = normalizeWikiLinkTarget(rawTarget);
+      if (!target) continue;
+
+      const key = normalizeWikiLinkKey(target);
+      if (!targetIndex.has(key)) {
+        findings.push({
+          severity: "warning",
+          rule: "wiki_link.missing",
+          path: rel,
+          message: `Wiki link target does not exist: ${target}.`
+        });
+      }
+    }
+  }
+
+  return findings;
+}
+
 function extractMarkdownLinkTargets(markdown) {
   const targets = [];
   const inlineLinkPattern = /(^|[^!])\[[^\]\n]+\]\(([^)\n]+)\)/g;
@@ -653,6 +777,17 @@ function extractMarkdownLinkTargets(markdown) {
   for (const match of markdown.matchAll(referenceDefinitionPattern)) {
     targets.push(match[1]);
   }
+  return targets;
+}
+
+function extractWikiLinkTargets(markdown) {
+  const targets = [];
+  const wikiLinkPattern = /\[\[([^\]\n]+)\]\]/g;
+
+  for (const match of markdown.matchAll(wikiLinkPattern)) {
+    targets.push(match[1]);
+  }
+
   return targets;
 }
 
@@ -683,6 +818,63 @@ function resolveMarkdownLinkTarget(cwd, fromFile, link) {
     return path.join(cwd, link);
   }
   return path.resolve(path.dirname(fromFile), link);
+}
+
+async function buildWikiLinkTargetIndex(cwd, wikiRoot, markdownFiles) {
+  const targetIndex = new Set();
+
+  for (const file of markdownFiles) {
+    const wikiRel = toPosix(path.relative(wikiRoot, file));
+    const cwdRel = toPosix(path.relative(cwd, file));
+    const withoutExtension = wikiRel.replace(/\.md$/i, "");
+    const basename = path.basename(file, ".md");
+
+    addWikiLinkTarget(targetIndex, wikiRel);
+    addWikiLinkTarget(targetIndex, withoutExtension);
+    addWikiLinkTarget(targetIndex, cwdRel);
+    addWikiLinkTarget(targetIndex, cwdRel.replace(/\.md$/i, ""));
+    addWikiLinkTarget(targetIndex, basename);
+
+    const parsed = parseFrontmatter(await readUtf8(file));
+    addWikiLinkTarget(targetIndex, parsed.frontmatter?.title);
+    for (const alias of parsed.frontmatter?.aliases ?? []) {
+      addWikiLinkTarget(targetIndex, alias);
+    }
+  }
+
+  return targetIndex;
+}
+
+function addWikiLinkTarget(targetIndex, value) {
+  const normalized = normalizeWikiLinkKey(value);
+  if (normalized) targetIndex.add(normalized);
+}
+
+function normalizeWikiLinkTarget(rawTarget) {
+  const withoutAlias = String(rawTarget).split("|")[0];
+  const withoutAnchor = withoutAlias.split("#")[0];
+  const trimmed = withoutAnchor.trim();
+  if (!trimmed) return "";
+
+  try {
+    return decodeURIComponent(trimmed).replaceAll("\\", "/");
+  } catch {
+    return trimmed.replaceAll("\\", "/");
+  }
+}
+
+function normalizeWikiLinkKey(value) {
+  if (value === undefined || value === null) return "";
+  const normalized = normalizeWikiLinkTarget(value)
+    .replace(/^\/+/, "")
+    .replace(/^docs\/llm-wiki\//i, "")
+    .replace(/\.md$/i, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+  return normalized;
 }
 
 async function scanAdapters(cwd, agents) {
@@ -862,6 +1054,193 @@ function docMetadata(rel, detection) {
   - CLI 생성 초안이므로 사람 검토가 필요하다.
 `
     },
+    "docs/llm-wiki/DOMAIN_FEATURES.md": {
+      title: "Domain Features",
+      docType: "domain_overview",
+      related: ["docs/llm-wiki/index.md", "docs/llm-wiki/API_CONTRACTS.md", "docs/llm-wiki/domains/00_overview.md"],
+      body: `# Domain Features
+
+This document maps user-facing and business-domain features to source evidence.
+
+## What To Inspect
+
+- Domain modules, services, stores, controllers, routes, components, and workflows.
+- Tests or fixtures that show expected behavior.
+- API clients or service modules that move data across boundaries.
+
+## API Services
+
+Document each API service used by each domain. For every service, capture:
+
+${apiServiceInventoryChecklist().join("\n")}
+
+## Open Questions
+
+- Keep uncertain claims here until source evidence or human review resolves them.
+
+## Review Notes
+
+- Keep this document as \`needs_review\` until human review is complete.
+`
+    },
+    "docs/llm-wiki/domains/00_overview.md": {
+      title: "Domain Overview",
+      docType: "domain_overview",
+      related: ["docs/llm-wiki/index.md", "docs/llm-wiki/DOMAIN_FEATURES.md", "docs/llm-wiki/API_CONTRACTS.md"],
+      body: `# Domain Overview
+
+This document is the domain map for the project.
+
+## Domains
+
+- List each domain, owner area, core workflow, and source evidence.
+
+## API Services
+
+Document each API service used by the mapped domains. For every service, capture:
+
+${apiServiceInventoryChecklist().join("\n")}
+
+## Evidence
+
+- Add source files, tests, routes, and client modules inspected while completing this map.
+
+## Review Notes
+
+- Keep this document as \`needs_review\` until human review is complete.
+`
+    },
+    "docs/llm-wiki/profiles/okf-v0.1.md": {
+      title: "OKF v0.1 Profile",
+      docType: "profile",
+      related: ["docs/llm-wiki/index.md", "docs/llm-wiki/GLOSSARY.md"],
+      body: `# OKF v0.1 Profile
+
+This profile is for projects that want selected LLM-WIKI documents to double as an OKF v0.1 knowledge corpus.
+
+## Validation Contract
+
+- Add frontmatter \`type\` explicitly to every document validated with \`--profile okf-v0.1\`.
+- Keep standard LLM-WIKI \`doc_type\`; do not assume \`doc_type\` automatically satisfies OKF \`type\`.
+- Optional \`aliases\` must be an array when present.
+- Optional \`tags\` must be an array when present.
+- Body wiki links such as \`[[Concept Name]]\` must resolve to a wiki file path, basename, frontmatter \`title\`, or frontmatter \`aliases\` entry.
+
+## OKF-Style Writing
+
+- Start concept-style documents with a short summary section.
+- Use concise headings and bullet lists.
+- Prefer durable facts, stable relationships, and explicit source evidence.
+- Use \`[[wiki links]]\` only when the linked concept is known or intentionally queued for review.
+
+## Evidence
+
+- Add source documents, source files, or extraction inputs inspected before making claims.
+
+## Open Questions
+
+- Track unresolved aliases, missing concepts, unclear entity boundaries, and extraction caveats.
+
+## Review Notes
+
+- Keep AI-extracted or AI-edited OKF-compatible documents as \`needs_review\` until human review is complete.
+`
+    },
+    "docs/llm-wiki/templates/OKF_CONCEPT.template.md": okfTemplateMetadata({
+      title: "OKF Concept Template",
+      okfType: "concept",
+      heading: "Concept Name",
+      summary: "Define the concept in one or two concise, source-backed bullets.",
+      sections: [
+        ["Definition", ["State the durable meaning of this concept.", "Link related concepts with `[[Concept Name]]` where known."]],
+        ["Relationships", ["List parent, child, adjacent, or contrasting concepts.", "Use bullets and avoid long prose."]]
+      ]
+    }),
+    "docs/llm-wiki/templates/OKF_PROJECT.template.md": okfTemplateMetadata({
+      title: "OKF Project Template",
+      okfType: "project",
+      heading: "Project Name",
+      summary: "Summarize the project purpose, owner, and current state in concise bullets.",
+      sections: [
+        ["Scope", ["Describe the project boundary and notable exclusions.", "Link related systems, teams, or concepts with `[[Concept Name]]`."]],
+        ["Status", ["Capture current state, milestones, blockers, and review caveats."]]
+      ]
+    }),
+    "docs/llm-wiki/templates/OKF_API_REFERENCE.template.md": okfTemplateMetadata({
+      title: "OKF API Reference Template",
+      okfType: "api_reference",
+      heading: "API Name",
+      summary: "Summarize what the API does and which workflow or domain uses it.",
+      sections: [
+        ["Contract", ["Record endpoint or client module, method or call signature, request shape, and response shape.", "Capture auth/session/token/cookie dependency."]],
+        ["Behavior", ["Capture error handling, retry or timeout behavior, cache or state updates, and related `[[Workflow]]`."]]
+      ]
+    }),
+    "docs/llm-wiki/templates/OKF_MEETING_NOTE.template.md": okfTemplateMetadata({
+      title: "OKF Meeting Note Template",
+      okfType: "meeting_note",
+      heading: "Meeting Title",
+      summary: "Summarize the meeting purpose, date, and most important outcome.",
+      sections: [
+        ["Decisions", ["List decisions with owners or follow-up links.", "Use `[[Concept Name]]` links for projects, systems, or policies."]],
+        ["Action Items", ["List owner, action, due date, and evidence or source note when available."]]
+      ]
+    }),
+    "docs/llm-wiki/templates/OKF_EVENT.template.md": okfTemplateMetadata({
+      title: "OKF Event Template",
+      okfType: "event",
+      heading: "Event Name",
+      summary: "Summarize what happened, when it happened, and why it matters.",
+      sections: [
+        ["Timeline", ["List dated facts in chronological order.", "Link related incidents, releases, systems, or people with `[[Concept Name]]`."]],
+        ["Impact", ["Describe affected users, systems, documents, or decisions."]]
+      ]
+    }),
+    "docs/llm-wiki/OKF_CONVERSION_GUIDE.md": {
+      title: "OKF Conversion Guide",
+      docType: "conversion_guide",
+      related: ["docs/llm-wiki/profiles/okf-v0.1.md", "docs/llm-wiki/templates/OKF_CONCEPT.template.md", "docs/llm-wiki/GLOSSARY.md"],
+      body: `# OKF Conversion Guide
+
+This guide explains how to convert selected LLM-WIKI documents into OKF v0.1-compatible knowledge documents without weakening the LLM-WIKI review model.
+
+## Principle
+
+- Conversion is review-assisted, not automatic.
+- Do not assume LLM-WIKI \`doc_type\` automatically satisfies OKF \`type\`.
+- Write OKF \`type\` explicitly after source inspection and human or agent review.
+- Keep AI-converted documents as \`needs_review\` until human review is complete.
+
+## Metadata Mapping
+
+| LLM-WIKI field | OKF v0.1 field | Conversion guidance |
+| --- | --- | --- |
+| \`doc_type\` | \`type\` | Use as a candidate only. Review and write explicit OKF \`type\`. |
+| \`tags\` | \`tags\` | Preserve useful tags as an array. Remove workflow-only tags if they do not help retrieval. |
+| \`aliases\` | \`aliases\` | Preserve aliases as an array when present. Add reviewed synonyms only. |
+| \`related\` | body \`[[wiki links]]\` | Convert durable related concepts into body wiki links where useful. |
+| \`source_files\` | \`Evidence\` section | Preserve source evidence in an Evidence section or equivalent source-backed note. |
+| \`status\` | review state | Keep converted documents as \`needs_review\`; \`verified\` remains human-approved only. |
+
+## Conversion Workflow
+
+1. Read the source LLM-WIKI document and related source files.
+2. Choose the target OKF template: concept, project, api_reference, meeting_note, or event.
+3. Write explicit OKF frontmatter with required \`type\` and optional \`aliases\` and \`tags\`.
+4. Move durable relationships into body \`[[wiki links]]\`.
+5. Preserve source evidence and unresolved questions.
+6. Run \`llm-wiki validate --profile okf-v0.1\`.
+7. Leave the result as \`needs_review\` until human review is complete.
+
+## Open Questions
+
+- Track uncertain type mappings, unresolved aliases, missing wiki links, and source gaps here before conversion.
+
+## Review Notes
+
+- This guide is a generated draft and should remain \`needs_review\` until the team approves the conversion policy.
+`
+    },
     "docs/llm-wiki/project-profile.md": {
       title: "Project Profile",
       docType: "project_profile",
@@ -902,11 +1281,148 @@ function docMetadata(rel, detection) {
     docType: meta.docType,
     sourceFiles: meta.sourceFiles ?? ["package.json"],
     related: meta.related ?? commonRelated,
-    body: meta.body.replaceAll(detectionProjectTypePlaceholder, detection.projectType)
+    body: generatedDocBody(rel, map[rel], fallbackTitle).replaceAll(detectionProjectTypePlaceholder, detection.projectType)
   };
 }
 
 const detectionProjectTypePlaceholder = "__PROJECT_TYPE__";
+
+function generatedDocBody(rel, mappedMeta, fallbackTitle) {
+  if (rel === "docs/llm-wiki/project-profile.md") return projectProfileBody();
+  return mappedMeta?.body ?? defaultGeneratedDocBody(fallbackTitle, rel);
+}
+
+function projectProfileBody() {
+  return `# Project Profile
+
+## Detected Project
+
+- type: \`${detectionProjectTypePlaceholder}\`
+- confidence: generated during init
+
+## Summary
+
+- Concise summary: describe the project purpose, primary runtime, and ownership boundaries after inspecting source evidence.
+
+## What To Inspect
+
+- Package manifests, build configuration, runtime entrypoints, source directories, tests, and deployment files.
+- Existing README, release notes, issue templates, or architecture docs.
+
+## Evidence
+
+- Add source files and commands inspected while completing the project profile.
+
+## Open Questions
+
+- Track unclear ownership, unsupported environments, incomplete setup steps, or release assumptions.
+
+## Review Notes
+
+- Keep this document as \`needs_review\` until human review is complete.
+- Do not promote this document to \`verified\`; verified status is human-approved only.
+`;
+}
+
+function okfTemplateMetadata({ title, okfType, heading, summary, sections }) {
+  return {
+    title,
+    docType: "template",
+    related: ["docs/llm-wiki/profiles/okf-v0.1.md", "docs/llm-wiki/GLOSSARY.md"],
+    body: okfTemplateBody({ heading, okfType, summary, sections })
+  };
+}
+
+function okfTemplateBody({ heading, okfType, summary, sections }) {
+  const renderedSections = sections
+    .map(([sectionTitle, bullets]) => `## ${sectionTitle}
+
+${bullets.map((bullet) => `- ${bullet}`).join("\n")}`)
+    .join("\n\n");
+
+  return `# ${heading}
+
+## OKF Frontmatter Example
+
+\`\`\`yaml
+---
+type: ${okfType}
+aliases:
+  - ${heading} Alias
+tags:
+  - okf
+  - needs-review
+---
+\`\`\`
+
+## Summary
+
+- ${summary}
+
+${renderedSections}
+
+## Evidence
+
+- Add source documents, source files, transcripts, tickets, commits, or extraction inputs inspected before making claims.
+
+## Open Questions
+
+- Track unresolved aliases, missing source evidence, unclear boundaries, or concepts that need human review.
+
+## Review Notes
+
+- Keep AI-extracted or AI-edited OKF-compatible documents as \`needs_review\` when stored in an LLM-WIKI project.
+- Do not promote this document to \`verified\`; verified status is human-approved only.
+`;
+}
+
+function defaultGeneratedDocBody(title, rel) {
+  return `# ${title}
+
+## Summary
+
+- Concise summary: describe the purpose of this document in one or two source-backed bullets.
+- Status: this is a \`needs_review\` draft created by \`llm-wiki init --write\`.
+
+## What To Inspect
+
+- Source files listed in frontmatter \`source_files\`.
+- Related wiki documents listed in frontmatter \`related\`.
+- Tests, configuration, routes, APIs, workflows, or public interfaces connected to this topic.
+
+## Evidence
+
+- Add file paths, symbols, routes, commands, or test names inspected while completing this document.
+- Prefer source-backed statements over guesses.
+${domainApiServicesSection(rel)}
+
+## Open Questions
+
+- Track unclear ownership, missing source evidence, stale assumptions, or decisions that need human review.
+
+## Review Notes
+
+- Keep this document as \`needs_review\` until human review is complete.
+- Do not promote this document to \`verified\`; verified status is human-approved only.
+`;
+}
+
+function domainApiServicesSection(rel) {
+  if (!isDomainOrientedDoc(rel)) return "";
+
+  return `
+## API Services
+
+Document each API service used by this domain. For every service, capture:
+
+${apiServiceInventoryChecklist().join("\n")}
+`;
+}
+
+function isDomainOrientedDoc(rel) {
+  const normalized = toPosix(rel);
+  return normalized.includes("/domains/") || normalized.endsWith("/DOMAIN_FEATURES.md");
+}
 
 function titleFromPath(rel) {
   const base = path.basename(rel, ".md");
@@ -1127,6 +1643,8 @@ function buildHandoff(options, detection = null) {
   const prompt = `${entrypoints} 먼저 읽어주세요.
 그 다음 실제 코드, 설정 파일, 라우팅, API, 데이터 모델, 주요 워크플로우를 근거로 docs/llm-wiki 문서를 보강해주세요.
 ${evidenceGuidance.join("\n")}
+When a domain document mentions API usage, include this API Services inventory:
+${apiServiceInventoryChecklist().join("\n")}
 CLI가 생성한 초안과 에이전트가 수정한 문서는 needs_review 상태로 유지해주세요.
 verified 승인은 하지 말고, 사람이 검토해야 할 항목과 근거 부족 항목을 docs/llm-wiki/log.md에 append-only로 남겨주세요.
 민감정보 raw value는 문서나 리포트에 기록하지 말고, 필요한 경우 redacted 형태로만 설명해주세요.

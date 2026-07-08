@@ -31,7 +31,12 @@ Use this checklist before publishing `@dowonk-7949/llm-wiki-standard@0.1.2`.
 
 - [ ] Run `node --test tests/*.test.js`.
 - [ ] Run `node bin/llm-wiki.js validate-frontmatter`.
+- [ ] Run `node bin/llm-wiki.js validate --profile okf-v0.1` against an OKF-compatible fixture or consumer project.
 - [ ] Run `node bin/llm-wiki.js doctor --format markdown`.
+- [ ] Confirm `rules/frontmatter.schema.json` is included in `npm pack --dry-run`.
+- [ ] Run `node bin/llm-wiki.js prompt --task feature --agent codex`.
+- [ ] Run `node bin/llm-wiki.js prompt --task docs-sync --agent codex`.
+- [ ] Run `node bin/llm-wiki.js prompt --task okf-extract --agent codex`.
 - [ ] Run `node bin/llm-wiki.js init --dry-run --type frontend --agent codex`.
 - [ ] Run `node bin/llm-wiki.js init --write --cwd <zero-base-temp> --type frontend --agent codex`.
 - [ ] Run `node bin/llm-wiki.js validate --cwd <zero-base-temp> --type frontend --agent codex`.
@@ -47,6 +52,15 @@ Use this checklist before publishing `@dowonk-7949/llm-wiki-standard@0.1.2`.
 - [ ] Confirm `docs/llm-wiki/log.md` is not overwritten.
 - [ ] Confirm existing adapter files are not overwritten.
 - [ ] Confirm adapter checks and suggestions require explicit `--agent` selection.
+- [ ] Confirm `prompt --task feature|fix|refactor` includes source inspection, code changes, wiki updates, append-only log updates, `needs_review`, and test guidance.
+- [ ] Confirm `prompt --task docs-sync` avoids unrelated code edits.
+- [ ] Confirm `prompt --task okf-extract` is prompt-assisted and keeps extracted LLM-WIKI documents as `needs_review`.
+- [ ] Confirm `validate` reports missing `[[wiki links]]` and accepts file path, basename, frontmatter `title`, and frontmatter `aliases` targets.
+- [ ] Confirm `--profile okf-v0.1` requires explicit `type`, accepts optional `aliases` and `tags` arrays, and does not infer OKF `type` from LLM-WIKI `doc_type`.
+- [ ] Confirm the OKF fixture corpus covers concept, project, person, meeting_note, event, and api_reference documents without unresolved wiki links.
+- [ ] Confirm generated wiki drafts include summary, inspection, evidence, open question, and review note sections where applicable.
+- [ ] Confirm `init --profile okf-v0.1` creates OKF templates for concept, project, api_reference, meeting_note, and event documents.
+- [ ] Confirm `init --profile okf-v0.1` creates `docs/llm-wiki/OKF_CONVERSION_GUIDE.md` and keeps conversion review-assisted, not automatic.
 - [ ] Confirm `migrate --apply` is blocked.
 - [ ] Confirm sensitive-looking values are redacted and never written raw.
 
@@ -60,6 +74,7 @@ Use this checklist before publishing `@dowonk-7949/llm-wiki-standard@0.1.2`.
 - [ ] Confirm `README.md`, `README.ko.md`, `GATE_REVIEW.md`, `VERIFICATION.md`, and `RELEASE_CHECKLIST.md` mention stable release behavior.
 - [ ] Confirm `README.md` starts with language links to English and Korean.
 - [ ] Confirm `README.ko.md` is included in `package.json` files.
+- [ ] Confirm `rules/frontmatter.schema.json` matches the runtime frontmatter contract in `src/frontmatter-schema.js`.
 
 ## External Verification
 

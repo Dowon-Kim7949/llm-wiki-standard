@@ -1,9 +1,9 @@
 ﻿import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { audit, doctor, handoffCommand, initCommand, migrateCommand, quickstartCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "../src/commands.js";
+import { audit, doctor, handoffCommand, initCommand, migrateCommand, promptCommand, quickstartCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "../src/commands.js";
 import { parseArgs } from "../src/cli.js";
 import { writeReport } from "../src/report.js";
 
@@ -63,14 +63,28 @@ test("parseArgs supports quickstart write and handoff options", () => {
   assert.deepEqual(status.errors, []);
 });
 
+test("parseArgs supports prompt task options", () => {
+  const parsed = parseArgs(["prompt", "--task", "feature", "--type", "frontend", "--profile", "library", "--agent", "codex", "--format", "json", "--out", "docs/llm-wiki/tasks/feature.prompt.json"]);
+
+  assert.equal(parsed.command, "prompt");
+  assert.equal(parsed.options.task, "feature");
+  assert.equal(parsed.options.type, "frontend");
+  assert.deepEqual(parsed.options.profiles, ["library"]);
+  assert.deepEqual(parsed.options.agents, ["codex"]);
+  assert.equal(parsed.options.format, "json");
+  assert.deepEqual(parsed.errors, []);
+});
+
 test("parseArgs rejects conflicting and command-specific options", () => {
   const conflicting = parseArgs(["quickstart", "--dry-run", "--write"]);
   const validateWrite = parseArgs(["validate", "--write"]);
   const handoffExisting = parseArgs(["handoff", "--existing", "overwrite"]);
+  const promptMissingTask = parseArgs(["prompt", "--agent", "codex"]);
 
   assert.ok(conflicting.errors.includes("Options --dry-run and --write cannot be used together."));
   assert.deepEqual(validateWrite.errors, ["Option --write is not supported by validate."]);
   assert.deepEqual(handoffExisting.errors, ["Option --existing is not supported by handoff."]);
+  assert.deepEqual(promptMissingTask.errors, ["Missing required option for prompt: --task."]);
 });
 
 test("parseArgs rejects unsupported existing policy", () => {
@@ -237,6 +251,92 @@ test("handoff report can be written for reviewable prompt storage", async () => 
   assert.ok(content.includes("status: needs_review"));
 });
 
+test("prompt command generates feature task prompt with wiki update workflow", async () => {
+  const cwd = await makeProject("prompt-feature-");
+  const result = await promptCommand({
+    cwd,
+    task: "feature",
+    type: "frontend",
+    profiles: [],
+    agents: ["codex"],
+    format: "text"
+  });
+
+  assert.equal(result.command, "prompt");
+  assert.equal(result.result, "pass");
+  assert.equal(result.taskPrompt.task, "feature");
+  assert.equal(result.taskPrompt.projectType, "frontend");
+  assert.deepEqual(result.taskPrompt.agents, ["codex"]);
+  assert.ok(result.taskPrompt.prompt.includes("Read docs/llm-wiki/index.md first."));
+  assert.ok(result.taskPrompt.prompt.includes("Update every affected LLM-WIKI document"));
+  assert.ok(result.taskPrompt.prompt.includes("Append docs/llm-wiki/log.md"));
+  assert.ok(result.taskPrompt.prompt.includes("API service name."));
+  assert.ok(result.taskPrompt.prompt.includes("status: needs_review"));
+});
+
+test("prompt command generates docs-sync and OKF extraction workflows", async () => {
+  const cwd = await makeProject("prompt-workflows-");
+  const docsSync = await promptCommand({
+    cwd,
+    task: "docs-sync",
+    type: "fullstack",
+    profiles: [],
+    agents: ["codex"],
+    format: "text"
+  });
+  const okf = await promptCommand({
+    cwd,
+    task: "okf-extract",
+    type: "library",
+    profiles: [],
+    agents: ["codex"],
+    format: "text"
+  });
+
+  assert.ok(docsSync.taskPrompt.prompt.includes("avoid unrelated code edits"));
+  assert.ok(docsSync.taskPrompt.prompt.includes("Detect changed code"));
+  assert.ok(okf.taskPrompt.prompt.includes("OKF v0.1"));
+  assert.ok(okf.taskPrompt.prompt.includes("required type"));
+  assert.ok(okf.taskPrompt.prompt.includes("[[Concept Name]]"));
+  assert.ok(okf.taskPrompt.prompt.includes("status: needs_review"));
+});
+
+test("prompt command report can be written as JSON", async () => {
+  const cwd = await makeProject("prompt-out-");
+  const out = path.join(cwd, "docs", "llm-wiki", "tasks", "feature.prompt.json");
+  const result = await promptCommand({
+    cwd,
+    task: "feature",
+    type: "frontend",
+    profiles: [],
+    agents: ["codex"],
+    format: "json"
+  });
+
+  await writeReport(out, result, { format: "json", out });
+  const content = JSON.parse(await readFile(out, { encoding: "utf8" }));
+
+  assert.equal(content.command, "prompt");
+  assert.equal(content.taskPrompt.task, "feature");
+  assert.ok(content.taskPrompt.prompt.includes("post-wiki feature development"));
+  assert.equal(content.text, undefined);
+});
+
+test("prompt command blocks unsupported task names", async () => {
+  const cwd = await makeProject("prompt-unsupported-");
+  const result = await promptCommand({
+    cwd,
+    task: "unknown-task",
+    type: null,
+    profiles: [],
+    agents: ["codex"],
+    format: "text"
+  });
+
+  assert.equal(result.result, "blocked");
+  assert.ok(result.findings.some((finding) => finding.rule === "prompt.unsupported_task"));
+});
+
 test("status command reports uninitialized wiki and selected adapter state", async () => {
   const cwd = await makeProject("status-missing-");
   const result = await statusCommand({
@@ -303,10 +403,23 @@ test("init write creates zero-base wiki docs and selected adapter", async () => 
   assert.ok(result.created.some((line) => line.includes("AGENTS.md created")));
 
   const index = await readFile(path.join(cwd, "docs", "llm-wiki", "index.md"), { encoding: "utf8" });
+  const projectProfile = await readFile(path.join(cwd, "docs", "llm-wiki", "project-profile.md"), { encoding: "utf8" });
+  const architecture = await readFile(path.join(cwd, "docs", "llm-wiki", "ARCHITECTURE_CONVENTIONS.md"), { encoding: "utf8" });
+  const domainFeatures = await readFile(path.join(cwd, "docs", "llm-wiki", "DOMAIN_FEATURES.md"), { encoding: "utf8" });
   const agents = await readFile(path.join(cwd, "AGENTS.md"), { encoding: "utf8" });
 
   assert.ok(index.includes("status: needs_review"));
   assert.ok(index.includes("# LLM-WIKI Index"));
+  assert.ok(projectProfile.includes("## What To Inspect"));
+  assert.ok(projectProfile.includes("## Evidence"));
+  assert.ok(projectProfile.includes("## Open Questions"));
+  assert.ok(architecture.includes("## Summary"));
+  assert.ok(architecture.includes("Concise summary:"));
+  assert.ok(architecture.includes("## What To Inspect"));
+  assert.ok(architecture.includes("## Evidence"));
+  assert.ok(architecture.includes("## Open Questions"));
+  assert.ok(architecture.includes("## Review Notes"));
+  assert.ok(domainFeatures.includes("## API Services"));
   assert.ok(agents.includes("docs/llm-wiki/index.md"));
 });
 
@@ -542,6 +655,48 @@ test("status reports missing markdown links and accepts existing local links", a
   assert.equal(result.findings.some((finding) => finding.rule === "markdown_link.missing" && finding.message.includes("README.md")), false);
 });
 
+test("audit and validate report missing wiki links and accept title, path, and alias targets", async () => {
+  const cwd = await makeProject("wiki-links-");
+  await writeJson(path.join(cwd, "package.json"), { name: "wiki-links" });
+  await writeWikiDocWithAliases(cwd, "README.md", "LLM-WIKI README", "Existing target.", ["Main Wiki Readme"]);
+  await writeWikiDocWithAliases(cwd, "domains/00_overview.md", "Domain Overview", "Existing domain map.", ["domain guide"]);
+  await writeWikiDocWithAliases(cwd, "DOMAIN_FEATURES.md", "Domain Features", "Existing domain features.", []);
+  await writeWikiDoc(
+    cwd,
+    "index.md",
+    "LLM-WIKI Index",
+    "See [[LLM-WIKI README]], [[Main Wiki Readme]], [[domain guide]], [[domains/00_overview]], [[Domain Features#API Services]], and [[Missing Concept]]."
+  );
+
+  const auditResult = await audit({ cwd, type: "unknown", profiles: [], agents: [], format: "text", strict: false });
+  const validateResult = await validateCommand({ cwd, type: "unknown", profiles: [], agents: [], format: "text", strict: false });
+
+  assert.ok(auditResult.findings.some((finding) => finding.rule === "wiki_link.missing" && finding.message.includes("Missing Concept")));
+  assert.ok(validateResult.findings.some((finding) => finding.rule === "wiki_link.missing" && finding.message.includes("Missing Concept")));
+  assert.equal(auditResult.findings.filter((finding) => finding.rule === "wiki_link.missing").length, 1);
+  assert.equal(validateResult.findings.filter((finding) => finding.rule === "wiki_link.missing").length, 1);
+  assert.equal(auditResult.findingSummary.byCategory.wiki_link, 1);
+  assert.equal(validateResult.findingSummary.byCategory.wiki_link, 1);
+});
+
+test("status reports missing wiki links", async () => {
+  const cwd = await makeProject("wiki-links-status-");
+  await writeJson(path.join(cwd, "package.json"), { name: "wiki-links-status" });
+  await writeWikiDocWithAliases(cwd, "README.md", "LLM-WIKI README", "Existing target.", ["readme alias"]);
+  await writeWikiDoc(cwd, "index.md", "LLM-WIKI Index", "See [[readme alias]] and [[Missing Status Target]].");
+
+  const result = await statusCommand({
+    cwd,
+    type: "unknown",
+    profiles: [],
+    agents: [],
+    format: "text"
+  });
+
+  assert.ok(result.findings.some((finding) => finding.rule === "wiki_link.missing" && finding.message.includes("Missing Status Target")));
+  assert.equal(result.findings.some((finding) => finding.rule === "wiki_link.missing" && finding.message.includes("readme alias")), false);
+});
+
 test("parseArgs supports report output path", () => {
   const parsed = parseArgs(["audit", "--cwd", ".", "--profile", "frontend", "--profile", "library", "--format", "markdown", "--out", "docs/llm-wiki/audits/report.md"]);
 
@@ -614,6 +769,102 @@ test("unknown explicit profiles are surfaced as review items", async () => {
   assert.ok(result.findings.some((finding) => finding.message.includes("made-up")));
 });
 
+test("okf-v0.1 profile is known and validates required type", async () => {
+  const cwd = await makeProject("okf-profile-");
+  await writeJson(path.join(cwd, "package.json"), { name: "okf-profile" });
+  await writeWikiDocWithAliases(cwd, "concepts/sample.md", "Sample Concept", "See [[Sample Alias]] and [[Missing OKF Target]].", ["Sample Alias"]);
+  await writeWikiDoc(cwd, "index.md", "LLM-WIKI Index", "Existing wiki entry without OKF type.");
+
+  const auditResult = await audit({ cwd, type: "unknown", profiles: ["okf-v0.1"], agents: [], format: "text", strict: false });
+  const validateResult = await validateCommand({ cwd, type: "unknown", profiles: ["okf-v0.1"], agents: [], format: "text", strict: false });
+
+  assert.deepEqual(auditResult.detection.activeProfiles, ["core", "okf-v0.1"]);
+  assert.equal(auditResult.findings.some((finding) => finding.rule === "project.review_item" && finding.message.includes("okf-v0.1")), false);
+  assert.ok(auditResult.findings.some((finding) => finding.rule === "okf.type_required" && finding.path === "docs/llm-wiki/index.md"));
+  assert.ok(validateResult.findings.some((finding) => finding.rule === "okf.type_required"));
+  assert.ok(auditResult.findings.some((finding) => finding.rule === "wiki_link.missing" && finding.message.includes("Missing OKF Target")));
+  assert.equal(auditResult.findingSummary.byCategory.okf, 2);
+});
+
+test("okf-v0.1 profile accepts explicit type, aliases, tags, and resolved wiki links", async () => {
+  const cwd = await makeProject("okf-valid-");
+  await writeJson(path.join(cwd, "package.json"), { name: "okf-valid" });
+  await writeOkfWikiDoc(cwd, "index.md", "OKF Index", "project", "See [[Sample Concept]] and [[Sample Alias]].", []);
+  await writeOkfWikiDoc(cwd, "concepts/sample.md", "Sample Concept", "concept", "Existing OKF concept.", ["Sample Alias"]);
+
+  const result = await validateCommand({ cwd, type: "unknown", profiles: ["okf-v0.1"], agents: [], format: "text", strict: false });
+
+  assert.equal(result.findings.some((finding) => finding.rule?.startsWith("okf.")), false);
+  assert.equal(result.findings.some((finding) => finding.rule === "wiki_link.missing"), false);
+});
+
+test("okf-v0.1 fixture corpus validates expected document types and links", async () => {
+  const cwd = await makeProject("okf-fixtures-");
+  await writeJson(path.join(cwd, "package.json"), { name: "okf-fixtures" });
+  await cp(path.join(process.cwd(), "tests", "fixtures", "okf-v0.1", "docs"), path.join(cwd, "docs"), { recursive: true });
+
+  const result = await validateCommand({ cwd, type: "unknown", profiles: ["okf-v0.1"], agents: [], format: "text", strict: false });
+  const fixtureFiles = await Promise.all([
+    readFile(path.join(cwd, "docs", "llm-wiki", "concepts", "knowledge-editor.md"), { encoding: "utf8" }),
+    readFile(path.join(cwd, "docs", "llm-wiki", "projects", "llm-wiki-standard.md"), { encoding: "utf8" }),
+    readFile(path.join(cwd, "docs", "llm-wiki", "people", "maintainer.md"), { encoding: "utf8" }),
+    readFile(path.join(cwd, "docs", "llm-wiki", "meetings", "review-sync.md"), { encoding: "utf8" }),
+    readFile(path.join(cwd, "docs", "llm-wiki", "events", "okf-roadmap-event.md"), { encoding: "utf8" }),
+    readFile(path.join(cwd, "docs", "llm-wiki", "apis", "prompt-command-api.md"), { encoding: "utf8" })
+  ]);
+  const corpus = fixtureFiles.join("\n");
+
+  assert.equal(result.findings.some((finding) => finding.rule?.startsWith("okf.")), false);
+  assert.equal(result.findings.some((finding) => finding.rule === "wiki_link.missing"), false);
+  assert.equal(result.findings.some((finding) => finding.rule === "source_files.missing"), false);
+  for (const type of ["concept", "project", "person", "meeting_note", "event", "api_reference"]) {
+    assert.ok(corpus.includes(`type: ${type}`));
+  }
+});
+
+test("init dry-run includes okf-v0.1 profile guide", async () => {
+  const cwd = await makeProject("okf-init-");
+  const result = await initCommand({ cwd, dryRun: true, minimal: false, withAdapters: false, type: "unknown", profiles: ["okf-v0.1"], agents: [] });
+
+  assert.ok(result.planned.some((line) => line.includes("docs/llm-wiki/profiles/okf-v0.1.md")));
+  assert.ok(result.planned.some((line) => line.includes("docs/llm-wiki/templates/OKF_CONCEPT.template.md")));
+  assert.ok(result.planned.some((line) => line.includes("docs/llm-wiki/templates/OKF_PROJECT.template.md")));
+  assert.ok(result.planned.some((line) => line.includes("docs/llm-wiki/templates/OKF_API_REFERENCE.template.md")));
+  assert.ok(result.planned.some((line) => line.includes("docs/llm-wiki/templates/OKF_MEETING_NOTE.template.md")));
+  assert.ok(result.planned.some((line) => line.includes("docs/llm-wiki/templates/OKF_EVENT.template.md")));
+  assert.ok(result.planned.some((line) => line.includes("docs/llm-wiki/OKF_CONVERSION_GUIDE.md")));
+});
+
+test("init write creates okf-v0.1 profile guide and templates with concise writing sections", async () => {
+  const cwd = await makeProject("okf-write-");
+  const result = await initCommand({ cwd, dryRun: false, write: true, minimal: false, withAdapters: false, type: "unknown", profiles: ["okf-v0.1"], agents: [], existing: "skip" });
+  const profile = await readFile(path.join(cwd, "docs", "llm-wiki", "profiles", "okf-v0.1.md"), { encoding: "utf8" });
+  const concept = await readFile(path.join(cwd, "docs", "llm-wiki", "templates", "OKF_CONCEPT.template.md"), { encoding: "utf8" });
+  const apiReference = await readFile(path.join(cwd, "docs", "llm-wiki", "templates", "OKF_API_REFERENCE.template.md"), { encoding: "utf8" });
+  const event = await readFile(path.join(cwd, "docs", "llm-wiki", "templates", "OKF_EVENT.template.md"), { encoding: "utf8" });
+  const conversionGuide = await readFile(path.join(cwd, "docs", "llm-wiki", "OKF_CONVERSION_GUIDE.md"), { encoding: "utf8" });
+
+  assert.equal(result.result, "pass");
+  assert.ok(profile.includes("## OKF-Style Writing"));
+  assert.ok(profile.includes("short summary section"));
+  assert.ok(profile.includes("## Evidence"));
+  assert.ok(profile.includes("## Open Questions"));
+  assert.ok(profile.includes("[[wiki links]]"));
+  assert.ok(concept.includes("# Concept Name"));
+  assert.ok(concept.includes("type: concept"));
+  assert.ok(concept.includes("## Summary"));
+  assert.ok(concept.includes("[[Concept Name]]"));
+  assert.ok(apiReference.includes("type: api_reference"));
+  assert.ok(apiReference.includes("endpoint or client module"));
+  assert.ok(event.includes("type: event"));
+  assert.ok(event.includes("## Timeline"));
+  assert.ok(conversionGuide.includes("# OKF Conversion Guide"));
+  assert.ok(conversionGuide.includes("Conversion is review-assisted, not automatic."));
+  assert.ok(conversionGuide.includes("`doc_type` | `type`"));
+  assert.ok(conversionGuide.includes("llm-wiki validate --profile okf-v0.1"));
+  assert.ok(conversionGuide.includes("`needs_review`"));
+});
+
 test("doctor reports package release readiness for package roots", async () => {
   const cwd = await makeProject("doctor-package-");
   await writeJson(path.join(cwd, "package.json"), {
@@ -684,8 +935,30 @@ async function writeWikiDoc(cwd, filename, title, body) {
 
 async function writeWikiDocWithSourceFiles(cwd, filename, title, body, sourceFiles) {
   const wikiRoot = path.join(cwd, "docs", "llm-wiki");
-  await mkdir(wikiRoot, { recursive: true });
-  await writeFile(path.join(wikiRoot, filename), frontmatter(title, body, sourceFiles), { encoding: "utf8" });
+  const targetPath = path.join(wikiRoot, filename);
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await writeFile(targetPath, frontmatter(title, body, sourceFiles), { encoding: "utf8" });
+}
+
+async function writeWikiDocWithAliases(cwd, filename, title, body, aliases) {
+  const wikiRoot = path.join(cwd, "docs", "llm-wiki");
+  const targetPath = path.join(wikiRoot, filename);
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await writeFile(targetPath, frontmatter(title, body).replace("visibility: internal", `aliases:\n${aliases.map((alias) => `  - ${alias}`).join("\n")}\nvisibility: internal`), { encoding: "utf8" });
+}
+
+async function writeOkfWikiDoc(cwd, filename, title, okfType, body, aliases) {
+  const wikiRoot = path.join(cwd, "docs", "llm-wiki");
+  const targetPath = path.join(wikiRoot, filename);
+  const aliasesBlock = aliases.length
+    ? `aliases:\n${aliases.map((alias) => `  - ${alias}`).join("\n")}\n`
+    : "";
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await writeFile(
+    targetPath,
+    frontmatter(title, body).replace("doc_type: wiki_index", `doc_type: wiki_index\ntype: ${okfType}`).replace("visibility: internal", `${aliasesBlock}visibility: internal`),
+    { encoding: "utf8" }
+  );
 }
 
 async function writeVerifiedWikiDocMissingReview(cwd) {

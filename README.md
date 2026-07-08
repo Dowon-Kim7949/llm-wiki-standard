@@ -49,7 +49,7 @@ CLI setup
 | CLI setup | `llm-wiki` | Detect the project, create missing wiki files, create selected adapter files, validate frontmatter, and print the next agent prompt. |
 | Agent enrichment | Codex or Claude Code | Read the actual code and fill the wiki with source-backed architecture, domain, API, workflow, and operations details. |
 | Human review | Maintainer | Check accuracy, remove uncertain claims, decide whether a document may move from `needs_review` to `verified`. |
-| CI validation | `llm-wiki validate` | Check structure, selected adapter entrypoints, frontmatter, local markdown links, source file references, encoding, and sensitive-info rules. |
+| CI validation | `llm-wiki validate` | Check structure, selected adapter entrypoints, frontmatter, local markdown links, wiki links, source file references, encoding, and sensitive-info rules. |
 
 ## Quick Start
 
@@ -89,6 +89,14 @@ npx llm-wiki init --dry-run --type frontend --agent codex
 npx llm-wiki init --write --type frontend --agent codex
 npx llm-wiki validate-frontmatter
 npx llm-wiki handoff --agent codex
+```
+
+After the initial wiki is created and enriched, generate repeatable task prompts for ongoing work:
+
+```bash
+npx llm-wiki prompt --task feature --agent codex
+npx llm-wiki prompt --task docs-sync --agent codex
+npx llm-wiki prompt --task okf-extract --agent codex
 ```
 
 After the agent finishes enriching the wiki, run:
@@ -141,7 +149,8 @@ Expected Claude Code work is the same as Codex work: read the adapter and wiki e
 - Detects a project type from local signals, or accepts `--type`.
 - Creates the common `docs/llm-wiki` document structure.
 - Creates selected adapter files when absent, such as `AGENTS.md` or `CLAUDE.md`.
-- Validates frontmatter, encoding, local markdown links, adapter entrypoints, and sensitive-info rules.
+- Validates frontmatter, encoding, local markdown links, `[[wiki links]]`, adapter entrypoints, and sensitive-info rules.
+- Publishes the LLM-WIKI frontmatter contract as `rules/frontmatter.schema.json` and validates frontmatter against the same runtime contract.
 - Checks that local `source_files` entries in wiki frontmatter exist.
 - Prints a handoff prompt for Codex or Claude Code with frontend, backend, fullstack, or library evidence focus.
 - Keeps CLI-generated documents in `needs_review`.
@@ -164,6 +173,7 @@ Expected Claude Code work is the same as Codex work: read the adapter and wiki e
 | `llm-wiki quickstart --dry-run` | Preview the setup and handoff prompt without writing files. |
 | `llm-wiki quickstart --write` | Create missing wiki files, validate frontmatter, and print the Codex/Claude Code handoff prompt. |
 | `llm-wiki handoff` | Print the next prompt for Codex or Claude Code after setup, including project-type-specific evidence focus. |
+| `llm-wiki prompt --task <name>` | Print repeatable post-wiki task prompts for feature, fix, refactor, docs-sync, and OKF extraction workflows. |
 | `llm-wiki init --dry-run` | Preview files that would be created. |
 | `llm-wiki init --write` | Create missing wiki files and selected adapter files. |
 | `llm-wiki validate-frontmatter` | Check frontmatter only. |
@@ -188,11 +198,36 @@ To save the handoff prompt as a reviewable report:
 npx llm-wiki handoff --agent codex --out docs/llm-wiki/tasks/initial-enrichment.prompt.md
 ```
 
+To save an ongoing task prompt as a reviewable report:
+
+```bash
+npx llm-wiki prompt --task feature --agent codex --out docs/llm-wiki/tasks/feature.prompt.md
+```
+
 Pass `--type frontend`, `--type backend`, `--type fullstack`, or `--type library` when you want the handoff prompt to use a specific evidence focus instead of auto-detection.
+
+`llm-wiki prompt --task feature`, `fix`, and `refactor` instruct the agent to read `docs/llm-wiki/index.md`, inspect related wiki documents and real source files, plan the work, update code, update affected LLM-WIKI documents, append `docs/llm-wiki/log.md`, keep edited docs as `needs_review`, and run relevant tests.
+
+`llm-wiki prompt --task docs-sync` focuses on detecting changed code, finding stale wiki documents, updating only affected documentation, and appending the log. It must avoid unrelated code edits.
+
+`llm-wiki prompt --task okf-extract` prints a prompt-assisted OKF v0.1 extraction workflow. It does not automatically extract knowledge. The prompt uses Markdown plus YAML frontmatter with required `type`, optional `aliases` and `tags`, body wiki links such as `[[Concept Name]]`, and keeps extracted LLM-WIKI documents as `needs_review`.
+
+Use `--profile okf-v0.1` with `status`, `audit`, or `validate` when selected wiki documents should also satisfy the OKF v0.1 frontmatter shape:
+
+```bash
+npx llm-wiki validate --profile okf-v0.1
+```
+
+The OKF profile requires explicit frontmatter `type`, accepts optional `aliases` and `tags` arrays, and reuses `[[wiki links]]` missing-target validation. It does not infer OKF `type` from LLM-WIKI `doc_type`; keep both fields when a document needs both contracts.
+
+`init --profile okf-v0.1` also creates OKF-oriented templates for `concept`, `project`, `api_reference`, `meeting_note`, and `event` documents under `docs/llm-wiki/templates/`.
+
+It also creates `docs/llm-wiki/OKF_CONVERSION_GUIDE.md`, which explains how to review and explicitly map LLM-WIKI metadata into OKF v0.1 fields without automatic conversion.
 
 ## Common Options
 
 - `--cwd <path>`: project root to inspect or write.
+- `--task <feature|fix|refactor|docs-sync|okf-extract>`: task prompt preset for `llm-wiki prompt`.
 - `--type <frontend|backend|fullstack|library|mixed|unknown>`: explicit project type.
 - `--profile <profile>`: additional profile, repeatable.
 - `--agent <codex|claude|antigravity|all>`: selected adapter target, repeatable.
@@ -212,7 +247,9 @@ Pass `--type frontend`, `--type backend`, `--type fullstack`, or `--type library
 - Existing wiki documents are kept by default and rewritten only with explicit `--existing overwrite`.
 - Local `source_files` entries should point to files that exist from the project root.
 - Local markdown links inside `docs/llm-wiki` should point to existing relative files; URLs, `mailto:` links, and anchor-only links are ignored.
+- `[[wiki links]]` inside `docs/llm-wiki` should resolve to an existing wiki file path, basename, frontmatter `title`, or frontmatter `aliases` entry.
 - In `--strict` mode, `verified` documents must include `reviewed_by` and `reviewed_at`; standard mode keeps this as a warning.
+- `rules/frontmatter.schema.json` defines required frontmatter fields, valid `status` and `visibility` values, optional `aliases`, and review metadata for `verified` documents.
 - `docs/llm-wiki/log.md` is append-only and is not overwritten.
 - Existing `AGENTS.md`, `CLAUDE.md`, and `ANTIGRAVITY.md` files are not overwritten.
 - `migrate --apply` remains blocked until automatic migration scope is intentionally accepted.
@@ -234,6 +271,7 @@ npx llm-wiki quickstart --write --type frontend --agent codex --existing overwri
 npm test
 npx llm-wiki validate-frontmatter
 npx llm-wiki doctor --format markdown
+npx llm-wiki prompt --task feature --agent codex
 ```
 
 ## GitHub Actions Example

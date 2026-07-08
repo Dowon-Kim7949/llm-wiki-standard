@@ -62,6 +62,15 @@ export const PROFILE_DOCS = {
     "docs/llm-wiki/EXAMPLES.md",
     "docs/llm-wiki/RELEASE_FLOW.md"
   ],
+  "okf-v0.1": [
+    "docs/llm-wiki/profiles/okf-v0.1.md",
+    "docs/llm-wiki/templates/OKF_CONCEPT.template.md",
+    "docs/llm-wiki/templates/OKF_PROJECT.template.md",
+    "docs/llm-wiki/templates/OKF_API_REFERENCE.template.md",
+    "docs/llm-wiki/templates/OKF_MEETING_NOTE.template.md",
+    "docs/llm-wiki/templates/OKF_EVENT.template.md",
+    "docs/llm-wiki/OKF_CONVERSION_GUIDE.md"
+  ],
   mixed: ["docs/llm-wiki/project-profile.md"],
   unknown: ["docs/llm-wiki/project-profile.md"]
 };
