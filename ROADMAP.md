@@ -141,9 +141,9 @@ Goal: support OKF v0.1 without weakening the existing LLM-WIKI safety model.
 - Add `--profile okf-v0.1` validation for `type`, `aliases`, `tags`, and `[[wiki links]]`. Status: implemented.
 - Add an OKF conversion guide that maps LLM-WIKI metadata to OKF v0.1 metadata: `doc_type` -> `type`, `tags` -> `tags`, optional `aliases` -> `aliases`, `related` -> body wiki links where appropriate. Status: implemented as a review-assisted conversion guide.
 - Add fixtures for concept, project, person, meeting note, event, and API reference examples. Status: implemented.
-- Decide whether raw-text conversion belongs in the CLI, in an agent prompt template, or in a separate package. Default should be prompt-assisted extraction first, not fully automatic extraction.
-- Keep `needs_review` as the default for all AI-extracted OKF documents.
-- Add optional graph/report output that lists detected wiki links, unresolved concepts, aliases, and orphan documents.
+- Decide whether raw-text conversion belongs in the CLI, in an agent prompt template, or in a separate package. Default should be prompt-assisted extraction first, not fully automatic extraction. Status: implemented as the `okf-extract` task prompt workflow.
+- Keep `needs_review` as the default for all AI-extracted OKF documents. Status: implemented in OKF templates and `okf-extract` prompt guidance.
+- Add optional graph/report output that lists detected wiki links, unresolved concepts, aliases, and orphan documents. Status: implemented as `wikiGraph` in status, audit, and validate results.
 
 ## Near-Term Priority
 

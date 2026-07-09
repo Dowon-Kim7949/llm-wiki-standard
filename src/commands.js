@@ -123,9 +123,10 @@ export async function statusCommand(options) {
   const structureFindings = await findMissingDocs(options.cwd, detection.projectType, options.profiles);
   const sourceFileFindings = await scanSourceFiles(options.cwd);
   const okfFindings = await scanOkfProfile(options.cwd, detection.activeProfiles);
+  const wikiGraph = await collectWikiGraph(options.cwd);
   const linkFindings = [
     ...(await scanMarkdownLinks(options.cwd)),
-    ...(await scanWikiLinks(options.cwd))
+    ...wikiGraph.findings
   ];
   const adapterFindings = await scanAdapters(options.cwd, agents);
   const findings = [
@@ -165,12 +166,14 @@ export async function statusCommand(options) {
     detection,
     documentStatus,
     adapterStatus,
+    wikiGraph,
     findingSummary,
     findings
   }, "LLM-WIKI Status", [
     { title: "Summary", body: summary },
     { title: "Document Statuses", body: formatStatusCounts(documentStatus.counts) },
     { title: "Adapters", body: adapterStatus.length ? adapterStatus : ["none selected"] },
+    { title: "Wiki Graph", body: formatWikiGraphSummary(wikiGraph) },
     { title: "Finding Summary", body: formatFindingSummary(findingSummary) },
     { title: "Findings", body: findings.map(formatFinding) },
     { title: "Next Steps", body: statusNextSteps(initialized, documentStatus.counts, findings, agents) }
@@ -192,9 +195,10 @@ export async function audit(options) {
   const sensitiveFindings = await scanSensitive(options.cwd);
   const sourceFileFindings = await scanSourceFiles(options.cwd);
   const okfFindings = await scanOkfProfile(options.cwd, detection.activeProfiles);
+  const wikiGraph = await collectWikiGraph(options.cwd);
   const linkFindings = [
     ...(await scanMarkdownLinks(options.cwd)),
-    ...(await scanWikiLinks(options.cwd))
+    ...wikiGraph.findings
   ];
   const adapterFindings = await scanAdapters(options.cwd, agents);
 
@@ -232,10 +236,12 @@ export async function audit(options) {
     command: "audit",
     result,
     detection,
+    wikiGraph,
     findingSummary,
     findings
   }, "LLM-WIKI Audit", [
     { title: "Summary", body: summary },
+    { title: "Wiki Graph", body: formatWikiGraphSummary(wikiGraph) },
     { title: "Finding Summary", body: formatFindingSummary(findingSummary) },
     { title: "Findings", body: findings.map(formatFinding) },
     { title: "Caveats", body: ["Stable validation is warning-friendly by default; use --strict when warnings should fail CI."] }
@@ -267,10 +273,12 @@ export async function validateCommand(options) {
     command: "validate",
     result,
     detection: auditResult.detection,
+    wikiGraph: auditResult.wikiGraph,
     findingSummary,
     findings
   }, "LLM-WIKI Validation", [
     { title: "Summary", body: summary },
+    { title: "Wiki Graph", body: formatWikiGraphSummary(auditResult.wikiGraph) },
     { title: "Finding Summary", body: formatFindingSummary(findingSummary) },
     { title: "Findings", body: findings.map(formatFinding) },
     { title: "Caveats", body: ["Validation reuses audit coverage for core, profile, selected-agent adapter, encoding, and sensitive-information checks."] }
@@ -736,34 +744,93 @@ async function scanMarkdownLinks(cwd) {
 }
 
 async function scanWikiLinks(cwd) {
+  return (await collectWikiGraph(cwd)).findings;
+}
+
+async function collectWikiGraph(cwd) {
   const wikiRoot = path.join(cwd, "docs", "llm-wiki");
-  if (!(await pathExists(wikiRoot))) return [];
+  if (!(await pathExists(wikiRoot))) return emptyWikiGraph();
 
   const markdownFiles = await listMarkdownFiles(wikiRoot);
   const targetIndex = await buildWikiLinkTargetIndex(cwd, wikiRoot, markdownFiles);
+  const docs = markdownFiles.map((file) => {
+    const pathFromRoot = toPosix(path.relative(cwd, file));
+    return {
+      path: pathFromRoot,
+      title: targetIndex.documentsByPath.get(pathFromRoot)?.title ?? null,
+      aliases: targetIndex.documentsByPath.get(pathFromRoot)?.aliases ?? [],
+      links: [],
+      inboundCount: 0
+    };
+  });
+  const docsByPath = new Map(docs.map((doc) => [doc.path, doc]));
   const findings = [];
+  const links = [];
+  const unresolvedByTarget = new Map();
 
   for (const file of markdownFiles) {
     const rel = toPosix(path.relative(cwd, file));
     const content = await readUtf8(file);
+    const sourceDoc = docsByPath.get(rel);
 
     for (const rawTarget of extractWikiLinkTargets(content)) {
       const target = normalizeWikiLinkTarget(rawTarget);
       if (!target) continue;
 
       const key = normalizeWikiLinkKey(target);
-      if (!targetIndex.has(key)) {
+      const targetDoc = targetIndex.targets.get(key);
+      const link = {
+        source: rel,
+        target,
+        resolved: Boolean(targetDoc),
+        targetPath: targetDoc?.path ?? null
+      };
+      links.push(link);
+      sourceDoc?.links.push(link);
+
+      if (targetDoc) {
+        const inboundDoc = docsByPath.get(targetDoc.path);
+        if (inboundDoc && inboundDoc.path !== rel) inboundDoc.inboundCount += 1;
+      } else {
         findings.push({
           severity: "warning",
           rule: "wiki_link.missing",
           path: rel,
           message: `Wiki link target does not exist: ${target}.`
         });
+        const unresolved = unresolvedByTarget.get(target) ?? { target, sources: [] };
+        unresolved.sources.push(rel);
+        unresolvedByTarget.set(target, unresolved);
       }
     }
   }
 
-  return findings;
+  const aliasEntries = [...targetIndex.aliases].sort((left, right) => {
+    const byAlias = left.alias.localeCompare(right.alias);
+    return byAlias || left.path.localeCompare(right.path);
+  });
+  const orphanDocuments = docs
+    .filter((doc) => doc.path !== "docs/llm-wiki/index.md" && doc.inboundCount === 0)
+    .map((doc) => doc.path)
+    .sort();
+  const unresolvedConcepts = [...unresolvedByTarget.values()].sort((left, right) => left.target.localeCompare(right.target));
+
+  return {
+    summary: {
+      documents: docs.length,
+      wikiLinks: links.length,
+      resolvedWikiLinks: links.filter((link) => link.resolved).length,
+      unresolvedWikiLinks: unresolvedConcepts.length,
+      aliases: aliasEntries.length,
+      orphanDocuments: orphanDocuments.length
+    },
+    documents: docs,
+    links,
+    unresolvedConcepts,
+    aliases: aliasEntries,
+    orphanDocuments,
+    findings
+  };
 }
 
 function extractMarkdownLinkTargets(markdown) {
@@ -821,33 +888,44 @@ function resolveMarkdownLinkTarget(cwd, fromFile, link) {
 }
 
 async function buildWikiLinkTargetIndex(cwd, wikiRoot, markdownFiles) {
-  const targetIndex = new Set();
+  const targets = new Map();
+  const aliases = [];
+  const documentsByPath = new Map();
 
   for (const file of markdownFiles) {
     const wikiRel = toPosix(path.relative(wikiRoot, file));
     const cwdRel = toPosix(path.relative(cwd, file));
     const withoutExtension = wikiRel.replace(/\.md$/i, "");
     const basename = path.basename(file, ".md");
-
-    addWikiLinkTarget(targetIndex, wikiRel);
-    addWikiLinkTarget(targetIndex, withoutExtension);
-    addWikiLinkTarget(targetIndex, cwdRel);
-    addWikiLinkTarget(targetIndex, cwdRel.replace(/\.md$/i, ""));
-    addWikiLinkTarget(targetIndex, basename);
-
     const parsed = parseFrontmatter(await readUtf8(file));
-    addWikiLinkTarget(targetIndex, parsed.frontmatter?.title);
-    for (const alias of parsed.frontmatter?.aliases ?? []) {
-      addWikiLinkTarget(targetIndex, alias);
+    const document = {
+      path: cwdRel,
+      title: parsed.frontmatter?.title ?? null,
+      aliases: Array.isArray(parsed.frontmatter?.aliases)
+        ? parsed.frontmatter.aliases.filter((alias) => typeof alias === "string")
+        : []
+    };
+    documentsByPath.set(cwdRel, document);
+
+    addWikiLinkTarget(targets, wikiRel, document);
+    addWikiLinkTarget(targets, withoutExtension, document);
+    addWikiLinkTarget(targets, cwdRel, document);
+    addWikiLinkTarget(targets, cwdRel.replace(/\.md$/i, ""), document);
+    addWikiLinkTarget(targets, basename, document);
+
+    addWikiLinkTarget(targets, document.title, document);
+    for (const alias of document.aliases) {
+      addWikiLinkTarget(targets, alias, document);
+      aliases.push({ alias, path: cwdRel, title: document.title });
     }
   }
 
-  return targetIndex;
+  return { targets, aliases, documentsByPath };
 }
 
-function addWikiLinkTarget(targetIndex, value) {
+function addWikiLinkTarget(targetIndex, value, document) {
   const normalized = normalizeWikiLinkKey(value);
-  if (normalized) targetIndex.add(normalized);
+  if (normalized && !targetIndex.has(normalized)) targetIndex.set(normalized, document);
 }
 
 function normalizeWikiLinkTarget(rawTarget) {
@@ -875,6 +953,25 @@ function normalizeWikiLinkKey(value) {
     .toLowerCase();
 
   return normalized;
+}
+
+function emptyWikiGraph() {
+  return {
+    summary: {
+      documents: 0,
+      wikiLinks: 0,
+      resolvedWikiLinks: 0,
+      unresolvedWikiLinks: 0,
+      aliases: 0,
+      orphanDocuments: 0
+    },
+    documents: [],
+    links: [],
+    unresolvedConcepts: [],
+    aliases: [],
+    orphanDocuments: [],
+    findings: []
+  };
 }
 
 async function scanAdapters(cwd, agents) {
@@ -1523,6 +1620,32 @@ function formatFindingSummary(summary) {
     `by_severity: ${formatCountMap(summary.bySeverity)}`,
     `by_category: ${formatCountMap(summary.byCategory)}`
   ];
+}
+
+function formatWikiGraphSummary(wikiGraph) {
+  if (!wikiGraph || wikiGraph.summary.documents === 0) return ["not available"];
+
+  const summary = wikiGraph.summary;
+  const lines = [
+    `documents: ${summary.documents}`,
+    `wiki_links: ${summary.wikiLinks}`,
+    `resolved_wiki_links: ${summary.resolvedWikiLinks}`,
+    `unresolved_concepts: ${summary.unresolvedWikiLinks}`,
+    `aliases: ${summary.aliases}`,
+    `orphan_documents: ${summary.orphanDocuments}`
+  ];
+
+  if (wikiGraph.unresolvedConcepts.length > 0) {
+    lines.push(`unresolved: ${wikiGraph.unresolvedConcepts.map((item) => `${item.target} (${item.sources.join(", ")})`).join("; ")}`);
+  }
+  if (wikiGraph.aliases.length > 0) {
+    lines.push(`alias_targets: ${wikiGraph.aliases.map((item) => `${item.alias} -> ${item.path}`).join("; ")}`);
+  }
+  if (wikiGraph.orphanDocuments.length > 0) {
+    lines.push(`orphans: ${wikiGraph.orphanDocuments.join(", ")}`);
+  }
+
+  return lines;
 }
 
 function formatCountMap(counts) {

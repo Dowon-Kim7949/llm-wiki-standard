@@ -697,6 +697,30 @@ test("status reports missing wiki links", async () => {
   assert.equal(result.findings.some((finding) => finding.rule === "wiki_link.missing" && finding.message.includes("readme alias")), false);
 });
 
+test("audit and validate include wiki graph summary with aliases, unresolved concepts, and orphans", async () => {
+  const cwd = await makeProject("wiki-graph-");
+  await writeJson(path.join(cwd, "package.json"), { name: "wiki-graph" });
+  await writeWikiDoc(cwd, "index.md", "LLM-WIKI Index", "See [[Core Concept]], [[Main Concept]], and [[Missing Graph Concept]].");
+  await writeWikiDocWithAliases(cwd, "concepts/core.md", "Core Concept", "Existing concept.", ["Main Concept"]);
+  await writeWikiDoc(cwd, "concepts/orphan.md", "Orphan Concept", "No inbound wiki links.");
+
+  const auditResult = await audit({ cwd, type: "unknown", profiles: [], agents: [], format: "text", strict: false });
+  const validateResult = await validateCommand({ cwd, type: "unknown", profiles: [], agents: [], format: "text", strict: false });
+
+  assert.equal(auditResult.wikiGraph.summary.documents, 3);
+  assert.equal(auditResult.wikiGraph.summary.wikiLinks, 3);
+  assert.equal(auditResult.wikiGraph.summary.resolvedWikiLinks, 2);
+  assert.equal(auditResult.wikiGraph.summary.unresolvedWikiLinks, 1);
+  assert.equal(auditResult.wikiGraph.summary.aliases, 1);
+  assert.deepEqual(auditResult.wikiGraph.orphanDocuments, ["docs/llm-wiki/concepts/orphan.md"]);
+  assert.deepEqual(auditResult.wikiGraph.unresolvedConcepts, [{ target: "Missing Graph Concept", sources: ["docs/llm-wiki/index.md"] }]);
+  assert.deepEqual(auditResult.wikiGraph.aliases, [{ alias: "Main Concept", path: "docs/llm-wiki/concepts/core.md", title: "Core Concept" }]);
+  assert.ok(auditResult.text.includes("## Wiki Graph"));
+  assert.ok(auditResult.text.includes("unresolved_concepts: 1"));
+  assert.equal(validateResult.wikiGraph.summary.orphanDocuments, 1);
+  assert.ok(validateResult.text.includes("orphan_documents: 1"));
+});
+
 test("parseArgs supports report output path", () => {
   const parsed = parseArgs(["audit", "--cwd", ".", "--profile", "frontend", "--profile", "library", "--format", "markdown", "--out", "docs/llm-wiki/audits/report.md"]);
 
@@ -817,6 +841,10 @@ test("okf-v0.1 fixture corpus validates expected document types and links", asyn
   assert.equal(result.findings.some((finding) => finding.rule?.startsWith("okf.")), false);
   assert.equal(result.findings.some((finding) => finding.rule === "wiki_link.missing"), false);
   assert.equal(result.findings.some((finding) => finding.rule === "source_files.missing"), false);
+  assert.equal(result.wikiGraph.summary.documents, 6);
+  assert.equal(result.wikiGraph.summary.unresolvedWikiLinks, 0);
+  assert.equal(result.wikiGraph.summary.aliases, 6);
+  assert.equal(result.wikiGraph.summary.orphanDocuments, 0);
   for (const type of ["concept", "project", "person", "meeting_note", "event", "api_reference"]) {
     assert.ok(corpus.includes(`type: ${type}`));
   }
