@@ -1,5 +1,5 @@
 import path from "node:path";
-import { audit, doctor, handoffCommand, initCommand, migrateCommand, nextCommand, promptCommand, quickstartCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "./commands.js";
+import { audit, doctor, explainCommand, handoffCommand, initCommand, migrateCommand, nextCommand, promptCommand, quickstartCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "./commands.js";
 import { printResult } from "./report.js";
 
 const COMMANDS = new Map([
@@ -8,6 +8,7 @@ const COMMANDS = new Map([
   ["validate-frontmatter", validateFrontmatterCommand],
   ["status", statusCommand],
   ["next", nextCommand],
+  ["explain", explainCommand],
   ["audit", audit],
   ["quickstart", quickstartCommand],
   ["handoff", handoffCommand],
@@ -68,6 +69,7 @@ export function parseArgs(argv) {
   const options = {
     cwd: process.cwd(),
     task: null,
+    findingRule: null,
     type: null,
     format: "text",
     dryRun: false,
@@ -164,6 +166,8 @@ export function parseArgs(argv) {
       options.agents = [];
     } else if (arg.startsWith("-")) {
       errors.push(`Unknown option: ${arg}`);
+    } else if (command === "explain" && !options.findingRule) {
+      options.findingRule = arg;
     } else {
       errors.push(`Unexpected argument: ${arg}`);
     }
@@ -174,6 +178,9 @@ export function parseArgs(argv) {
     errors.push(`Unsupported existing policy: ${options.existing}`);
   }
   validateCommandOptions(command, usedOptions, errors);
+  if (command === "explain" && !options.findingRule) {
+    errors.push("Missing required argument for explain: <finding>.");
+  }
 
   return { command, options, errors };
 }
@@ -184,6 +191,7 @@ const COMMAND_OPTION_RULES = {
   "validate-frontmatter": new Set(["cwd", "strict", "format", "out"]),
   status: new Set(["cwd", "type", "profile", "agent", "format", "out"]),
   next: new Set(["cwd", "type", "profile", "agent", "strict", "format", "out"]),
+  explain: new Set(["format", "out"]),
   audit: new Set(["cwd", "type", "profile", "agent", "strict", "format", "out"]),
   quickstart: new Set(["cwd", "type", "profile", "agent", "existing", "minimal", "dry-run", "write", "format", "out"]),
   handoff: new Set(["cwd", "type", "profile", "agent", "format", "out"]),
@@ -213,6 +221,7 @@ function validateCommandOptions(command, usedOptions, errors) {
   if (command === "prompt" && !usedOptions.has("task")) {
     errors.push("Missing required option for prompt: --task.");
   }
+
 }
 
 function normalizeAgents(agentValues, withAdapters, errors) {
@@ -259,6 +268,7 @@ Usage:
   llm-wiki doctor [--cwd <path>] [--format text|json|markdown]
   llm-wiki status [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--format text|json|markdown] [--out <path>]
   llm-wiki next [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--strict] [--format text|json|markdown] [--out <path>]
+  llm-wiki explain <finding> [--format text|json|markdown] [--out <path>]
   llm-wiki validate [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--strict] [--format text|json|markdown] [--out <path>]
   llm-wiki validate-frontmatter [--cwd <path>] [--strict]
   llm-wiki audit [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|antigravity|all>...] [--strict] [--format text|json|markdown] [--out <path>]
@@ -277,6 +287,7 @@ Safety:
   Adapter checks and suggestions are opt-in with --agent. ANTIGRAVITY.md remains an info-level candidate.
   prompt prints repeatable post-wiki agent workflows and does not write project files unless --out is used for the report.
   next is advisory: it reuses audit coverage and recommends follow-up actions without writing files.
+  explain is advisory: it explains a finding rule and suggests safe remediation steps.
 
 Use llm-wiki help <command> for command-specific guidance.
 `);
@@ -318,6 +329,14 @@ Usage:
 
 Purpose:
   Reuses audit coverage and wikiGraph data to recommend the next review, repair, or setup actions. This command is advisory and does not write files.
+`,
+  explain: `llm-wiki explain
+
+Usage:
+  llm-wiki explain <finding> [--format text|json|markdown] [--out <path>]
+
+Purpose:
+  Explains a finding rule such as wiki_link.missing, frontmatter.required, okf.type_required, or source_files.missing, then suggests safe remediation steps.
 `,
   quickstart: `llm-wiki quickstart
 

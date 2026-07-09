@@ -58,6 +58,7 @@ Use this checklist before publishing `@dowonk-7949/llm-wiki-standard@0.1.2`.
 - [ ] Confirm `validate` reports missing `[[wiki links]]` and accepts file path, basename, frontmatter `title`, and frontmatter `aliases` targets.
 - [ ] Confirm status, audit, and validate results include a `wikiGraph` summary for wiki links, unresolved concepts, aliases, and orphan documents.
 - [ ] Confirm `next` recommends prioritized actions from audit findings and wikiGraph without writing files.
+- [ ] Confirm `explain <finding>` describes known finding rules and blocks unknown rules.
 - [ ] Confirm `--profile okf-v0.1` requires explicit `type`, accepts optional `aliases` and `tags` arrays, and does not infer OKF `type` from LLM-WIKI `doc_type`.
 - [ ] Confirm the OKF fixture corpus covers concept, project, person, meeting_note, event, and api_reference documents without unresolved wiki links.
 - [ ] Confirm generated wiki drafts include summary, inspection, evidence, open question, and review note sections where applicable.

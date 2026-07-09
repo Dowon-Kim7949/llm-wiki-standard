@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { cp, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { audit, doctor, handoffCommand, initCommand, migrateCommand, nextCommand, promptCommand, quickstartCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "../src/commands.js";
+import { audit, doctor, explainCommand, handoffCommand, initCommand, migrateCommand, nextCommand, promptCommand, quickstartCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "../src/commands.js";
 import { parseArgs } from "../src/cli.js";
 import { writeReport } from "../src/report.js";
 
@@ -48,6 +48,7 @@ test("parseArgs supports quickstart write and handoff options", () => {
   const handoff = parseArgs(["handoff", "--type", "backend", "--profile", "library", "--agent", "claude"]);
   const status = parseArgs(["status", "--agent", "codex"]);
   const next = parseArgs(["next", "--profile", "okf-v0.1", "--agent", "codex", "--strict"]);
+  const explain = parseArgs(["explain", "wiki_link.missing", "--format", "json"]);
 
   assert.equal(quickstart.command, "quickstart");
   assert.equal(quickstart.options.write, true);
@@ -67,6 +68,10 @@ test("parseArgs supports quickstart write and handoff options", () => {
   assert.deepEqual(next.options.agents, ["codex"]);
   assert.equal(next.options.strict, true);
   assert.deepEqual(next.errors, []);
+  assert.equal(explain.command, "explain");
+  assert.equal(explain.options.findingRule, "wiki_link.missing");
+  assert.equal(explain.options.format, "json");
+  assert.deepEqual(explain.errors, []);
 });
 
 test("parseArgs supports prompt task options", () => {
@@ -86,11 +91,13 @@ test("parseArgs rejects conflicting and command-specific options", () => {
   const validateWrite = parseArgs(["validate", "--write"]);
   const handoffExisting = parseArgs(["handoff", "--existing", "overwrite"]);
   const promptMissingTask = parseArgs(["prompt", "--agent", "codex"]);
+  const explainMissingFinding = parseArgs(["explain", "--format", "json"]);
 
   assert.ok(conflicting.errors.includes("Options --dry-run and --write cannot be used together."));
   assert.deepEqual(validateWrite.errors, ["Option --write is not supported by validate."]);
   assert.deepEqual(handoffExisting.errors, ["Option --existing is not supported by handoff."]);
   assert.deepEqual(promptMissingTask.errors, ["Missing required option for prompt: --task."]);
+  assert.deepEqual(explainMissingFinding.errors, ["Missing required argument for explain: <finding>."]);
 });
 
 test("parseArgs rejects unsupported existing policy", () => {
@@ -747,6 +754,23 @@ test("next command recommends prioritized actions from audit findings and wiki g
   assert.ok(result.text.includes("# LLM-WIKI Next Actions"));
   assert.ok(result.text.includes("## Recommended Actions"));
   assert.ok(result.text.includes("command: llm-wiki validate"));
+});
+
+test("explain command describes known finding rules and blocks unknown rules", async () => {
+  const explained = await explainCommand({ findingRule: "wiki_link.missing", format: "text" });
+  const unknown = await explainCommand({ findingRule: "made.up", format: "text" });
+
+  assert.equal(explained.command, "explain");
+  assert.equal(explained.result, "pass");
+  assert.equal(explained.findingRule, "wiki_link.missing");
+  assert.equal(explained.explanation.category, "wiki_link");
+  assert.ok(explained.explanation.remediation.some((step) => step.includes("title, basename, file path, or alias")));
+  assert.ok(explained.text.includes("# LLM-WIKI Finding Explanation"));
+  assert.ok(explained.text.includes("llm-wiki validate"));
+
+  assert.equal(unknown.result, "blocked");
+  assert.ok(unknown.findings.some((finding) => finding.rule === "explain.unknown_rule"));
+  assert.ok(unknown.knownRules.includes("frontmatter.required"));
 });
 
 test("parseArgs supports report output path", () => {

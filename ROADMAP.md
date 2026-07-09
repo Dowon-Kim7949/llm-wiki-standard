@@ -107,7 +107,7 @@ Goal: help maintainers decide the next useful action without reading every docum
 
 - Keep improving `llm-wiki status`.
 - Add `llm-wiki next` for recommended next actions. Status: implemented as an advisory command backed by audit findings and wikiGraph.
-- Consider `llm-wiki explain <finding>` for remediation guidance.
+- Add `llm-wiki explain <finding>` for remediation guidance. Status: implemented with rule-specific explanations and safe remediation commands.
 - Add `llm-wiki prompt --task <name>` for repeatable agent workflows after the project LLM-WIKI is already initialized and enriched. Status: implemented.
 - Add task prompt presets for `feature`, `fix`, `refactor`, `docs-sync`, and `okf-extract`. Status: implemented.
 - Ensure feature/fix/refactor prompts require the agent to read `docs/llm-wiki/index.md`, locate related domain/API/component documents, inspect source files, produce an implementation plan, update code, update affected wiki documents, append `docs/llm-wiki/log.md`, and keep AI-edited docs as `needs_review`. Status: implemented.
