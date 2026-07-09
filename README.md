@@ -337,11 +337,11 @@ CI runs verification on pull requests and `main` pushes. Publishing is restricte
 
 Before automated publish, register an npm Trusted Publisher for GitHub Actions with workflow filename `publish.yml`. The publish job uses the GitHub Environment `npm-release`; configure required reviewers or deployment approval rules for that environment in GitHub UI.
 
-To publish version `0.1.3` after verification:
+To publish version `0.1.4` after verification:
 
 ```bash
-git tag v0.1.3
-git push origin v0.1.3
+git tag v0.1.4
+git push origin v0.1.4
 ```
 
 ## Related Documents

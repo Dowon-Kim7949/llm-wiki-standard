@@ -164,7 +164,7 @@ Goal: support OKF v0.1 without weakening the existing LLM-WIKI safety model.
 
 ## Near-Term Priority
 
-1. Verify the `0.1.3` package from a clean consumer project and record any install or CLI smoke-test issues.
+1. Verify the `0.1.4` package from a clean consumer project and record any install or CLI smoke-test issues.
 2. Exercise evidence references on one real project document set and note whether file, line, symbol, section, and route references are enough.
 3. Decide how strict evidence validation should be introduced in CI: advisory first, strict only for release gates, or strict on every validation run.
 4. Add Node LTS matrix and cross-platform smoke tests before the next release tag.
