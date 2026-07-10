@@ -11,7 +11,7 @@ import { renderTextReport } from "./report.js";
 import { scanSensitiveInfo } from "./sensitive-info.js";
 import { renderWikiDocumentTemplate, todayIsoDate } from "./template-renderer.js";
 import { apiServiceInventoryChecklist, buildTaskPrompt } from "./task-prompts.js";
-import { buildReleaseNotes, collectCommitsSinceLastTag } from "./release-notes.js";
+import { buildReleaseNotes, collectCommits } from "./release-notes.js";
 
 const TEMPLATE_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "templates");
 
@@ -555,7 +555,7 @@ export async function releaseNotesCommand(options) {
   const version = options.version ?? packageJson.version ?? "0.0.0";
   const project = String(packageJson.name ?? path.basename(options.cwd) ?? "project").replace(/^@[^/]+\//, "");
   const date = todayIsoDate();
-  const { commits, gitAvailable } = collectCommitsSinceLastTag(options.cwd);
+  const { commits, gitAvailable } = collectCommits(options.cwd, { since: options.since });
   const document = buildReleaseNotes({ version, date, project, commits, gitAvailable });
 
   return {
@@ -563,6 +563,7 @@ export async function releaseNotesCommand(options) {
     result: "pass",
     version,
     project,
+    since: options.since ?? null,
     commitCount: commits.length,
     gitAvailable,
     document,

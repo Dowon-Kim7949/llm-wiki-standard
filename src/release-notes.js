@@ -28,15 +28,20 @@ export function parseCommit(hash, subject) {
   return { type: "other", description: String(subject).trim(), hash };
 }
 
-// Best-effort git history since the last v* tag. Returns { commits, gitAvailable }.
-export function collectCommitsSinceLastTag(cwd) {
+// Best-effort git history. With { since } the range is `<since>..HEAD`;
+// otherwise it uses the last v* tag. Returns { commits, gitAvailable }.
+export function collectCommits(cwd, { since = null } = {}) {
   try {
     let range = null;
-    try {
-      const tag = runGit(cwd, ["describe", "--tags", "--abbrev=0", "--match", "v*"]).trim();
-      if (tag) range = `${tag}..HEAD`;
-    } catch {
-      range = null;
+    if (since) {
+      range = `${since}..HEAD`;
+    } else {
+      try {
+        const tag = runGit(cwd, ["describe", "--tags", "--abbrev=0", "--match", "v*"]).trim();
+        if (tag) range = `${tag}..HEAD`;
+      } catch {
+        range = null;
+      }
     }
 
     const args = ["log", "--no-merges", "--pretty=format:%h%x1f%s"];

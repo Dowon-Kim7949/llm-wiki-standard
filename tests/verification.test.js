@@ -750,6 +750,28 @@ test("release-notes command honors an explicit --version and writes via --out", 
   assert.ok(content.includes("릴리스 노트 v2.0.0 · Release Notes v2.0.0"));
 });
 
+test("parseArgs accepts --since for release-notes and rejects it elsewhere", () => {
+  const ok = parseArgs(["release-notes", "--version", "1.2.0", "--since", "v1.1.0"]);
+  const rejected = parseArgs(["validate", "--since", "v1.1.0"]);
+
+  assert.equal(ok.command, "release-notes");
+  assert.equal(ok.options.version, "1.2.0");
+  assert.equal(ok.options.since, "v1.1.0");
+  assert.deepEqual(ok.errors, []);
+  assert.deepEqual(rejected.errors, ["Option --since is not supported by validate."]);
+});
+
+test("release-notes threads --since and stays usable without git history", async () => {
+  const cwd = await makeProject("relnotes-since-");
+  await writeJson(path.join(cwd, "package.json"), { name: "relnotes", version: "3.0.0" });
+
+  const result = await releaseNotesCommand({ cwd, version: "3.0.0", since: "v2.0.0", format: "text" });
+
+  assert.equal(result.since, "v2.0.0");
+  assert.equal(result.gitAvailable, false);
+  assert.ok(result.document.includes("릴리스 노트 v3.0.0 · Release Notes v3.0.0"));
+});
+
 test("migrate dry-run reports safe additions without writing files", async () => {
   const cwd = await makeProject("migrate-");
   await writeWikiDoc(cwd, "index.md", "LLM-WIKI Index", "Existing wiki entry.");

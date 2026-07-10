@@ -24,6 +24,20 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-10 - release-notes --since 옵션 추가
+
+- status: needs_review
+- actor: Claude Code
+- scope: code
+- changed:
+  - src/release-notes.js, src/commands.js, src/cli.js, tests/verification.test.js
+- summary:
+  - `release-notes --since <git-ref>` 추가. 범위를 `<ref>..HEAD`로 강제해, 태그 생성 후에도 특정 기준점부터 노트를 재생성할 수 있다. `collectCommitsSinceLastTag`를 `collectCommits(cwd, { since })`로 일반화.
+- evidence:
+  - src/release-notes.js
+- caveats:
+  - `--since`는 `<ref>..HEAD` 범위이므로, 과거 버전을 정확히 재현하려면 태그 이후 커밋이 섞이지 않도록 주의한다.
+
 ## 2026-07-10 - 릴리스 노트 한국어·영어 이중 언어화
 
 - status: needs_review

@@ -91,6 +91,7 @@ export function parseArgs(argv) {
     task: null,
     findingRule: null,
     version: null,
+    since: null,
     type: null,
     format: "text",
     dryRun: false,
@@ -133,6 +134,13 @@ export function parseArgs(argv) {
       const value = readOptionValue(rest, index, arg, errors);
       if (value) {
         options.version = value;
+        index += 1;
+      }
+    } else if (arg === "--since") {
+      usedOptions.add("since");
+      const value = readOptionValue(rest, index, arg, errors);
+      if (value) {
+        options.since = value;
         index += 1;
       }
     } else if (arg === "--profile") {
@@ -226,7 +234,7 @@ const COMMAND_OPTION_RULES = {
   prompt: new Set(["cwd", "task", "type", "profile", "agent", "format", "out"]),
   init: new Set(["cwd", "type", "profile", "agent", "existing", "minimal", "dry-run", "write", "format", "out", "with-adapters", "no-adapters"]),
   migrate: new Set(["cwd", "type", "profile", "agent", "dry-run", "apply", "format", "out"]),
-  "release-notes": new Set(["cwd", "version", "format", "out"])
+  "release-notes": new Set(["cwd", "version", "since", "format", "out"])
 };
 
 function validateCommandOptions(command, usedOptions, errors) {
@@ -308,7 +316,7 @@ Usage:
   llm-wiki init --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|antigravity|all>...] [--minimal] [--format text|json|markdown|html] [--out <path>]
   llm-wiki init --write [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|antigravity|all>...] [--existing skip|overwrite] [--minimal] [--format text|json|markdown|html] [--out <path>]
   llm-wiki migrate --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|antigravity|all>...] [--format text|json|markdown|html] [--out <path>]
-  llm-wiki release-notes [--version <x.y.z>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki release-notes [--version <x.y.z>] [--since <git-ref>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
 
 Safety:
   init writes only when --write is explicit. Existing wiki docs default to --existing skip.
@@ -437,9 +445,11 @@ Purpose:
   "release-notes": `llm-wiki release-notes
 
 Usage:
-  llm-wiki release-notes [--version <x.y.z>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki release-notes [--version <x.y.z>] [--since <git-ref>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
 
 Purpose:
-  Generates a needs_review release-notes document for a version. It groups conventional commits since the last v* tag (feat/fix/perf/refactor/docs) into Korean-first bilingual sections (추가/변경/수정/문서/기타), and falls back to a fillable scaffold when git history is unavailable. Defaults the version to package.json; use --out to write the document. Run it before creating the release tag, since "since the last v* tag" is empty once the new tag exists.
+  Generates a needs_review release-notes document for a version. It groups conventional commits (feat/fix/perf/refactor/docs) into Korean-first bilingual sections (추가/변경/수정/문서/기타), and falls back to a fillable scaffold when git history is unavailable. Defaults the version to package.json; use --out to write the document.
+
+  By default the range is "since the last v* tag". Pass --since <git-ref> (for example the previous release tag) to force the base range as <git-ref>..HEAD, which is useful for regenerating a version's notes after its tag already exists.
 `
 };
