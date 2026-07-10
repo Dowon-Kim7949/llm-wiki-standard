@@ -440,6 +440,6 @@ Usage:
   llm-wiki release-notes [--version <x.y.z>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
 
 Purpose:
-  Generates a needs_review release-notes document for a version. It groups conventional commits since the last v* tag (feat/fix/perf/refactor/docs) into Added/Changed/Fixed/Documentation/Other, and falls back to a fillable scaffold when git history is unavailable. Defaults the version to package.json; use --out to write the document.
+  Generates a needs_review release-notes document for a version. It groups conventional commits since the last v* tag (feat/fix/perf/refactor/docs) into Korean-first bilingual sections (추가/변경/수정/문서/기타), and falls back to a fillable scaffold when git history is unavailable. Defaults the version to package.json; use --out to write the document. Run it before creating the release tag, since "since the last v* tag" is empty once the new tag exists.
 `
 };

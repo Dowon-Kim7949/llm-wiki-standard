@@ -703,12 +703,13 @@ test("buildReleaseNotes groups commits by section and stays needs_review", () =>
     ]
   });
 
-  assert.ok(doc.includes("# Release Notes v1.2.3"));
+  assert.ok(doc.includes("릴리스 노트 v1.2.3"));
+  assert.ok(doc.includes("Release Notes v1.2.3"));
   assert.ok(doc.includes("status: needs_review"));
-  assert.ok(doc.includes("## Added\n\n- add cursor adapter (aaa111)"));
-  assert.ok(doc.includes("## Fixed\n\n- correct generated date (bbb222)"));
-  assert.ok(doc.includes("## Changed\n\n- simplify detector (ddd444)"));
-  assert.ok(doc.includes("## Documentation\n\n- update readme (ccc333)"));
+  assert.ok(doc.includes("## 추가 · Added\n\n- add cursor adapter (aaa111)"));
+  assert.ok(doc.includes("## 수정 · Fixed\n\n- correct generated date (bbb222)"));
+  assert.ok(doc.includes("## 변경 · Changed\n\n- simplify detector (ddd444)"));
+  assert.ok(doc.includes("## 문서 · Documentation\n\n- update readme (ccc333)"));
   assert.equal(doc.includes("bump dep"), false);
   assert.equal(doc.includes("prepare 1.2.2"), false);
 });
@@ -717,7 +718,8 @@ test("buildReleaseNotes notes when git history is unavailable", () => {
   const doc = buildReleaseNotes({ version: "1.0.0", date: "2026-07-10", project: "demo", commits: [], gitAvailable: false });
 
   assert.ok(doc.includes("Git history was not available"));
-  assert.ok(doc.includes("# Release Notes v1.0.0"));
+  assert.ok(doc.includes("git 이력을 사용할 수 없어"));
+  assert.ok(doc.includes("릴리스 노트 v1.0.0 · Release Notes v1.0.0"));
 });
 
 test("release-notes command builds a document for the package version", async () => {
@@ -729,7 +731,7 @@ test("release-notes command builds a document for the package version", async ()
   assert.equal(result.command, "release-notes");
   assert.equal(result.version, "9.9.9");
   assert.equal(result.project, "relnotes");
-  assert.ok(result.document.includes("# Release Notes v9.9.9"));
+  assert.ok(result.document.includes("릴리스 노트 v9.9.9 · Release Notes v9.9.9"));
   assert.ok(result.document.includes("status: needs_review"));
   assert.equal(result.text, result.document);
 });
@@ -745,7 +747,7 @@ test("release-notes command honors an explicit --version and writes via --out", 
 
   assert.equal(result.version, "2.0.0");
   assert.ok(content.startsWith("---"));
-  assert.ok(content.includes("# Release Notes v2.0.0"));
+  assert.ok(content.includes("릴리스 노트 v2.0.0 · Release Notes v2.0.0"));
 });
 
 test("migrate dry-run reports safe additions without writing files", async () => {

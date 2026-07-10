@@ -24,6 +24,21 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-10 - 릴리스 노트 한국어·영어 이중 언어화
+
+- status: needs_review
+- actor: Claude Code
+- scope: code + docs
+- changed:
+  - src/release-notes.js, src/cli.js, tests/verification.test.js
+  - docs/llm-wiki/releases/v0.1.7.md
+- summary:
+  - `release-notes` 생성 골격(제목·안내문·섹션 헤더·폴백)을 한국어 우선 이중 언어(예: `## 추가 · Added`)로 변경. 커밋에서 온 항목은 소스 그대로 유지한다.
+- evidence:
+  - src/release-notes.js
+- caveats:
+  - 릴리스 노트는 태그 생성 "전"에 만들어야 한다(태그 생성 후에는 "마지막 v* 태그 이후"가 비어 v0.1.7 노트는 수동 복원함).
+
 ## 2026-07-10 - release-notes 명령 추가 (docs-sync)
 
 - status: needs_review

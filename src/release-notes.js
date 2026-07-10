@@ -11,6 +11,15 @@ const TYPE_TO_SECTION = {
   docs: "Documentation"
 };
 
+// Korean-first bilingual labels for the generated scaffolding.
+const SECTION_LABELS = {
+  Added: "추가 · Added",
+  Changed: "변경 · Changed",
+  Fixed: "수정 · Fixed",
+  Documentation: "문서 · Documentation",
+  Other: "기타 · Other"
+};
+
 export function parseCommit(hash, subject) {
   const match = String(subject).match(/^(\w+)(?:\([^)]*\))?!?:\s*(.+)$/);
   if (match) {
@@ -61,14 +70,16 @@ export function buildReleaseNotes({ version, date, project = "project", commits 
 
   const bodySections = SECTION_ORDER
     .filter((section) => grouped.get(section).length > 0)
-    .map((section) => `## ${section}\n\n${grouped.get(section).map((commit) => `- ${commit.description} (${commit.hash})`).join("\n")}`);
+    .map((section) => `## ${SECTION_LABELS[section]}\n\n${grouped.get(section).map((commit) => `- ${commit.description} (${commit.hash})`).join("\n")}`);
 
   const body = bodySections.length > 0
     ? bodySections.join("\n\n")
-    : `## Changes\n\n- ${gitAvailable ? "No notable changes were recorded since the last release tag." : "Git history was not available; fill in the changes manually."}`;
+    : `## 변경 사항 · Changes\n\n- ${gitAvailable
+        ? "마지막 릴리스 태그 이후 기록된 주요 변경이 없습니다. · No notable changes were recorded since the last release tag."
+        : "git 이력을 사용할 수 없어 변경 사항을 수동으로 작성해야 합니다. · Git history was not available; fill in the changes manually."}`;
 
   return `---
-title: Release Notes v${version}
+title: 릴리스 노트 v${version} · Release Notes v${version}
 tags:
   - llm-wiki
   - release-notes
@@ -88,9 +99,9 @@ visibility: internal
 contains_sensitive_info: false
 ---
 
-# Release Notes v${version}
+# 릴리스 노트 v${version} · Release Notes v${version}
 
-_Generated ${date}. Review and edit before publishing; keep status \`needs_review\` until approved._
+_생성일 ${date}. 게시 전 검토·수정하고, 승인 전까지 status는 \`needs_review\`로 유지하세요. · Generated ${date}; review before publishing and keep status \`needs_review\` until approved._
 
 ${body}
 `;
