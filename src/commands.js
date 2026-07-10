@@ -1132,6 +1132,7 @@ async function collectWikiGraph(cwd) {
   const docsByPath = new Map(docs.map((doc) => [doc.path, doc]));
   const findings = [];
   const links = [];
+  const connectedPaths = new Set();
   const unresolvedByTarget = new Map();
 
   for (const file of markdownFiles) {
@@ -1156,7 +1157,10 @@ async function collectWikiGraph(cwd) {
 
       if (targetDoc) {
         const inboundDoc = docsByPath.get(targetDoc.path);
-        if (inboundDoc && inboundDoc.path !== rel) inboundDoc.inboundCount += 1;
+        if (inboundDoc && inboundDoc.path !== rel) {
+          inboundDoc.inboundCount += 1;
+          connectedPaths.add(inboundDoc.path);
+        }
       } else {
         findings.push({
           severity: "warning",
@@ -1169,6 +1173,22 @@ async function collectWikiGraph(cwd) {
         unresolvedByTarget.set(target, unresolved);
       }
     }
+
+    // Related frontmatter and local Markdown links also connect documents,
+    // so orphan detection reflects the full wiki graph, not only [[wiki links]].
+    const parsed = parseFrontmatter(content);
+    const relatedEntries = Array.isArray(parsed.frontmatter?.related) ? parsed.frontmatter.related : [];
+    for (const relatedEntry of relatedEntries) {
+      if (typeof relatedEntry !== "string") continue;
+      const targetPath = toPosix(relatedEntry.trim().replace(/^\.\//, "").replace(/^\/+/, ""));
+      if (targetPath && targetPath !== rel && docsByPath.has(targetPath)) connectedPaths.add(targetPath);
+    }
+    for (const rawLink of extractMarkdownLinkTargets(content)) {
+      const link = normalizeMarkdownLinkTarget(rawLink);
+      if (!link || isSkippedMarkdownLink(link)) continue;
+      const targetPath = toPosix(path.relative(cwd, resolveMarkdownLinkTarget(cwd, file, link)));
+      if (targetPath && targetPath !== rel && docsByPath.has(targetPath)) connectedPaths.add(targetPath);
+    }
   }
 
   const aliasEntries = [...targetIndex.aliases].sort((left, right) => {
@@ -1176,7 +1196,7 @@ async function collectWikiGraph(cwd) {
     return byAlias || left.path.localeCompare(right.path);
   });
   const orphanDocuments = docs
-    .filter((doc) => doc.path !== "docs/llm-wiki/index.md" && doc.inboundCount === 0)
+    .filter((doc) => doc.path !== "docs/llm-wiki/index.md" && !connectedPaths.has(doc.path))
     .map((doc) => doc.path)
     .sort();
   const unresolvedConcepts = [...unresolvedByTarget.values()].sort((left, right) => left.target.localeCompare(right.target));

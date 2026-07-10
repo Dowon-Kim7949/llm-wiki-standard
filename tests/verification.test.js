@@ -949,6 +949,24 @@ test("audit and validate include wiki graph summary with aliases, unresolved con
   assert.ok(validateResult.text.includes("orphan_documents: 1"));
 });
 
+test("wiki graph treats related and markdown links as connectivity for orphan detection", async () => {
+  const cwd = await makeProject("graph-connectivity-");
+  await writeJson(path.join(cwd, "package.json"), { name: "graph-connectivity" });
+  await writeWikiDocWithRelated(cwd, "index.md", "LLM-WIKI Index", "See [markdown child](markdown-child.md).", [
+    "docs/llm-wiki/related-child.md"
+  ]);
+  await writeWikiDoc(cwd, "related-child.md", "Related Child", "Connected via related only.");
+  await writeWikiDoc(cwd, "markdown-child.md", "Markdown Child", "Connected via markdown link only.");
+  await writeWikiDoc(cwd, "orphan-child.md", "Orphan Child", "No inbound links of any kind.");
+
+  const auditResult = await audit({ cwd, type: "unknown", profiles: [], agents: [], format: "text", strict: false });
+  const orphans = auditResult.wikiGraph.orphanDocuments;
+
+  assert.equal(orphans.includes("docs/llm-wiki/related-child.md"), false);
+  assert.equal(orphans.includes("docs/llm-wiki/markdown-child.md"), false);
+  assert.ok(orphans.includes("docs/llm-wiki/orphan-child.md"));
+});
+
 test("next command recommends prioritized actions from audit findings and wiki graph", async () => {
   const cwd = await makeProject("next-actions-");
   await writeJson(path.join(cwd, "package.json"), { name: "next-actions" });
