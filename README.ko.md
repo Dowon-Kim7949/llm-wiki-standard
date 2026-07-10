@@ -185,9 +185,9 @@ npx llm-wiki quickstart --write --type frontend --agent claude
 
 ## CLI가 하는 일
 
-- 로컬 signal 또는 `--type`으로 project type을 감지합니다.
+- Node·Python·Go·Rust·JVM 매니페스트 signal 또는 `--type`으로 project type을 감지합니다.
 - 공통 `docs/llm-wiki` 문서 구조를 만듭니다.
-- 선택한 adapter 파일이 없을 때만 생성합니다. 예: `AGENTS.md`, `CLAUDE.md`.
+- 선택한 adapter 파일이 없을 때만 생성합니다. 예: `AGENTS.md`(Codex), `CLAUDE.md`(Claude Code), `.cursor/rules/llm-wiki.mdc`(Cursor), `.github/copilot-instructions.md`(GitHub Copilot).
 - frontmatter, encoding, local markdown link, `[[wiki links]]`, adapter entrypoint, sensitive-info 규칙을 검증합니다.
 - LLM-WIKI frontmatter contract를 `rules/frontmatter.schema.json`으로 게시하고, 같은 runtime contract로 frontmatter를 검증합니다.
 - wiki frontmatter의 local `source_files` 항목이 실제로 존재하는지 확인합니다.
@@ -224,6 +224,7 @@ npx llm-wiki quickstart --write --type frontend --agent claude
 | `llm-wiki validate` | local check 또는 CI용 구조/안전 검증을 수행합니다. |
 | `llm-wiki audit` | 더 넓은 audit report를 생성합니다. |
 | `llm-wiki migrate --dry-run` | 파일을 쓰지 않고 검토 가능한 migration plan을 만듭니다. |
+| `llm-wiki release-notes` | 마지막 `v*` 태그 이후 conventional commit으로 `needs_review` 릴리스 노트 문서를 생성합니다. |
 
 명령별 옵션은 의도적으로 제한됩니다. 예를 들어 `validate --write`와 `handoff --existing overwrite`는 해당 명령에 속하지 않는 옵션이므로 거부됩니다.
 
@@ -296,15 +297,29 @@ OKF profile은 명시적인 frontmatter `type`을 요구하고, optional `aliase
 - `--task <feature|fix|refactor|docs-sync|okf-extract>`: `llm-wiki prompt`의 task preset입니다.
 - `--type <frontend|backend|fullstack|library|mixed|unknown>`: 명시적 project type입니다.
 - `--profile <profile>`: 추가 profile입니다. 반복 사용할 수 있습니다.
-- `--agent <codex|claude|antigravity|all>`: 선택한 adapter target입니다. 반복 사용할 수 있습니다.
-- `--format <text|json|markdown>`: output format입니다.
+- `--agent <codex|claude|cursor|copilot|antigravity|all>`: 선택한 adapter target입니다. 반복 사용할 수 있습니다. `all`은 codex/claude/antigravity로 확장하며 cursor·copilot은 명시 선택합니다.
+- `--format <text|json|markdown|html>`: output format입니다. `html`은 `audit`/`validate`/`status`용 자체완결형 대시보드를 렌더링합니다.
+- `--version <x.y.z>`: `release-notes`의 대상 버전입니다(기본값은 `package.json`).
 - `--out <path>`: report file을 씁니다.
 - `--strict`: warning을 failure로 처리합니다.
 - `--minimal`: core document만 생성합니다.
 - `--write`: 명시적 write가 필요한 명령에서 쓰기 작업을 허용합니다.
 - `--existing <skip|overwrite>`: 기존 wiki document 처리 방식입니다. 기본값은 `skip`입니다.
 
-`--agent antigravity`는 아직 adapter candidate입니다. Tool contract가 확정되기 전에는 Antigravity handoff prompt를 출력하지 않습니다. Handoff prompt는 `--agent codex` 또는 `--agent claude`를 사용하세요.
+`--agent antigravity`는 아직 adapter candidate입니다. Tool contract가 확정되기 전에는 Antigravity handoff prompt를 출력하지 않습니다. Handoff prompt는 `--agent codex`, `--agent claude`, `--agent cursor`, `--agent copilot`을 사용하세요.
+
+## 설정 파일
+
+프로젝트 루트의 선택적 `llm-wiki.config.json`으로 `type`/`profiles`/`agents`/`strict` 기본값을 선언해 매번 플래그를 반복하지 않을 수 있습니다.
+
+```json
+{
+  "type": "library",
+  "agents": ["codex", "claude"]
+}
+```
+
+적용 우선순위는 CLI 플래그 > config > 자동감지입니다. 잘못된 config는 exit code `3`으로 거부되고, `doctor`가 config 존재 여부를 보고합니다. 스키마는 현재 의도적으로 최소한만 지원합니다.
 
 ## Evidence 계약
 
@@ -386,11 +401,11 @@ CI는 pull request와 `main` push에서 검증을 실행합니다. Publish는 `.
 
 자동 publish 전에 GitHub Actions workflow filename을 `publish.yml`로 지정하여 npm Trusted Publisher를 등록해야 합니다. Publish job은 GitHub Environment `npm-release`를 사용하므로 GitHub UI에서 required reviewer 또는 deployment approval rule을 설정할 수 있습니다.
 
-검증 후 version `0.1.5`를 배포하려면 다음을 실행합니다.
+검증 후 version `0.1.7`를 배포하려면 다음을 실행합니다.
 
 ```bash
-git tag v0.1.5
-git push origin v0.1.5
+git tag v0.1.7
+git push origin v0.1.7
 ```
 
 ## 관련 문서

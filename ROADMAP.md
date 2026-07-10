@@ -44,15 +44,15 @@ CI continuously checks quality.
 
 ## Current Release Snapshot
 
-As of 2026-07-10, the source is versioned for `@dowonk-7949/llm-wiki-standard@0.1.6` and uses the automated `v0.1.6` tag release flow.
+As of 2026-07-10, the source is versioned for `@dowonk-7949/llm-wiki-standard@0.1.7` and uses the automated `v0.1.7` tag release flow.
 
 Release state:
 
-- `0.1.6` acts on the v0.1.5 goal-gap evaluation: generated docs now stamp the real generation date (no more hardcoded date), `related` references are existence-checked (`related.missing`), un-enriched placeholder-only docs are surfaced (`content.not_enriched`), the generated `project` field is derived from `package.json` name, wiki-graph orphan detection counts `related`/Markdown links, a `--format html` dashboard is available, and project detection recognizes library/CLI packages. The repository now dogfoods LLM-WIKI in `docs/llm-wiki/`.
-- `0.1.5` included the evidence reference contract, body `## Evidence` alignment checks, strict-mode evidence promotion, and clearer bilingual README guidance.
+- `0.1.7` broadens generality/usability: project detection now recognizes Python/Go/Rust/JVM manifests (not only Node) with `ecosystems`/`primaryManifest`, Cursor (`.cursor/rules/llm-wiki.mdc`) and GitHub Copilot (`.github/copilot-instructions.md`) adapters are supported, an optional `llm-wiki.config.json` declares persistent `type`/`profiles`/`agents`/`strict` defaults, and a new `release-notes` command generates a `needs_review` release-notes document from conventional commits since the last `v*` tag.
+- `0.1.6` acted on the v0.1.5 goal-gap evaluation: real generation date, `related.missing` and `content.not_enriched` validation, generated `project` field derived from `package.json`, wiki-graph orphan detection over `related`/Markdown links, the `--format html` dashboard, and library/CLI detection. The repository dogfoods LLM-WIKI in `docs/llm-wiki/`.
 - Local verification passed before commit: `node --test tests/*.test.js`, `validate-frontmatter`, and `doctor`.
 - `main` push runs CI only. npm publish is reserved for `v*` tag pushes through `.github/workflows/publish.yml`.
-- The release tag must match `package.json`; `v0.1.6` publishes version `0.1.6` through npm Trusted Publishing after workflow verification.
+- The release tag must match `package.json`; `v0.1.7` publishes version `0.1.7` through npm Trusted Publishing after workflow verification.
 
 Next release policy:
 

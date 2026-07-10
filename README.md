@@ -196,9 +196,9 @@ Expected Claude Code work is the same as Codex work: read the adapter and wiki e
 
 ## What The CLI Does
 
-- Detects a project type from local signals, or accepts `--type`.
+- Detects a project type from local signals across Node, Python, Go, Rust, and JVM manifests, or accepts `--type`.
 - Creates the common `docs/llm-wiki` document structure.
-- Creates selected adapter files when absent, such as `AGENTS.md` or `CLAUDE.md`.
+- Creates selected adapter files when absent, such as `AGENTS.md` (Codex), `CLAUDE.md` (Claude Code), `.cursor/rules/llm-wiki.mdc` (Cursor), or `.github/copilot-instructions.md` (GitHub Copilot).
 - Validates frontmatter, encoding, local markdown links, `[[wiki links]]`, adapter entrypoints, and sensitive-info rules.
 - Publishes the LLM-WIKI frontmatter contract as `rules/frontmatter.schema.json` and validates frontmatter against the same runtime contract.
 - Checks that local `source_files` entries in wiki frontmatter exist.
@@ -233,6 +233,7 @@ Expected Claude Code work is the same as Codex work: read the adapter and wiki e
 | `llm-wiki validate` | Run structure and safety validation for local checks or CI. |
 | `llm-wiki audit` | Run broader audit reporting. |
 | `llm-wiki migrate --dry-run` | Prepare a reviewable migration plan without writing files. |
+| `llm-wiki release-notes` | Generate a `needs_review` release-notes document from conventional commits since the last `v*` tag. |
 
 Command options are intentionally scoped. For example, `validate --write` and `handoff --existing overwrite` are rejected because those options do not belong to those commands.
 
@@ -306,15 +307,29 @@ It also creates `docs/llm-wiki/OKF_CONVERSION_GUIDE.md`, which explains how to r
 - `--task <feature|fix|refactor|docs-sync|okf-extract>`: task prompt preset for `llm-wiki prompt`.
 - `--type <frontend|backend|fullstack|library|mixed|unknown>`: explicit project type.
 - `--profile <profile>`: additional profile, repeatable.
-- `--agent <codex|claude|antigravity|all>`: selected adapter target, repeatable.
-- `--format <text|json|markdown|html>`: output format.
+- `--agent <codex|claude|cursor|copilot|antigravity|all>`: selected adapter target, repeatable. `all` expands to codex/claude/antigravity; select cursor/copilot explicitly.
+- `--format <text|json|markdown|html>`: output format. `html` renders a self-contained dashboard for `audit`/`validate`/`status`.
+- `--version <x.y.z>`: target version for `release-notes` (defaults to `package.json`).
 - `--out <path>`: write a report file.
 - `--strict`: treat warnings as failures.
 - `--minimal`: create only core documents.
 - `--write`: allow write operations for commands that require explicit write approval.
 - `--existing <skip|overwrite>`: existing wiki document handling, default `skip`.
 
-`--agent antigravity` remains an adapter candidate only. The CLI can report or suggest the candidate adapter, but it does not print an Antigravity handoff prompt until that tool contract is confirmed. Use `--agent codex` or `--agent claude` for handoff prompts.
+`--agent antigravity` remains an adapter candidate only. The CLI can report or suggest the candidate adapter, but it does not print an Antigravity handoff prompt until that tool contract is confirmed. Use `--agent codex`, `--agent claude`, `--agent cursor`, or `--agent copilot` for handoff prompts.
+
+## Configuration
+
+An optional `llm-wiki.config.json` at the project root sets persistent defaults for `type`, `profiles`, `agents`, and `strict`, so you do not have to repeat those flags:
+
+```json
+{
+  "type": "library",
+  "agents": ["codex", "claude"]
+}
+```
+
+Precedence is CLI flags > config > auto-detection. Malformed config is rejected with exit code `3`, and `doctor` reports whether a config file is present. The schema is intentionally minimal today.
 
 ## Evidence Contract
 
@@ -396,11 +411,11 @@ CI runs verification on pull requests and `main` pushes. Publishing is restricte
 
 Before automated publish, register an npm Trusted Publisher for GitHub Actions with workflow filename `publish.yml`. The publish job uses the GitHub Environment `npm-release`; configure required reviewers or deployment approval rules for that environment in GitHub UI.
 
-To publish version `0.1.5` after verification:
+To publish version `0.1.7` after verification:
 
 ```bash
-git tag v0.1.5
-git push origin v0.1.5
+git tag v0.1.7
+git push origin v0.1.7
 ```
 
 ## Related Documents
