@@ -1,6 +1,6 @@
 {
   "name": "@dowonk-7949/llm-wiki-standard",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": false,
   "type": "module",
   "description": "Stable CLI for the cross-platform LLM-WIKI common standard.",

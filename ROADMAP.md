@@ -44,14 +44,15 @@ CI continuously checks quality.
 
 ## Current Release Snapshot
 
-As of 2026-07-10, the source is versioned for `@dowonk-7949/llm-wiki-standard@0.1.5` and uses the automated `v0.1.5` tag release flow.
+As of 2026-07-10, the source is versioned for `@dowonk-7949/llm-wiki-standard@0.1.6` and uses the automated `v0.1.6` tag release flow.
 
 Release state:
 
-- `0.1.5` includes the evidence reference contract, body `## Evidence` alignment checks, strict-mode evidence promotion, and clearer English and Korean README guidance for reusable agent context, token-saving mechanics, generated document structure, CI exit codes, and supported workflows.
-- Local verification passed before commit: `node --test tests/*.test.js`, `validate-frontmatter`, `doctor`, and `diff --check`.
+- `0.1.6` acts on the v0.1.5 goal-gap evaluation: generated docs now stamp the real generation date (no more hardcoded date), `related` references are existence-checked (`related.missing`), un-enriched placeholder-only docs are surfaced (`content.not_enriched`), the generated `project` field is derived from `package.json` name, wiki-graph orphan detection counts `related`/Markdown links, a `--format html` dashboard is available, and project detection recognizes library/CLI packages. The repository now dogfoods LLM-WIKI in `docs/llm-wiki/`.
+- `0.1.5` included the evidence reference contract, body `## Evidence` alignment checks, strict-mode evidence promotion, and clearer bilingual README guidance.
+- Local verification passed before commit: `node --test tests/*.test.js`, `validate-frontmatter`, and `doctor`.
 - `main` push runs CI only. npm publish is reserved for `v*` tag pushes through `.github/workflows/publish.yml`.
-- The release tag must match `package.json`; `v0.1.5` publishes version `0.1.5` through npm Trusted Publishing after workflow verification.
+- The release tag must match `package.json`; `v0.1.6` publishes version `0.1.6` through npm Trusted Publishing after workflow verification.
 
 Next release policy:
 
