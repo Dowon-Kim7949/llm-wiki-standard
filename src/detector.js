@@ -56,11 +56,19 @@ export async function detectProject(cwd, explicitType, explicitProfiles = []) {
 
   return {
     projectType,
+    projectName: normalizeProjectName(packageJson?.name, cwd),
     confidence: explicitType ? "explicit" : detectedType.confidence,
     activeProfiles,
     signals,
     reviewItems: [...typeReviewItems, ...profileReviewItems]
   };
+}
+
+function normalizeProjectName(name, cwd) {
+  if (typeof name === "string" && name.trim()) {
+    return name.trim().replace(/^@[^/]+\//, "");
+  }
+  return path.basename(cwd) || "project";
 }
 
 function decideType(frontendSignals, backendSignals, signals) {

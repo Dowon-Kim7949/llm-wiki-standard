@@ -1421,9 +1421,7 @@ async function writeAdapterFiles(cwd, agents) {
 
 function renderGeneratedWikiDoc(rel, detection, lastUpdated = todayIsoDate()) {
   const meta = docMetadata(rel, detection, lastUpdated);
-  const project = path.basename(detection.signals.find((signal) => signal.path === "package.json")?.path ?? "project") === "package.json"
-    ? "project"
-    : "project";
+  const project = detection.projectName ?? "project";
 
   return renderWikiDocumentTemplate({
     title: meta.title,

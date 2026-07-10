@@ -461,6 +461,28 @@ test("init write stamps generated documents with the current date", async () => 
   assert.ok(log.includes(`## ${today} - LLM-WIKI 초기 문서 생성`));
 });
 
+test("init write sets the frontmatter project from package.json name", async () => {
+  const cwd = await makeProject("write-project-name-");
+  await writeJson(path.join(cwd, "package.json"), { name: "@acme/widget-kit" });
+
+  await initCommand({
+    cwd,
+    dryRun: false,
+    write: true,
+    minimal: true,
+    withAdapters: false,
+    type: "unknown",
+    profiles: [],
+    agents: [],
+    existing: "skip"
+  });
+
+  const index = await readFile(path.join(cwd, "docs", "llm-wiki", "index.md"), { encoding: "utf8" });
+
+  assert.ok(index.includes("project: widget-kit"));
+  assert.equal(index.includes("project: project"), false);
+});
+
 test("init write keeps existing wiki docs by default and overwrites only when explicit", async () => {
   const cwd = await makeProject("write-existing-");
   const indexPath = path.join(cwd, "docs", "llm-wiki", "index.md");
