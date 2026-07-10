@@ -24,6 +24,23 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-10 - Cursor/Copilot adapter 추가 (docs-sync)
+
+- status: needs_review
+- actor: Claude Code
+- scope: code + docs
+- changed:
+  - src/commands.js, src/cli.js, tests/verification.test.js
+  - templates/adapters/cursor/llm-wiki.mdc, templates/adapters/copilot/copilot-instructions.md
+  - docs/llm-wiki/GLOSSARY.md, docs/llm-wiki/PUBLIC_API.md
+- summary:
+  - Cursor(`.cursor/rules/llm-wiki.mdc`)·GitHub Copilot(`.github/copilot-instructions.md`) adapter를 추가하고 handoff를 adapter 기반으로 일반화했다.
+  - `--agent all`은 backward-compat을 위해 codex/claude/antigravity 세 개만 유지하고, cursor·copilot은 명시 선택하도록 했다.
+- evidence:
+  - src/commands.js
+- caveats:
+  - README.md/README.ko.md의 adapter·옵션 표기 갱신은 다음 릴리스 시점에 함께 반영한다.
+
 ## 2026-07-10 - detector 다중 생태계 지원 반영 (docs-sync)
 
 - status: needs_review

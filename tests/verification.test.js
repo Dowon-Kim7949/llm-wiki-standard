@@ -1162,6 +1162,85 @@ test("audit without agent does not require Claude adapter", async () => {
   assert.equal(result.findings.some((finding) => finding.rule === "adapter.missing" && finding.path === "CLAUDE.md"), false);
 });
 
+test("parseArgs accepts cursor and copilot agents", () => {
+  const parsed = parseArgs(["init", "--write", "--agent", "cursor", "--agent", "copilot"]);
+
+  assert.deepEqual(parsed.options.agents, ["cursor", "copilot"]);
+  assert.deepEqual(parsed.errors, []);
+});
+
+test("agent all still expands to the original three adapters only", () => {
+  const parsed = parseArgs(["validate", "--agent", "all"]);
+
+  assert.deepEqual(parsed.options.agents, ["codex", "claude", "antigravity"]);
+});
+
+test("init write creates Cursor and Copilot adapter files pointing to the wiki entrypoint", async () => {
+  const cwd = await makeProject("adapter-cursor-copilot-");
+  await writeJson(path.join(cwd, "package.json"), { name: "adapters" });
+
+  const result = await initCommand({
+    cwd,
+    dryRun: false,
+    write: true,
+    minimal: true,
+    withAdapters: false,
+    type: "unknown",
+    profiles: [],
+    agents: ["cursor", "copilot"],
+    existing: "skip"
+  });
+
+  assert.ok(result.created.some((line) => line.includes(".cursor/rules/llm-wiki.mdc created")));
+  assert.ok(result.created.some((line) => line.includes(".github/copilot-instructions.md created")));
+
+  const cursor = await readFile(path.join(cwd, ".cursor", "rules", "llm-wiki.mdc"), { encoding: "utf8" });
+  const copilot = await readFile(path.join(cwd, ".github", "copilot-instructions.md"), { encoding: "utf8" });
+  assert.ok(cursor.includes("docs/llm-wiki/index.md"));
+  assert.ok(copilot.includes("docs/llm-wiki/index.md"));
+});
+
+test("audit reports missing Cursor adapter only when the cursor agent is selected", async () => {
+  const cwd = await makeProject("adapter-cursor-audit-");
+  const result = await audit({ cwd, type: null, profiles: [], agents: ["cursor"], format: "text", strict: false });
+
+  assert.ok(result.findings.some((finding) => finding.rule === "adapter.missing" && finding.path === ".cursor/rules/llm-wiki.mdc"));
+  assert.equal(result.findings.some((finding) => finding.rule === "adapter.missing" && finding.path === ".github/copilot-instructions.md"), false);
+});
+
+test("handoff supports Cursor and Copilot with source-enrichment prompts", async () => {
+  const cwd = await makeProject("handoff-cursor-");
+  const cursor = await handoffCommand({
+    cwd,
+    dryRun: false,
+    write: false,
+    minimal: false,
+    withAdapters: false,
+    type: "backend",
+    profiles: [],
+    agents: ["cursor"],
+    existing: "skip"
+  });
+  const copilot = await handoffCommand({
+    cwd,
+    dryRun: false,
+    write: false,
+    minimal: false,
+    withAdapters: false,
+    type: "backend",
+    profiles: [],
+    agents: ["copilot"],
+    existing: "skip"
+  });
+
+  assert.equal(cursor.result, "pass");
+  assert.equal(cursor.handoff.label, "Cursor");
+  assert.ok(cursor.handoff.prompt.includes(".cursor/rules/llm-wiki.mdc"));
+  assert.ok(cursor.text.includes("Cursor에게 넘어가서"));
+  assert.equal(copilot.handoff.label, "GitHub Copilot");
+  assert.ok(copilot.handoff.prompt.includes(".github/copilot-instructions.md"));
+});
+
 test("explicit profiles add profile documents without changing project type", async () => {
   const cwd = await makeProject("profile-");
   await writeJson(path.join(cwd, "package.json"), {

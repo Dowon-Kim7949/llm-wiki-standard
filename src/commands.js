@@ -19,6 +19,7 @@ const ADAPTER_TARGETS = {
     path: "AGENTS.md",
     template: path.join(TEMPLATE_ROOT, "adapters", "codex", "AGENTS.md"),
     writable: true,
+    handoffLabel: "Codex",
     missingSeverity: "warning",
     missingMessage: "Codex adapter file is missing; init --dry-run can suggest AGENTS.md and init --write can create it when absent."
   },
@@ -26,8 +27,25 @@ const ADAPTER_TARGETS = {
     path: "CLAUDE.md",
     template: path.join(TEMPLATE_ROOT, "adapters", "claude-code", "CLAUDE.md"),
     writable: true,
+    handoffLabel: "Claude Code",
     missingSeverity: "warning",
     missingMessage: "Claude Code adapter file is missing; init --dry-run can suggest CLAUDE.md and init --write can create it when absent."
+  },
+  cursor: {
+    path: ".cursor/rules/llm-wiki.mdc",
+    template: path.join(TEMPLATE_ROOT, "adapters", "cursor", "llm-wiki.mdc"),
+    writable: true,
+    handoffLabel: "Cursor",
+    missingSeverity: "warning",
+    missingMessage: "Cursor adapter file is missing; init --dry-run can suggest .cursor/rules/llm-wiki.mdc and init --write can create it when absent."
+  },
+  copilot: {
+    path: ".github/copilot-instructions.md",
+    template: path.join(TEMPLATE_ROOT, "adapters", "copilot", "copilot-instructions.md"),
+    writable: true,
+    handoffLabel: "GitHub Copilot",
+    missingSeverity: "warning",
+    missingMessage: "GitHub Copilot adapter file is missing; init --dry-run can suggest .github/copilot-instructions.md and init --write can create it when absent."
   },
   antigravity: {
     path: "ANTIGRAVITY.md",
@@ -743,8 +761,8 @@ async function scanSensitive(cwd) {
   const findings = [];
   const markdownFiles = await listTargetMarkdown(cwd);
   const adapterFiles = [];
-  for (const rel of ["AGENTS.md", "CLAUDE.md", "ANTIGRAVITY.md"]) {
-    const file = path.join(cwd, rel);
+  for (const target of Object.values(ADAPTER_TARGETS)) {
+    const file = path.join(cwd, target.path);
     if (await pathExists(file)) adapterFiles.push(file);
   }
 
@@ -1432,6 +1450,7 @@ async function writeAdapterFiles(cwd, agents) {
       continue;
     }
 
+    await mkdir(path.dirname(absolutePath), { recursive: true });
     await writeFile(absolutePath, content, { encoding: "utf8" });
     created.push(`${target.path} created for ${agent}.`);
   }
@@ -2335,8 +2354,10 @@ function quickstartInitSummary(initResult) {
 
 function buildHandoff(options, detection = null) {
   const agents = selectedAgents(options);
-  const supportedAgents = agents.length === 0 ? ["codex", "claude"] : agents.filter((agent) => agent === "codex" || agent === "claude");
-  const unsupportedAgents = agents.filter((agent) => agent === "antigravity");
+  const supportedAgents = agents.length === 0
+    ? ["codex", "claude"]
+    : agents.filter((agent) => ADAPTER_TARGETS[agent]?.handoffLabel);
+  const unsupportedAgents = agents.filter((agent) => ADAPTER_TARGETS[agent] && !ADAPTER_TARGETS[agent].handoffLabel);
   const projectType = detection?.projectType ?? options.type ?? "unknown";
   const evidenceGuidance = handoffEvidenceGuidance(projectType);
   const completionPrefix = options.dryRun && !options.write
@@ -2395,10 +2416,8 @@ verified 승인은 하지 말고, 사람이 검토해야 할 항목과 근거 �
 }
 
 function handoffLabel(agents) {
-  if (agents.includes("codex") && agents.includes("claude")) return "Codex 또는 Claude Code";
-  if (agents.includes("codex")) return "Codex";
-  if (agents.includes("claude")) return "Claude Code";
-  return "Codex 또는 Claude Code";
+  const labels = agents.map((agent) => ADAPTER_TARGETS[agent]?.handoffLabel).filter(Boolean);
+  return labels.join(" 또는 ") || "Codex 또는 Claude Code";
 }
 
 function handoffEvidenceGuidance(projectType) {
@@ -2428,9 +2447,8 @@ function handoffEvidenceGuidance(projectType) {
 }
 
 function handoffEntrypoints(agents) {
-  const files = ["docs/llm-wiki/index.md"];
-  if (agents.length === 0 || agents.includes("codex")) files.unshift("AGENTS.md");
-  if (agents.length === 0 || agents.includes("claude")) files.unshift("CLAUDE.md");
+  const adapterPaths = agents.map((agent) => ADAPTER_TARGETS[agent]?.path).filter(Boolean);
+  const files = [...adapterPaths, "docs/llm-wiki/index.md"];
   return `${files.join("와 ")}를`;
 }
 

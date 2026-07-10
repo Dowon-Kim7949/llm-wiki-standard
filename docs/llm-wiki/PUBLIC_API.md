@@ -49,7 +49,7 @@ contains_sensitive_info: false
 
 ## Key Options
 
-- `--cwd <path>`, `--type <frontend|backend|fullstack|library|mixed|unknown>`, `--profile <p>...`, `--agent <codex|claude|antigravity|all>...`
+- `--cwd <path>`, `--type <frontend|backend|fullstack|library|mixed|unknown>`, `--profile <p>...`, `--agent <codex|claude|cursor|copilot|antigravity|all>...` (`all`은 codex/claude/antigravity 세 개만 확장; cursor·copilot은 명시 선택)
 - `--format <text|json|markdown>`, `--out <path>`, `--strict`, `--minimal`
 - `--write`, `--dry-run`, `--existing <skip|overwrite>`
 
