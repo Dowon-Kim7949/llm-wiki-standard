@@ -8,9 +8,9 @@ tags:
 status: needs_review
 doc_type: verification_report
 project: llm-wiki-standard
-last_updated: 2026-07-10
+last_updated: 2026-07-14
 author: ai-generated
-last_edited_by: Codex
+last_edited_by: Claude Code
 wiki_block_version: v1
 source_files:
   - package.json
@@ -26,7 +26,7 @@ contains_sensitive_info: false
 
 # LLM-WIKI Standard Package Verification Report
 
-This report records verification coverage for the `0.1.5` stable release line.
+This report records verification coverage for the `1.0.0` stable release line.
 
 ## Automated Coverage
 
@@ -66,7 +66,7 @@ npm pack --dry-run
 ## Expected Repository Result
 
 - package: `@dowonk-7949/llm-wiki-standard`
-- version: `0.1.5`
+- version: `1.0.0`
 - publish registry: `https://registry.npmjs.org`
 - package-level `.npmrc`: not required
 - public source repository: `https://github.com/Dowon-Kim7949/llm-wiki-standard`
@@ -76,7 +76,7 @@ npm pack --dry-run
 ## Residual Risk
 
 - macOS/Linux shell execution should run in release CI before publish.
-- `migrate --apply` is intentionally omitted from `0.1.5`.
+- `migrate --apply` is intentionally omitted from `1.0.0`.
 - Fixture tests cover representative project detection, not every framework ecosystem.
 - CI artifact conventions remain a team decision.
 - CLI parsing remains intentionally small and does not support combined short flags.

@@ -8,7 +8,7 @@ tags:
 status: needs_review
 doc_type: roadmap
 project: llm-wiki-standard
-last_updated: 2026-07-13
+last_updated: 2026-07-14
 author: ai-generated
 last_edited_by: Claude Code
 wiki_block_version: v1
@@ -20,6 +20,8 @@ source_files:
   - src/task-prompts.js
   - templates/github-actions/llm-wiki-validate.yml
   - tests/verification.test.js
+  - .github/workflows/ci.yml
+  - CHANGELOG.md
 related:
   - GATE_REVIEW.md
   - VERIFICATION.md
@@ -43,16 +45,17 @@ CI continuously checks quality.
 
 ## Current Release Snapshot
 
-As of 2026-07-13, the source is versioned for `@dowonk-7949/llm-wiki-standard@0.1.8` and uses the automated `v0.1.8` tag release flow.
+As of 2026-07-14, the source is versioned for `@dowonk-7949/llm-wiki-standard@1.0.0` and uses the automated `v1.0.0` tag release flow.
 
 Release state:
 
+- `1.0.0` promotes the `0.1.8` contract to a stable 1.0 milestone with no functional command changes. It declares the CLI command/option surface, JSON output shape, and required frontmatter contract stable, so breaking changes now require a major version bump (see `docs/llm-wiki/VERSIONING.md` and the 1.0.0 stability gate in `GATE_REVIEW.md`). It also lands the Phase 7 release-quality CI (Node 18.18/20/22/24 × Windows/macOS/Linux matrix plus a packed-tarball consumer install smoke test) and starts an accumulating root `CHANGELOG.md`.
 - `0.1.8` adds the scoped `fix` command and finishes the release-notes/drift line: `llm-wiki fix` (default preview, `--write` applies) applies only the accepted autofix scope (see `GATE_REVIEW.md` "Autofix (`--fix`) Scope Decision") — insert missing Tier A frontmatter fields, reconcile the body `## Evidence` section from frontmatter evidence, create `needs_review` stubs for broken `related`/markdown-link targets under `docs/llm-wiki/`, and refresh `last_updated` on modified documents, while never touching `verified` content, `source_files`/`evidence` values, Tier B fields, enrichment, or anything outside `docs/llm-wiki/`. This release also carries the accumulated work since `0.1.7`: Korean-first bilingual release notes, `release-notes --since <ref>`, and evidence drift detection (`evidence.stale`).
 - `0.1.7` broadens generality/usability: project detection now recognizes Python/Go/Rust/JVM manifests (not only Node) with `ecosystems`/`primaryManifest`, Cursor (`.cursor/rules/llm-wiki.mdc`) and GitHub Copilot (`.github/copilot-instructions.md`) adapters are supported, an optional `llm-wiki.config.json` declares persistent `type`/`profiles`/`agents`/`strict` defaults, and a new `release-notes` command generates a `needs_review` release-notes document from conventional commits since the last `v*` tag.
 - `0.1.6` acted on the v0.1.5 goal-gap evaluation: real generation date, `related.missing` and `content.not_enriched` validation, generated `project` field derived from `package.json`, wiki-graph orphan detection over `related`/Markdown links, the `--format html` dashboard, and library/CLI detection. The repository dogfoods LLM-WIKI in `docs/llm-wiki/`.
 - Local verification passed before commit: `node --test tests/*.test.js`, `validate-frontmatter`, and `doctor`.
 - `main` push runs CI only. npm publish is reserved for `v*` tag pushes through `.github/workflows/publish.yml`.
-- The release tag must match `package.json`; `v0.1.8` publishes version `0.1.8` through npm Trusted Publishing after workflow verification.
+- The release tag must match `package.json`; `v1.0.0` publishes version `1.0.0` through npm Trusted Publishing after workflow verification.
 
 Next release policy:
 
@@ -154,9 +157,9 @@ Goal: make the package useful beyond a single personal project.
 
 Goal: keep the npm package trustworthy across environments.
 
-- Run Node LTS matrix tests.
-- Run Windows, macOS, and Linux smoke tests.
-- Add temp consumer install tests from packed npm tarballs.
+- Run Node LTS matrix tests. Status: implemented — `.github/workflows/ci.yml` runs a Node 18.18.0/20/22/24 verify matrix.
+- Run Windows, macOS, and Linux smoke tests. Status: implemented — the same CI matrix crosses Node versions with `ubuntu-latest`, `windows-latest`, and `macos-latest`, running tests, `validate-frontmatter`, `doctor`, and `npm pack --dry-run` on every combination.
+- Add temp consumer install tests from packed npm tarballs. Status: implemented — the CI `consumer-install` job packs the tarball, installs it into a scratch consumer project on Linux and Windows, and runs `llm-wiki doctor`.
 - Verify Quick Start commands against packed artifacts before release.
 - Keep release notes and migration notes aligned with CLI behavior.
 
@@ -200,6 +203,6 @@ Prioritized next work after the 0.1.8 line (scoped `fix`, Korean-first bilingual
 4. Detector depth: resolve the stdlib-server limitation (inspect a few source files for `net/http`, Flask, etc.) and add more ecosystems such as PHP (`composer.json`), Ruby (`Gemfile`), and .NET (`*.csproj`).
 5. `llm-wiki.config.json` schema growth (gated on real usage): custom document sets, per-project rule toggles, and template overrides once the minimal shape is proven.
 6. First-class GitHub Action and GitHub Release: publish a reusable/composite action so consumers add a single `uses:` step, and create a GitHub Release from the generated release notes on tag push.
-7. Accumulating `CHANGELOG.md`: prepend generated release notes into a shipped root changelog so npm consumers see version history.
+7. Accumulating `CHANGELOG.md`: prepend generated release notes into a shipped root changelog so npm consumers see version history. Status: implemented — a root `CHANGELOG.md` starts at `1.0.0` and is listed in `package.json` `files`; future releases prepend newest-first.
 8. Programmatic API: expose the command functions as a documented importable library API for wrappers and CI, complementing the CLI.
-9. Release-quality hygiene: Node LTS matrix, Windows/macOS/Linux smoke tests, and a packed-tarball consumer install test in CI.
+9. Release-quality hygiene: Node LTS matrix, Windows/macOS/Linux smoke tests, and a packed-tarball consumer install test in CI. Status: implemented in `.github/workflows/ci.yml` for the 1.0.0 line.

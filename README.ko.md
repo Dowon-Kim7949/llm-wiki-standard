@@ -391,14 +391,14 @@ CI는 pull request와 `main` push에서 검증을 실행합니다. Publish는 `.
 `release-notes`는 conventional commit을 한국어 우선 이중 언어 섹션으로 묶으며, `--since`로 특정 base부터 재생성할 수 있습니다.
 
 ```bash
-npx llm-wiki release-notes --version 0.1.8 --since v0.1.7 --out docs/llm-wiki/releases/v0.1.8.md
+npx llm-wiki release-notes --version 1.0.0 --since v0.1.8 --out docs/llm-wiki/releases/v1.0.0.md
 ```
 
-검증 후 version `0.1.8`을 배포하려면 다음을 실행합니다.
+검증 후 version `1.0.0`을 배포하려면 다음을 실행합니다.
 
 ```bash
-git tag v0.1.8
-git push origin v0.1.8
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 ## 관련 문서

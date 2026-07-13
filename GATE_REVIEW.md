@@ -8,13 +8,15 @@ tags:
 status: needs_review
 doc_type: gate_review
 project: llm-wiki-standard
-last_updated: 2026-07-13
+last_updated: 2026-07-14
 author: ai-generated
 last_edited_by: Claude Code
 wiki_block_version: v1
 source_files:
   - package.json
+  - src/cli.js
   - src/commands.js
+  - src/frontmatter-schema.js
   - tests/verification.test.js
 related:
   - README.md
@@ -26,7 +28,7 @@ contains_sensitive_info: false
 
 # LLM-WIKI Standard Package Gate Review
 
-This document records the default decisions for the `0.1.0` stable release line.
+This document records the default decisions for the `0.1.0` stable release line and the `1.0.0` stability milestone.
 
 ## Review Status
 
@@ -37,6 +39,17 @@ This document records the default decisions for the `0.1.0` stable release line.
 | Gate 4 Migration Policy Approval | `accepted_for_0.1.0` | Keep `migrate --apply` blocked for the stable release. Regeneration is available through explicit `init --write --existing overwrite`. |
 | Gate 5 Implementation Approval | `accepted_for_0.1.0` | Ship `@dowonk-7949/llm-wiki-standard@0.1.0` as the first stable npmjs release candidate. |
 | Gate 6 Autofix (`--fix`) Scope Approval | `accepted_for_0.1.8` | Ship a scoped `llm-wiki fix` command (default preview, `--write` applies) limited to the safe remediations in "Autofix (`--fix`) Scope Decision" below. Content-bearing fixes never touch `verified` documents, and nothing outside `docs/llm-wiki/` is written. |
+| Gate 7 1.0.0 Stability Approval | `accepted_for_1.0.0` | Promote the `0.1.8` contract to a stable `1.0.0` with no functional command changes. Declare the CLI command/option surface, `--format json` output shape, and required frontmatter contract stable; breaking changes to these now require a major version bump. See "1.0.0 Stability Milestone" below. |
+
+## 1.0.0 Stability Milestone
+
+`1.0.0` is a stability declaration, not a feature release. It ships the exact command surface accepted through Gates 2–6 with no functional command changes, and commits to the following stable contract:
+
+- **Command/option surface** — the public commands and their accepted options (`src/cli.js`) are stable. Removing or renaming a command or option, or changing its accepted values, is a breaking change requiring a major bump.
+- **JSON output shape** — `--format json` field names and structure (`result`, `findings`, `findingSummary`, `wikiGraph`, `documentStatus`) are stable enough for CI and wrappers to depend on.
+- **Required frontmatter contract** — the Tier A / Tier B required fields, `status` enum, and validation rules (`src/frontmatter-schema.js`, `rules/frontmatter.schema.json`) are stable.
+
+Conservative-write guarantees are unchanged: `init` / `quickstart` / `fix` write only under `--write`, `migrate --apply` stays blocked, `log.md` and existing adapter files are never overwritten, and CLI- or agent-authored docs remain `needs_review`. Post-1.0 semantics follow SemVer: breaking contract changes bump major, additive commands/options bump minor, and fixes plus new warning-level rules bump patch (see `docs/llm-wiki/VERSIONING.md`).
 
 ## Stable Decisions
 

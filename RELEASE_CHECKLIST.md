@@ -8,9 +8,9 @@ tags:
 status: needs_review
 doc_type: release_checklist
 project: llm-wiki-standard
-last_updated: 2026-07-10
+last_updated: 2026-07-14
 author: ai-generated
-last_edited_by: Codex
+last_edited_by: Claude Code
 wiki_block_version: v1
 source_files:
   - package.json
@@ -25,7 +25,7 @@ contains_sensitive_info: false
 
 # LLM-WIKI Standard Package Release Checklist
 
-Use this checklist before publishing `@dowonk-7949/llm-wiki-standard@0.1.5`.
+Use this checklist before publishing `@dowonk-7949/llm-wiki-standard@1.0.0`.
 
 ## Local Verification
 
@@ -73,7 +73,8 @@ Use this checklist before publishing `@dowonk-7949/llm-wiki-standard@0.1.5`.
 ## Release Metadata
 
 - [ ] Confirm package name is `@dowonk-7949/llm-wiki-standard`.
-- [ ] Confirm version is `0.1.5`.
+- [ ] Confirm version is `1.0.0`.
+- [ ] Confirm `CHANGELOG.md` records the release version at the top.
 - [ ] Confirm package has no `publishConfig` override.
 - [ ] Confirm package-level `.npmrc` is absent.
 - [ ] Confirm `repository.url` points to `https://github.com/Dowon-Kim7949/llm-wiki-standard.git`.
@@ -94,9 +95,9 @@ Use this checklist before publishing `@dowonk-7949/llm-wiki-standard@0.1.5`.
 
 - [ ] Configure npm Trusted Publisher for GitHub Actions with workflow filename `publish.yml`.
 - [ ] Configure GitHub Environment `npm-release`; set required reviewers in GitHub UI if human approval is required before publish.
-- [ ] Create the release tag after local verification: `git tag v0.1.5`.
-- [ ] Push only the release tag to start publish: `git push origin v0.1.5`.
+- [ ] Create the release tag after local verification: `git tag v1.0.0`.
+- [ ] Push only the release tag to start publish: `git push origin v1.0.0`.
 - [ ] Confirm the publish workflow validates the tag version against `package.json`.
-- [ ] Verify `npm install -D @dowonk-7949/llm-wiki-standard@0.1.5`.
-- [ ] Verify `npx @dowonk-7949/llm-wiki-standard@0.1.5 doctor`.
-- [ ] Verify `yarn add -D @dowonk-7949/llm-wiki-standard@0.1.5`.
+- [ ] Verify `npm install -D @dowonk-7949/llm-wiki-standard@1.0.0`.
+- [ ] Verify `npx @dowonk-7949/llm-wiki-standard@1.0.0 doctor`.
+- [ ] Verify `yarn add -D @dowonk-7949/llm-wiki-standard@1.0.0`.

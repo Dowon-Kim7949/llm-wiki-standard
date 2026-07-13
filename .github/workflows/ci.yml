@@ -12,10 +12,26 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   verify:
-    name: Verify package
-    runs-on: ubuntu-latest
+    name: "Verify · Node ${{ matrix.node }} · ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        node:
+          - "18.18.0"
+          - "20"
+          - "22"
+          - "24"
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -23,7 +39,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "24"
+          node-version: ${{ matrix.node }}
           package-manager-cache: false
 
       - name: Verify package identity
@@ -41,3 +57,34 @@ jobs:
 
       - name: Check package contents
         run: npm pack --dry-run
+
+  consumer-install:
+    name: "Consumer install · ${{ matrix.os }}"
+    needs: verify
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Pack, install, and smoke-test in a scratch consumer project
+        run: |
+          npm pack
+          TARBALL="$(ls dowonk-7949-llm-wiki-standard-*.tgz | head -n 1)"
+          echo "Packed tarball: $TARBALL"
+          mkdir consumer
+          cd consumer
+          npm init -y > /dev/null
+          npm install --no-save "../$TARBALL"
+          npx --no-install llm-wiki doctor

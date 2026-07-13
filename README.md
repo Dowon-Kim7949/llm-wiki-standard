@@ -404,14 +404,14 @@ Before automated publish, register an npm Trusted Publisher for GitHub Actions w
 `release-notes` groups conventional commits into Korean-first bilingual sections and can be regenerated for a specific base with `--since`:
 
 ```bash
-npx llm-wiki release-notes --version 0.1.8 --since v0.1.7 --out docs/llm-wiki/releases/v0.1.8.md
+npx llm-wiki release-notes --version 1.0.0 --since v0.1.8 --out docs/llm-wiki/releases/v1.0.0.md
 ```
 
-To publish version `0.1.8` after verification:
+To publish version `1.0.0` after verification:
 
 ```bash
-git tag v0.1.8
-git push origin v0.1.8
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 ## Related Documents

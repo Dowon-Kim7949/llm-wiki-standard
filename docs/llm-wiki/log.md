@@ -6,9 +6,9 @@ tags:
 status: needs_review
 doc_type: change_log
 project: llm-wiki-standard
-last_updated: 2026-07-13
+last_updated: 2026-07-14
 author: cli-generated
-last_edited_by: Codex
+last_edited_by: Claude Code
 wiki_block_version: v1
 source_files:
   - package.json
@@ -23,6 +23,41 @@ contains_sensitive_info: false
 # LLM-WIKI Change Log
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
+
+## 2026-07-14 - 1.0.0 안정성 릴리스 준비
+
+- status: needs_review
+- actor: Claude Code
+- scope: release, docs, ci
+- changed:
+  - package.json
+  - tests/verification.test.js
+  - RELEASE_CHECKLIST.md
+  - VERIFICATION.md
+  - ROADMAP.md
+  - GATE_REVIEW.md
+  - CHANGELOG.md
+  - .github/workflows/ci.yml
+  - docs/llm-wiki/VERSIONING.md
+  - docs/llm-wiki/project-profile.md
+  - docs/llm-wiki/releases/v1.0.0.md
+- summary:
+  - 0.1.8 계약을 기능 변경 없이 1.0.0 안정 릴리스로 승격했다. package.json 버전과 버전 assertion 테스트(tests/verification.test.js)를 1.0.0으로 올렸다.
+  - 0.1.5로 방치돼 있던 RELEASE_CHECKLIST.md·VERIFICATION.md를 1.0.0으로 정합하고, ROADMAP 스냅샷과 Phase 7·후보 상태를 갱신했다.
+  - GATE_REVIEW.md에 Gate 7과 "1.0.0 Stability Milestone" 섹션을 추가해 명령·옵션 표면, --format json 출력 형태, 필수 frontmatter 계약을 안정 계약으로 확정했다.
+  - Phase 7 릴리스 품질 CI를 추가했다: .github/workflows/ci.yml에 Node 18.18.0/20/22/24 × Windows/macOS/Linux verify 매트릭스와 packed-tarball consumer install 스모크 잡을 넣었다.
+  - 루트 CHANGELOG.md를 신설(package.json files에 포함)하고 v1.0.0 릴리스 노트(docs/llm-wiki/releases/v1.0.0.md)를 작성했다.
+  - 살아있는 버전 주장을 담은 VERSIONING.md·project-profile.md를 1.0.0으로 갱신하고 규칙에 따라 verified → needs_review로 강등했다.
+- evidence:
+  - package.json
+  - .github/workflows/ci.yml
+  - GATE_REVIEW.md
+  - docs/llm-wiki/VERSIONING.md
+- caveats:
+  - CI 매트릭스의 macOS/Linux 실행은 로컬에서 검증할 수 없고 GitHub Actions에서만 확인된다. consumer install 스모크는 로컬 Windows에서 pack→install→doctor(exit 0)로 검증했다.
+  - validate의 evidence.stale 경고 21개는 리뷰와 같은 날 커밋된 소스 때문에 발생하는 기존 warning이며 이번 작업의 회귀가 아니다(src/git.js의 --since 경계 특성).
+  - VERSIONING.md·project-profile.md는 사람 재검토 후 verified 재승인이 필요하다.
+  - v1.0.0 태그 push와 npm 배포는 별도 승인 후 진행한다.
 
 ## 2026-07-13 - 팀 공유용 LLM-WIKI 소개 프레젠테이션 추가
 
