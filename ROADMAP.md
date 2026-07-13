@@ -22,7 +22,6 @@ source_files:
   - tests/verification.test.js
 related:
   - GATE_REVIEW.md
-  - templates/prompts/v0.2.0-roadmap-task.md
   - VERIFICATION.md
   - RELEASE_CHECKLIST.md
 visibility: internal

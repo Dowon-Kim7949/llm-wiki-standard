@@ -24,6 +24,22 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-13 - obsolete v0.2.0 로드맵 구현 프롬프트 삭제
+
+- status: needs_review
+- actor: Claude Code
+- scope: docs
+- changed:
+  - templates/prompts/v0.2.0-roadmap-task.md (삭제)
+  - ROADMAP.md (related 항목 정리)
+- summary:
+  - `templates/prompts/v0.2.0-roadmap-task.md`를 삭제했다. 이 1회성 구현 지시 프롬프트의 항목(`prompt --task`, feature/fix/refactor·docs-sync·okf-extract 프롬프트, API 인벤토리 등)은 이미 전부 구현·출시되어 obsolete이며, 로컬 절대경로가 하드코딩된 채 `templates/`로 npm 배포물에 포함되던 내부 산출물이었다.
+  - ROADMAP.md `related`에서 해당 파일 참조를 제거했다(다른 참조처 없음).
+- evidence:
+  - ROADMAP.md
+- caveats:
+  - 반복 작업 프롬프트는 이제 `llm-wiki prompt --task <name>`로 동적으로 생성하므로 정적 템플릿은 불필요하다.
+
 ## 2026-07-13 - ROADMAP 후보 섹션 0.1.8 기준 재정비
 
 - status: needs_review
