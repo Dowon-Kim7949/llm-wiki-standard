@@ -24,6 +24,59 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - 1.0.1 패치 릴리스 준비 (문서 전용)
+
+- status: needs_review
+- actor: Claude Code
+- scope: release, docs
+- changed:
+  - package.json
+  - tests/verification.test.js
+  - CHANGELOG.md
+  - CHANGELOG.ko.md
+  - docs/llm-wiki/releases/v1.0.1.md
+- summary:
+  - 아래 두 문서 변경(ROADMAP 1.x 재작성, 핵심 외부 문서 EN-KO 쌍 도입)을 patch로 묶어 package.json 버전과 버전 assertion 테스트를 1.0.1로 올렸다. 기능·API·명령 표면 변경은 없다.
+  - CHANGELOG(EN·KO 동기화)에 1.0.1 항목을 추가하고 v1.0.1 릴리스 노트를 작성했다. 전체를 한 커밋으로 묶는다.
+- caveats:
+  - VERSIONING.md·project-profile.md는 "현재 버전 1.0.0" 표기가 남아 patch만큼 뒤처진다. 매 릴리스 재검토를 피하려면 버전 숫자를 빼고 package.json을 단일 소스로 참조하도록 바꾸는 것을 별도로 검토한다(사람 재검토 필요).
+  - v1.0.1 태그 push와 npm 배포는 별도 승인 후 진행한다.
+
+## 2026-07-14 - 핵심 외부 문서 EN-KO 쌍 도입 (CHANGELOG, ROADMAP)
+
+- status: needs_review
+- actor: Claude Code
+- scope: docs
+- changed:
+  - CHANGELOG.md
+  - CHANGELOG.ko.md
+  - ROADMAP.md
+  - ROADMAP.ko.md
+  - package.json
+  - docs/llm-wiki/README.md
+  - RELEASE_CHECKLIST.md
+- summary:
+  - 외부 공개 루트 문서를 README처럼 영문 .md(정본)+국문 .ko.md 쌍으로 관리하기로 하고, 사용자가 지정한 핵심 외부 문서(CHANGELOG, ROADMAP)의 국문본을 추가했다.
+  - 각 쌍 상단에 `> Language:` 상호링크를 넣고, CHANGELOG.ko.md·ROADMAP.ko.md를 package.json files에 등록했다. ROADMAP.ko.md는 정본 frontmatter를 미러링한다.
+  - 규약을 docs/llm-wiki/README.md에 문서화하고, RELEASE_CHECKLIST에 ".ko.md 쌍 동기화" 점검 항목을 추가했다.
+- caveats:
+  - 루트 문서는 docs/llm-wiki/ 밖이라 validate 스캔 대상이 아니다(frontmatter는 규약일 뿐 강제되지 않음).
+  - 국문본은 정본과 수동 동기화가 필요하다(RELEASE_CHECKLIST 점검으로 보완). 짝 없는 .md/.ko.md 자동 감지 검사는 향후 1.x 후보로 검토 가능.
+
+## 2026-07-14 - ROADMAP를 1.x 1년 계획으로 재작성
+
+- status: needs_review
+- actor: Claude Code
+- scope: docs
+- changed:
+  - ROADMAP.md
+- summary:
+  - 1.0.0까지 구현 완료된 Phase 1–8 이력 나열을 걷어내고(이력은 CHANGELOG.md·log.md·releases/로 위임) 미래 지향 로드맵으로 재작성했다.
+  - 2.0(파괴 변경) 프레이밍을 제거하고, 1.0.0 이후 작업을 1.1~1.7 마이너 릴리스로 (목표 날짜 없이) 순서만 배치했다: 1.1 inner-loop 정리, 1.2 마이그레이션/안전 업그레이드(헤드라인), 1.3 디텍터·어댑터 확장, 1.4 지식 뷰·헬스, 1.5 프로그래매틱 API, 1.6 MCP 서버, 1.7 팀/조직 확장.
+  - 모든 1.x 항목은 하위호환(부가)이며, 계약 파괴 변경은 "Beyond the 1.x Horizon"으로 보류했다. 전면 SSG 렌더러·자동 OKF 추출·owner 필수화·자동 verified 승격·Notion 네이티브 모드는 declined로 유지했다.
+- caveats:
+  - 방향성 문서로 needs_review이다. 목표 날짜는 두지 않으며 각 릴리스는 필요에 의해 순서대로 당겨진다. migrate --apply 해금(1.2)은 착수 전 GATE_REVIEW 게이트가 필요하다.
+
 ## 2026-07-14 - VERSIONING·project-profile verified 승격
 
 - status: verified

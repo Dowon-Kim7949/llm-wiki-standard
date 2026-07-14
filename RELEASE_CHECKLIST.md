@@ -81,6 +81,7 @@ Use this checklist before publishing `@dowonk-7949/llm-wiki-standard@1.0.0`.
 - [ ] Confirm `README.md`, `README.ko.md`, `GATE_REVIEW.md`, `VERIFICATION.md`, and `RELEASE_CHECKLIST.md` mention stable release behavior.
 - [ ] Confirm `README.md` starts with language links to English and Korean.
 - [ ] Confirm `README.ko.md` is included in `package.json` files.
+- [ ] Confirm each bilingual root doc (`README`, `CHANGELOG`, `ROADMAP`) has an in-sync `.ko.md` pair listed in `package.json` files.
 - [ ] Confirm `rules/frontmatter.schema.json` matches the runtime frontmatter contract in `src/frontmatter-schema.js`.
 
 ## External Verification

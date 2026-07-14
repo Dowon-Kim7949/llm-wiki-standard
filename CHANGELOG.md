@@ -1,7 +1,21 @@
+> Language: [English](./CHANGELOG.md) | [한국어](./CHANGELOG.ko.md)
+
 # Changelog
 
 All notable changes to `@dowonk-7949/llm-wiki-standard` are documented here. This
 project follows [Semantic Versioning](https://semver.org/). Entries are newest-first.
+
+## 1.0.1 — 2026-07-14
+
+Docs-only patch. No functional, API, or command-surface changes.
+
+### Changed
+
+- Replanned `ROADMAP.md` as a forward-looking, dateless `1.x` line (implementation
+  history moved to this changelog and `docs/llm-wiki/log.md`).
+- Added Korean pairs for the externally-visible root docs — `CHANGELOG.ko.md` and
+  `ROADMAP.ko.md` — cross-linked with their English canonicals and shipped in the
+  package. Established the EN–KO pair convention (`docs/llm-wiki/README.md`).
 
 ## 1.0.0 — 2026-07-14
 
