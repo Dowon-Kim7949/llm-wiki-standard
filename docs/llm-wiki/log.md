@@ -24,6 +24,22 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - docs: 팀 공유 프레젠테이션 1.5.1로 갱신
+
+- status: needs_review
+- actor: Claude Code
+- scope: docs
+- changed:
+  - outputs/llm-wiki-team-introduction-v1.5.1.pptx (신규; v0.1.8 대체)
+  - outputs/llm-wiki-team-introduction-v0.1.8.pptx (제거; git 히스토리에 보존)
+  - docs/llm-wiki/README.md (프레젠테이션 링크 → v1.5.1)
+- summary:
+  - 팀 공유 프레젠테이션(12슬라이드)을 1.5.1에 맞게 갱신했다. python-pptx로 편집: 전 슬라이드 버전 칩 `LLM-WIKI 0.1.8` → `1.5.1`(12곳), 슬라이드5 "현재" 스냅샷에 지식 그래프·헬스 스코어·마이그레이션·프로그래매틱 API 반영, 슬라이드8 어댑터 목록에 Windsurf·Gemini 추가, 슬라이드10 "현재 가능한 것" 5불릿을 그래프/stats·마이그레이션·프로그래매틱 API로 현행화. 개념 서사(레고 비유·워크플로·안전장치)는 버전 무관하게 유효해 유지.
+  - 모든 텍스트박스가 auto_size=TEXT_TO_FIT_SHAPE라 편집 박스의 stale 폰트 스케일을 리셋해 PowerPoint가 재계산하도록 했다. python-pptx 왕복 로드로 파일 유효성 확인, 잔여 "0.1.8" 0개.
+- caveats:
+  - LibreOffice 부재로 시각적 렌더 검증은 못 했다 → 발표 전 PowerPoint로 레이아웃 한 번 확인 권장.
+  - README.md는 링크 갱신으로 verified → needs_review로 강등(사람 재검토 필요). v0.1.8 pptx는 워킹트리에서 제거했으나 git 히스토리에 남아 있고, 과거 릴리스 로그 기록은 그대로 보존.
+
 ## 2026-07-14 - docs: PUBLIC_API verified 재승인 (1.5.1)
 
 - status: verified
