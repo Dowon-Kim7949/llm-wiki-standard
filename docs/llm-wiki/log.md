@@ -24,6 +24,20 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - docs: PUBLIC_API·ARCHITECTURE_CONVENTIONS·DOMAIN_FEATURES verified 재승인 (1.5)
+
+- status: verified
+- actor: Claude Code (사용자 WoongHwan-Kim 검토·승인)
+- scope: docs
+- changed:
+  - docs/llm-wiki/PUBLIC_API.md
+  - docs/llm-wiki/ARCHITECTURE_CONVENTIONS.md
+  - docs/llm-wiki/DOMAIN_FEATURES.md
+- summary:
+  - 1.5 프로그래매틱 API doc-sync로 needs_review로 내려갔던 세 문서를 사람 검토·승인에 따라 `verified`로 재승인하고 `reviewed_by: WoongHwan-Kim`/`reviewed_at: 2026-07-14`를 기록했다. 리뷰 노트도 재승인 문구로 갱신했다.
+- caveats:
+  - validate-frontmatter --strict pass(22 files, findings 0). 이로써 1.5 배포 전 재검토 부채가 없다(log.md·release notes만 관례상 needs_review).
+
 ## 2026-07-14 - feat: 프로그래매틱 API (exports 맵 + schemaVersion) — 1.5 step 1
 
 - status: needs_review
