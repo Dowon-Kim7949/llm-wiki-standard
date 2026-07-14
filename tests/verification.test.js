@@ -8,7 +8,7 @@ import { parseArgs } from "../src/cli.js";
 import { writeReport, renderHtmlDashboard } from "../src/report.js";
 import { loadProjectConfig, mergeConfigIntoOptions } from "../src/config-file.js";
 import { buildReleaseNotes, parseCommit } from "../src/release-notes.js";
-import { fileChangedSince } from "../src/git.js";
+import { fileChangedSince, lineRangeChangedSince } from "../src/git.js";
 import { execFileSync } from "node:child_process";
 
 test("init dry-run works for an empty zero-base project", async () => {
@@ -1143,6 +1143,85 @@ test("fileChangedSince anchors the baseline to end-of-day so same-day commits ar
   assert.equal(fileChangedSince(cwd, "a.ts", "2026-07-12"), true);
 });
 
+function gitAtDate(cwd, date) {
+  return (args) => execFileSync("git", args, {
+    cwd,
+    stdio: ["ignore", "ignore", "ignore"],
+    env: {
+      ...process.env,
+      GIT_AUTHOR_DATE: date,
+      GIT_COMMITTER_DATE: date,
+      GIT_AUTHOR_NAME: "Test",
+      GIT_AUTHOR_EMAIL: "test@example.com",
+      GIT_COMMITTER_NAME: "Test",
+      GIT_COMMITTER_EMAIL: "test@example.com"
+    }
+  });
+}
+
+test("lineRangeChangedSince narrows drift to the cited line range", async (t) => {
+  let hasGit = true;
+  try {
+    execFileSync("git", ["--version"], { stdio: "ignore" });
+  } catch {
+    hasGit = false;
+  }
+  if (!hasGit) {
+    t.skip("git not available");
+    return;
+  }
+
+  const cwd = await makeProject("drift-lines-");
+  gitAtDate(cwd, "2026-07-10T10:00:00")(["init"]);
+  await writeFile(path.join(cwd, "a.ts"), "one\ntwo\nthree\nfour\nfive\n", { encoding: "utf8" });
+  gitAtDate(cwd, "2026-07-10T10:00:00")(["add", "a.ts"]);
+  gitAtDate(cwd, "2026-07-10T10:00:00")(["-c", "commit.gpgsign=false", "commit", "-m", "init"]);
+  // Change only line 2 on a later day.
+  await writeFile(path.join(cwd, "a.ts"), "one\ntwo-changed\nthree\nfour\nfive\n", { encoding: "utf8" });
+  gitAtDate(cwd, "2026-07-12T10:00:00")(["add", "a.ts"]);
+  gitAtDate(cwd, "2026-07-12T10:00:00")(["-c", "commit.gpgsign=false", "commit", "-m", "edit line 2"]);
+
+  // Baseline before the edit: the cited line 2 changed, but lines 4-5 did not.
+  assert.equal(lineRangeChangedSince(cwd, "a.ts", 2, 2, "2026-07-11"), true);
+  assert.equal(lineRangeChangedSince(cwd, "a.ts", 4, 5, "2026-07-11"), false);
+  // Baseline on the edit day → covered by the review, not drift.
+  assert.equal(lineRangeChangedSince(cwd, "a.ts", 2, 2, "2026-07-12"), false);
+});
+
+test("evidence drift narrows to cited lines for line-only evidence", async (t) => {
+  let hasGit = true;
+  try {
+    execFileSync("git", ["--version"], { stdio: "ignore" });
+  } catch {
+    hasGit = false;
+  }
+  if (!hasGit) {
+    t.skip("git not available");
+    return;
+  }
+
+  const cwd = await makeProject("drift-lineonly-");
+  gitAtDate(cwd, "2026-07-10T10:00:00")(["init"]);
+  await writeFile(path.join(cwd, "package.json"), `${JSON.stringify({ name: "drift" }, null, 2)}\n`, { encoding: "utf8" });
+  await writeFile(path.join(cwd, "a.ts"), "one\ntwo\nthree\nfour\nfive\n", { encoding: "utf8" });
+  gitAtDate(cwd, "2026-07-10T10:00:00")(["add", "."]);
+  gitAtDate(cwd, "2026-07-10T10:00:00")(["-c", "commit.gpgsign=false", "commit", "-m", "init"]);
+  await writeFile(path.join(cwd, "a.ts"), "one\ntwo-changed\nthree\nfour\nfive\n", { encoding: "utf8" });
+  gitAtDate(cwd, "2026-07-12T10:00:00")(["add", "a.ts"]);
+  gitAtDate(cwd, "2026-07-12T10:00:00")(["-c", "commit.gpgsign=false", "commit", "-m", "edit line 2"]);
+
+  // Verified doc citing ONLY line 2 (no broad source_files) → changed line → drift.
+  await writeVerifiedLineEvidenceDoc(cwd, "cites-line2.md", "a.ts#L2-L2", "2026-07-11");
+  // Verified doc citing ONLY lines 4-5 → unrelated to the edit → no drift.
+  await writeVerifiedLineEvidenceDoc(cwd, "cites-line4.md", "a.ts#L4-L5", "2026-07-11");
+
+  const result = await audit({ cwd, type: "unknown", profiles: [], agents: [], format: "text", strict: false });
+  const stale = result.findings.filter((finding) => finding.rule === "evidence.stale");
+
+  assert.ok(stale.some((finding) => finding.path.includes("cites-line2.md")));
+  assert.ok(!stale.some((finding) => finding.path.includes("cites-line4.md")));
+});
+
 test("validate --changed reports findings only for changed documents", async (t) => {
   let hasGit = true;
   try {
@@ -2098,6 +2177,41 @@ async function writeOkfWikiDoc(cwd, filename, title, okfType, body, aliases) {
     frontmatter(title, body).replace("doc_type: wiki_index", `doc_type: wiki_index\ntype: ${okfType}`).replace("visibility: internal", `${aliasesBlock}visibility: internal`),
     { encoding: "utf8" }
   );
+}
+
+async function writeVerifiedLineEvidenceDoc(cwd, filename, evidenceRef, reviewedAt) {
+  const wikiRoot = path.join(cwd, "docs", "llm-wiki");
+  const targetPath = path.join(wikiRoot, filename);
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await writeFile(targetPath, `---
+title: Line Evidence Doc
+tags:
+  - llm-wiki
+status: verified
+doc_type: wiki_index
+project: fixture
+last_updated: ${reviewedAt}
+reviewed_at: ${reviewedAt}
+author: test
+last_edited_by: node-test
+wiki_block_version: v1
+source_files:
+evidence:
+  - ${evidenceRef}
+related:
+  - docs/llm-wiki/log.md
+visibility: internal
+contains_sensitive_info: false
+---
+
+# Line Evidence Doc
+
+Cites ${evidenceRef}.
+
+## Evidence
+
+- ${evidenceRef}
+`, { encoding: "utf8" });
 }
 
 async function writeVerifiedWikiDocMissingReview(cwd) {

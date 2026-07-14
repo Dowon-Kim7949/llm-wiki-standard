@@ -13,7 +13,7 @@ import { scanSensitiveInfo } from "./sensitive-info.js";
 import { renderWikiDocumentTemplate, todayIsoDate } from "./template-renderer.js";
 import { apiServiceInventoryChecklist, buildTaskPrompt } from "./task-prompts.js";
 import { buildReleaseNotes, collectCommits } from "./release-notes.js";
-import { fileChangedSince, changedFiles } from "./git.js";
+import { fileChangedSince, lineRangeChangedSince, changedFiles } from "./git.js";
 
 const TEMPLATE_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "templates");
 
@@ -1624,23 +1624,41 @@ export function driftTargets(frontmatter) {
   const baseline = reviewedAt ?? lastUpdated;
   if (!baseline) return null;
 
-  const raw = [
-    ...(Array.isArray(frontmatter.source_files) ? frontmatter.source_files : []),
-    ...(Array.isArray(frontmatter.evidence) ? frontmatter.evidence : [])
-  ];
-  const files = [];
-  for (const entry of raw) {
+  // source_files are broad anchors (the whole file backs the document).
+  const sources = [];
+  for (const entry of Array.isArray(frontmatter.source_files) ? frontmatter.source_files : []) {
     if (typeof entry !== "string") continue;
     const base = entry.split("#")[0].trim();
     if (!base || isExternalSourceReference(base)) continue;
+    if (!sources.includes(base)) sources.push(base);
+  }
+
+  // evidence entries carry a locator (line/symbol/section/route) that can refine
+  // the drift check to a specific line range when it is a line locator.
+  const evidenceRefs = [];
+  for (const entry of Array.isArray(frontmatter.evidence) ? frontmatter.evidence : []) {
+    if (typeof entry !== "string") continue;
+    const parsedRef = parseEvidenceReference(entry.trim());
+    if (!parsedRef || parsedRef.external) continue;
+    const base = parsedRef.source;
+    if (!base || isExternalSourceReference(base)) continue;
+    evidenceRefs.push({ base, locator: parsedRef.locator });
+  }
+
+  const files = [];
+  for (const base of [...sources, ...evidenceRefs.map((ref) => ref.base)]) {
     if (!files.includes(base)) files.push(base);
   }
 
-  return { baseline, files };
+  return { baseline, files, sources, evidenceRefs };
 }
 
 // Flags verified documents whose referenced files changed in git after the
-// review baseline. Best-effort: silently skips when git is unavailable.
+// review baseline. When a file is cited ONLY by exact line ranges in evidence
+// (no broad source_files/symbol/section/route anchor), the check narrows to
+// those line ranges so unrelated edits elsewhere in the file are not drift.
+// Best-effort: silently skips when git is unavailable, and falls back to the
+// file-level check if a line-range query fails (e.g. an out-of-range line).
 async function scanEvidenceDrift(cwd) {
   const findings = [];
   for (const file of await listTargetMarkdown(cwd)) {
@@ -1649,25 +1667,67 @@ async function scanEvidenceDrift(cwd) {
     const targets = driftTargets(parsed.frontmatter);
     if (!targets) continue;
 
+    // Split references into broad (whole-file) and line-range-only per file.
+    const broadFiles = new Set(targets.sources);
+    const lineRangesByFile = new Map();
+    for (const ref of targets.evidenceRefs) {
+      if (ref.locator && ref.locator.kind === "line") {
+        if (!lineRangesByFile.has(ref.base)) lineRangesByFile.set(ref.base, []);
+        lineRangesByFile.get(ref.base).push({ start: ref.locator.start, end: ref.locator.end });
+      } else {
+        broadFiles.add(ref.base); // bare file, symbol, section, or route → whole-file
+      }
+    }
+
     for (const base of targets.files) {
       if (!(await pathExists(path.join(cwd, base)))) continue;
-      let changed = false;
-      try {
-        changed = fileChangedSince(cwd, base, targets.baseline);
-      } catch {
-        changed = false;
-      }
-      if (changed) {
-        findings.push({
-          severity: "warning",
-          rule: "evidence.stale",
-          path: rel,
-          message: `Verified document references ${base}, which changed after ${targets.baseline}; re-review and update it or downgrade to needs_review.`
-        });
+      const ranges = lineRangesByFile.get(base);
+      const lineOnly = !broadFiles.has(base) && Array.isArray(ranges) && ranges.length > 0;
+
+      if (lineOnly) {
+        let staleRange = null;
+        let fallbackFileLevel = false;
+        for (const range of ranges) {
+          try {
+            if (lineRangeChangedSince(cwd, base, range.start, range.end, targets.baseline)) {
+              staleRange = range;
+              break;
+            }
+          } catch {
+            fallbackFileLevel = true;
+            break;
+          }
+        }
+        if (fallbackFileLevel) {
+          if (fileChangedSinceSafe(cwd, base, targets.baseline)) {
+            findings.push(driftFinding(rel, `${base}`, targets.baseline));
+          }
+        } else if (staleRange) {
+          findings.push(driftFinding(rel, `${base}#L${staleRange.start}-L${staleRange.end}`, targets.baseline));
+        }
+      } else if (fileChangedSinceSafe(cwd, base, targets.baseline)) {
+        findings.push(driftFinding(rel, `${base}`, targets.baseline));
       }
     }
   }
   return findings;
+}
+
+function fileChangedSinceSafe(cwd, base, baseline) {
+  try {
+    return fileChangedSince(cwd, base, baseline);
+  } catch {
+    return false;
+  }
+}
+
+function driftFinding(rel, reference, baseline) {
+  return {
+    severity: "warning",
+    rule: "evidence.stale",
+    path: rel,
+    message: `Verified document references ${reference}, which changed after ${baseline}; re-review and update it or downgrade to needs_review.`
+  };
 }
 
 function extractMarkdownSection(markdown, title) {

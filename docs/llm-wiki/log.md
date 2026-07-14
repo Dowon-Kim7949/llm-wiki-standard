@@ -24,6 +24,24 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - feat: evidence.stale 라인 단위 granularity (1.2 step 3a, 읽기전용)
+
+- status: needs_review
+- actor: Claude Code
+- scope: code, test
+- changed:
+  - src/git.js
+  - src/commands.js
+  - tests/verification.test.js
+- summary:
+  - `evidence.stale` 드리프트 감지에 라인 단위 정밀도를 추가했다. `src/git.js`에 `lineRangeChangedSince`(git `log -L<start>,<end>:<file> -s`)를 추가하고, `driftTargets`가 source_files(broad)와 evidence 참조(locator 포함)를 구분해 반환하도록 확장했다(기존 `.files` 계약 유지, `.sources`/`.evidenceRefs` 추가).
+  - `scanEvidenceDrift`는 이제 어떤 파일이 **오직 라인 범위 evidence(`#Lx-Ly`)로만** 인용된 경우(source_files·심볼/섹션/라우트·bare-file 같은 broad 참조가 없을 때) 그 라인 범위만 검사한다 → 파일 내 무관한 편집은 드리프트로 잡지 않는다. broad 참조가 하나라도 있으면 기존 file-level 검사를 유지한다(보수적). 라인 쿼리 실패(범위 초과 등) 시 file-level로 폴백한다.
+  - 테스트 추가: `lineRangeChangedSince` 유닛(인용 라인만 감지, 무관 라인 미감지, 같은날 미감지)과 audit 통합(line-only evidence의 인용 라인 변경 → 드리프트, 무관 라인 인용 → 미드리프트). 전체 119 pass.
+- caveats:
+  - 심볼/섹션/라우트 locator는 소스 파싱 없이 라인 매핑이 불가하므로 file-level로 남겨 정직성을 유지한다(향후 심볼→라인 해석은 별도 후보).
+  - 레포 문서는 대부분 source_files(broad)를 함께 쓰므로 file-level이 유지된다 — 이번 변경은 line-only 인용의 오탐만 줄인다. 읽기전용이며 status/frontmatter를 쓰지 않는다.
+  - 로드맵 1.2 item 3의 granularity 절반이다. opt-in verified→needs_review 자동 강등(쓰기)은 3b로 별도 게이트/표면 결정 후 구현한다.
+
 ## 2026-07-14 - feat: migrate --apply 해금 (1.2 step 2, fix 엔진 재사용)
 
 - status: needs_review
