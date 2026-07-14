@@ -1,0 +1,14 @@
+#!/bin/sh
+# LLM-WIKI pre-commit hook — validates only the wiki documents changed in this
+# commit (via `validate --changed`), so the check stays fast in large repos.
+#
+# Install (pick one):
+#   cp templates/git-hooks/pre-commit .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+# or point git at this directory:
+#   git config core.hooksPath templates/git-hooks
+#
+# Requires the llm-wiki CLI; `npx --no-install` resolves it from a local
+# devDependency. Errors block the commit; warnings do not. Add --strict to the
+# command below to block on warnings too.
+exec npx --no-install llm-wiki validate --changed

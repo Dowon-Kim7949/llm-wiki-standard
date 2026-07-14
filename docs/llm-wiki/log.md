@@ -24,6 +24,22 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - feat: pre-commit 훅 템플릿 + CI Quick Start 점검 (1.1)
+
+- status: needs_review
+- actor: Claude Code
+- scope: code, ci, docs
+- changed:
+  - templates/git-hooks/pre-commit
+  - templates/git-hooks/README.md
+  - .github/workflows/ci.yml
+- summary:
+  - 소비 프로젝트용 pre-commit 훅 템플릿을 추가했다: `npx --no-install llm-wiki validate --changed`로 변경된 wiki 문서만 커밋 전에 검증한다(설치법은 templates/git-hooks/README.md). templates/는 package files에 이미 포함돼 함께 배포된다.
+  - CI consumer-install 잡을 확장해 packed tarball에 대해 Quick Start 명령(doctor, init --dry-run, validate-frontmatter)을 실행하게 했다(Phase 7 "Quick Start against packed artifacts" 항목 충족).
+  - 로컬(Windows)에서 pack→install→Quick Start 3종 exit 0 확인, 훅 템플릿·README가 tarball에 포함됨을 확인.
+- caveats:
+  - 로드맵 1.1의 세 번째(마지막) 항목이다. 이로써 1.1 계획 항목(evidence.stale 경계 수정 · validate --changed · pre-commit 훅/Quick Start 점검)이 모두 구현됐다. 버전 1.1.0 bump·CHANGELOG·README 반영·릴리스는 사용자 결정 후 진행한다.
+
 ## 2026-07-14 - feat: validate --changed (변경 문서 한정 검증, 1.1)
 
 - status: needs_review

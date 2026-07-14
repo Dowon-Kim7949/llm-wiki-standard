@@ -78,7 +78,7 @@ jobs:
           node-version: "22"
           package-manager-cache: false
 
-      - name: Pack, install, and smoke-test in a scratch consumer project
+      - name: Pack, install, and run Quick Start commands against the tarball
         run: |
           npm pack
           TARBALL="$(ls dowonk-7949-llm-wiki-standard-*.tgz | head -n 1)"
@@ -88,3 +88,5 @@ jobs:
           npm init -y > /dev/null
           npm install --no-save "../$TARBALL"
           npx --no-install llm-wiki doctor
+          npx --no-install llm-wiki init --dry-run --type library
+          npx --no-install llm-wiki validate-frontmatter
