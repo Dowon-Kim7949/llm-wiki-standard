@@ -8,6 +8,8 @@ import { parseArgs } from "../src/cli.js";
 import { writeReport, renderHtmlDashboard } from "../src/report.js";
 import { loadProjectConfig, mergeConfigIntoOptions } from "../src/config-file.js";
 import { buildReleaseNotes, parseCommit } from "../src/release-notes.js";
+import { fileChangedSince } from "../src/git.js";
+import { execFileSync } from "node:child_process";
 
 test("init dry-run works for an empty zero-base project", async () => {
   const cwd = await makeProject("empty-");
@@ -1009,6 +1011,44 @@ test("evidence drift scan is best-effort and silent without git history", async 
   const result = await audit({ cwd, type: "unknown", profiles: [], agents: [], format: "text", strict: false });
 
   assert.equal(result.findings.some((finding) => finding.rule === "evidence.stale"), false);
+});
+
+test("fileChangedSince anchors the baseline to end-of-day so same-day commits are not drift", async (t) => {
+  let hasGit = true;
+  try {
+    execFileSync("git", ["--version"], { stdio: "ignore" });
+  } catch {
+    hasGit = false;
+  }
+  if (!hasGit) {
+    t.skip("git not available");
+    return;
+  }
+
+  const cwd = await makeProject("drift-git-");
+  const commitDate = "2026-07-13T14:57:30";
+  const git = (args) => execFileSync("git", args, {
+    cwd,
+    stdio: ["ignore", "ignore", "ignore"],
+    env: {
+      ...process.env,
+      GIT_AUTHOR_DATE: commitDate,
+      GIT_COMMITTER_DATE: commitDate,
+      GIT_AUTHOR_NAME: "Test",
+      GIT_AUTHOR_EMAIL: "test@example.com",
+      GIT_COMMITTER_NAME: "Test",
+      GIT_COMMITTER_EMAIL: "test@example.com"
+    }
+  });
+  git(["init"]);
+  await writeFile(path.join(cwd, "a.ts"), "one\n", { encoding: "utf8" });
+  git(["add", "a.ts"]);
+  git(["-c", "commit.gpgsign=false", "commit", "-m", "add a"]);
+
+  // Reviewed the same day the file was committed → covered by the review, not drift.
+  assert.equal(fileChangedSince(cwd, "a.ts", "2026-07-13"), false);
+  // Reviewed the day before → the commit is genuinely after the review → drift.
+  assert.equal(fileChangedSince(cwd, "a.ts", "2026-07-12"), true);
 });
 
 test("strict validate promotes evidence contract warnings to errors", async () => {

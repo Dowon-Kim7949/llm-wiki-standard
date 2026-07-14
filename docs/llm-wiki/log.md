@@ -24,6 +24,20 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - fix: evidence.stale 같은날 경계 수정 (1.1 착수)
+
+- status: needs_review
+- actor: Claude Code
+- scope: code, test
+- changed:
+  - src/git.js
+  - tests/verification.test.js
+- summary:
+  - `fileChangedSince`가 `git log --since=<date>`로 리뷰 당일 커밋까지 포함해 발생하던 evidence.stale 오탐(같은 날 리뷰+커밋)을 수정했다. 기준일을 그날의 끝(`<date> 23:59:59`)으로 앵커링해, 같은 날 커밋은 리뷰가 커버한 것으로 처리하고 다음 날 이후 커밋만 드리프트로 본다.
+  - dated-commit 기반 테스트를 추가했다(같은 날 → 미탐, 전날 기준 → 탐지). 저장소 evidence.stale 경고가 21 → 11로 줄었다(남은 11건은 2026-07-14에 실제로 바뀐 package.json/README.md/RELEASE_CHECKLIST.md를 참조하는 진짜 드리프트).
+- caveats:
+  - 로드맵 1.1(inner-loop cleanup)의 첫 항목이다. 버전 bump와 CHANGELOG/ROADMAP 반영은 1.1 릴리스 시점에 한다.
+
 ## 2026-07-14 - 1.0.1 패치 릴리스 준비 (문서 전용)
 
 - status: needs_review
