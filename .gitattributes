@@ -1,0 +1,6 @@
+# Normalize line endings to LF on every platform so the Windows CI matrix and
+# content-based tests behave identically to Linux/macOS. Binary files are
+# auto-detected and left untouched.
+* text=auto eol=lf
+*.png binary
+*.pptx binary

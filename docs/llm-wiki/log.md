@@ -24,6 +24,20 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - fix(ci): CRLF-안전 okf 테스트 + .gitattributes(eol=lf)
+
+- status: needs_review
+- actor: Claude Code
+- scope: test, ci
+- changed:
+  - tests/verification.test.js
+  - .gitattributes
+- summary:
+  - 1.0.0에서 추가한 Windows CI 매트릭스가 드러낸 실패를 수정했다. 원인은 제품이 아니라 테스트다: okf 픽스처 테스트가 `corpus.includes("evidence:\n  - ...")`로 `\n`을 하드코딩해 Windows 체크아웃(CRLF)에서 매칭에 실패했다. corpus를 LF로 정규화했다(validate 자체는 CRLF를 정상 처리하며 findings 단언은 통과했었다).
+  - 재발 방지로 `.gitattributes`(`* text=auto eol=lf`, png/pptx는 binary)를 추가해 전 플랫폼 LF 체크아웃을 강제했다.
+- caveats:
+  - 로컬(LF)에선 정규화가 no-op이라 112 pass 유지. Windows CI 그린 여부는 push 후 확인한다. 1.1.0 태그 이후의 저장소 위생 커밋이며 배포된 패키지 내용에는 영향이 없다(tests/·.gitattributes는 npm files 미포함).
+
 ## 2026-07-14 - release: 1.1.0 준비 (1.0.1 흡수)
 
 - status: needs_review

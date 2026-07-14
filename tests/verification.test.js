@@ -1522,7 +1522,7 @@ test("okf-v0.1 fixture corpus validates expected document types and links", asyn
     readFile(path.join(cwd, "docs", "llm-wiki", "events", "okf-roadmap-event.md"), { encoding: "utf8" }),
     readFile(path.join(cwd, "docs", "llm-wiki", "apis", "prompt-command-api.md"), { encoding: "utf8" })
   ]);
-  const corpus = fixtureFiles.join("\n");
+  const corpus = fixtureFiles.join("\n").replace(/\r\n/g, "\n");
 
   assert.equal(result.findings.some((finding) => finding.rule?.startsWith("okf.")), false);
   assert.equal(result.findings.some((finding) => finding.rule === "wiki_link.missing"), false);
