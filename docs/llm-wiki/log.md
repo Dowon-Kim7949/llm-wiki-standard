@@ -24,6 +24,22 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - docs: VERSIONING·project-profile version-agnostic 전환
+
+- status: needs_review
+- actor: Claude Code
+- scope: docs
+- changed:
+  - docs/llm-wiki/VERSIONING.md
+  - docs/llm-wiki/project-profile.md
+- summary:
+  - 두 문서에서 고정 버전 숫자("현재 버전 1.0.0") 표기를 걷어내고 `package.json`의 `version`을 단일 진실 소스로 참조하도록 바꿨다. 이로써 매 릴리스마다 이 문서들을 버전 숫자 때문에 갱신·재검토하던 부채를 없앴다(2버전 뒤처짐 문제 해소).
+  - VERSIONING: Policy를 재작성(package.json 단일 소스 명시, "1.0.0에서 안정 계약 확정"은 역사적 사실로 유지), bump 예시를 version-agnostic(x.y.Z / x.Y.0 / X.0.0)으로 일반화. project-profile: Detected Project·Evidence의 버전 숫자 제거, 1.2에서 해금된 `migrate --apply`를 반영해 보수적 쓰기 정책 서술 갱신.
+  - 규칙에 따라 두 문서를 `verified` → `needs_review`로 강등하고 `reviewed_by`/`reviewed_at`를 제거했다(내용이 바뀌어 더 이상 사람 검증 상태가 아님). tags의 `verified` → `needs-review`. validate-frontmatter는 normal·strict 모두 pass.
+- caveats:
+  - 두 문서는 사람 재검토 후 verified 재승인이 필요하다(reviewed_by/reviewed_at 재기록).
+  - 부수 효과: needs_review가 되면서 두 문서는 더 이상 evidence.stale(verified 전용) 대상이 아니다.
+
 ## 2026-07-14 - feat: drift 명령 + opt-in 강등 (1.2 step 3b, Gate 9)
 
 - status: needs_review

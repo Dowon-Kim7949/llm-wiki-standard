@@ -2,15 +2,13 @@
 title: Versioning
 tags:
   - llm-wiki
-  - verified
-status: verified
+  - needs-review
+status: needs_review
 doc_type: versioning
 project: llm-wiki-standard
 last_updated: 2026-07-14
 author: cli-generated
 last_edited_by: Claude Code
-reviewed_by: WoongHwan-Kim
-reviewed_at: 2026-07-14
 wiki_block_version: v1
 source_files:
   - package.json
@@ -29,15 +27,16 @@ contains_sensitive_info: false
 
 ## Policy
 
-- 시맨틱 버전을 따르며 현재 라인은 `1.0.x`(안정 계약)다. 현재 버전은 `1.0.0`이며, `package.json`의 `version` 필드가 단일 진실 소스다.
+- 시맨틱 버전을 따른다. 배포 버전의 단일 진실 소스는 `package.json`의 `version` 필드이며, 이 문서는 특정 버전 숫자를 고정하지 않는다(버전을 알려면 `package.json`을 본다).
+- `1.0.0`에서 안정 계약(명령·옵션 표면, `--format json` 출력 형태, 필수 frontmatter 계약)을 확정했고, 이후 `1.x`는 하위 호환(부가)만 더한다. 계약 파괴 변경은 major를 요한다.
 - 릴리스는 `v<version>` 태그 push로 트리거되고, 태그 버전은 반드시 `package.json` 버전과 일치해야 한다.
 - 하위 호환이 깨질 수 있는 변경(명령 이름/JSON 출력 형태 변경, 필수 frontmatter 계약 변경)은 major로 올린다. `PUBLIC_API`의 안정성 원칙 참조.
 
 ## What Bumps the Version
 
-- **patch(1.0.x)**: 버그 수정, 메시지/출력 다듬기, 새 검증 규칙 추가(warning 레벨, 기본 통과 유지).
-- **minor(1.x.0)**: 하위 호환되는 새 명령·옵션 추가, 기존 동작을 깨지 않는 기능 확장.
-- **major(x.0.0)**: 안정 계약의 파괴적 변경(명령·옵션 제거·이름 변경, JSON 출력 형태 변경, 필수 frontmatter 계약 변경). `1.0.0`에서 안정 계약을 확정했다.
+- **patch(x.y.Z)**: 버그 수정, 메시지/출력 다듬기, 새 검증 규칙 추가(warning 레벨, 기본 통과 유지).
+- **minor(x.Y.0)**: 하위 호환되는 새 명령·옵션 추가, 기존 동작을 깨지 않는 기능 확장.
+- **major(X.0.0)**: 안정 계약의 파괴적 변경(명령·옵션 제거·이름 변경, JSON 출력 형태 변경, 필수 frontmatter 계약 변경).
 
 ## Evidence
 
@@ -49,4 +48,4 @@ contains_sensitive_info: false
 
 ## Review Notes
 
-- 2026-07-14에 `1.0.0` 안정성 마일스톤에 맞춰 버전 정책과 메타데이터를 갱신하고, 사람 검토를 거쳐 `verified`로 승인했다.
+- 2026-07-14에 버전 정책을 version-agnostic으로 전환했다: 특정 버전 숫자(`1.0.0`) 표기를 걷어내고 `package.json`을 단일 소스로 참조하게 해, 매 릴리스마다 이 문서를 갱신·재검토할 필요를 없앴다. 내용이 바뀌었으므로 규칙에 따라 `verified` → `needs_review`로 강등했고, 사람 재검토 후 재승인이 필요하다.
