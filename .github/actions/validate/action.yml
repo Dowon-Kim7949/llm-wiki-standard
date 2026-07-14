@@ -1,0 +1,67 @@
+name: "LLM-WIKI validate"
+description: "Run llm-wiki validate against a repository's LLM-WIKI docs (read-only; wraps the published npm package via npx)."
+branding:
+  icon: "check-circle"
+  color: "blue"
+
+inputs:
+  version:
+    description: "npm version or dist-tag of @dowonk-7949/llm-wiki-standard to run."
+    required: false
+    default: "latest"
+  cwd:
+    description: "Project root to validate."
+    required: false
+    default: "."
+  strict:
+    description: "Fail on warnings (adds --strict)."
+    required: false
+    default: "false"
+  changed:
+    description: "Only report findings on changed docs (adds --changed)."
+    required: false
+    default: "false"
+  profile:
+    description: "Profile to validate against, e.g. okf-v0.1 (optional)."
+    required: false
+    default: ""
+  since:
+    description: "Git ref to scope --changed against (adds --since; optional)."
+    required: false
+    default: ""
+  format:
+    description: "Output format: text | json | markdown | html."
+    required: false
+    default: "text"
+  out:
+    description: "Write the report to this path (optional)."
+    required: false
+    default: ""
+
+# Composite action: pulls in NO other actions, preserving the project's zero-
+# dependency ethos. It only shells out to `npx` and the read-only `validate`
+# command. Node.js must be available on the runner (GitHub-hosted runners ship
+# Node; on self-hosted runners run actions/setup-node before this step).
+runs:
+  using: "composite"
+  steps:
+    - name: Run llm-wiki validate
+      shell: bash
+      env:
+        LW_VERSION: ${{ inputs.version }}
+        LW_CWD: ${{ inputs.cwd }}
+        LW_STRICT: ${{ inputs.strict }}
+        LW_CHANGED: ${{ inputs.changed }}
+        LW_PROFILE: ${{ inputs.profile }}
+        LW_SINCE: ${{ inputs.since }}
+        LW_FORMAT: ${{ inputs.format }}
+        LW_OUT: ${{ inputs.out }}
+      run: |
+        set -euo pipefail
+        args=(validate --cwd "$LW_CWD" --format "$LW_FORMAT")
+        if [ "$LW_STRICT" = "true" ]; then args+=(--strict); fi
+        if [ "$LW_CHANGED" = "true" ]; then args+=(--changed); fi
+        if [ -n "$LW_PROFILE" ]; then args+=(--profile "$LW_PROFILE"); fi
+        if [ -n "$LW_SINCE" ]; then args+=(--since "$LW_SINCE"); fi
+        if [ -n "$LW_OUT" ]; then args+=(--out "$LW_OUT"); fi
+        npx -y "@dowonk-7949/llm-wiki-standard@$LW_VERSION" "${args[@]}"
