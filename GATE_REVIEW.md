@@ -40,7 +40,7 @@ This document records the default decisions for the `0.1.0` stable release line 
 | Gate 5 Implementation Approval | `accepted_for_0.1.0` | Ship `@dowonk-7949/llm-wiki-standard@0.1.0` as the first stable npmjs release candidate. |
 | Gate 6 Autofix (`--fix`) Scope Approval | `accepted_for_0.1.8` | Ship a scoped `llm-wiki fix` command (default preview, `--write` applies) limited to the safe remediations in "Autofix (`--fix`) Scope Decision" below. Content-bearing fixes never touch `verified` documents, and nothing outside `docs/llm-wiki/` is written. |
 | Gate 7 1.0.0 Stability Approval | `accepted_for_1.0.0` | Promote the `0.1.8` contract to a stable `1.0.0` with no functional command changes. Declare the CLI command/option surface, `--format json` output shape, and required frontmatter contract stable; breaking changes to these now require a major version bump. See "1.0.0 Stability Milestone" below. |
-| Gate 8 Migration Apply Scope Approval | `proposed_for_1.2.0` | **Awaiting human acceptance.** Unblock `migrate --apply` for the `1.2.0` line under a pre-decided, preview-first, `verified`-preserving scope that reuses the accepted `fix` engine (Gate 6) plus `wiki_block_version` stamping. Revisits Gate 4's block for the `1.x` line. Implementation is blocked until this gate is accepted. See "Migration Apply Scope Decision" below. |
+| Gate 8 Migration Apply Scope Approval | `accepted_for_1.2.0` | Unblock `migrate --apply` for the `1.2.0` line under a pre-decided, preview-first, `verified`-preserving scope that reuses the accepted `fix` engine (Gate 6) plus `wiki_block_version` stamping. Revisits Gate 4's block for the `1.x` line. Accepted by WoongHwan-Kim on 2026-07-14; the rename map ships empty (`v1` is the only block version). See "Migration Apply Scope Decision" below. |
 
 ## 1.0.0 Stability Milestone
 
@@ -130,15 +130,14 @@ Accepted for the `0.1.8` line. `llm-wiki fix` applies only the safest, mechanica
 - All created or edited documents remain `needs_review`.
 - UTF-8 read/write throughout; edits are minimal targeted insertions rather than full-document rewrites, since the frontmatter layer parses but does not re-serialize.
 
-## Migration Apply Scope Decision (proposed for 1.2.0)
+## Migration Apply Scope Decision (accepted for 1.2.0)
 
-Proposed for the `1.2.0` line, **pending human acceptance**. Gate 8 revisits
+Accepted for the `1.2.0` line (WoongHwan-Kim, 2026-07-14). Gate 8 revisits
 Gate 4: `migrate --apply` has been blocked since `0.1.0` because automatic
 migration writes needed a separately accepted scope. This decision grants that
 scope by **reusing the accepted `fix` engine** (Gate 6) under a
-`wiki_block_version` upgrade framing. When accepted, `migrate --apply` is
-unblocked with the scope below and Gate 4's block no longer applies to the `1.x`
-line. Until then, `--apply` stays blocked.
+`wiki_block_version` upgrade framing. `migrate --apply` is unblocked for `1.2.0`
+with the scope below, and Gate 4's block no longer applies to the `1.x` line.
 
 `migrate` is the version-aware sibling of `fix`: it reports the contract gap
 between each document's `wiki_block_version` and the CLI's current block version,
@@ -195,9 +194,9 @@ Identical to the `fix` refusals:
 
 ## Release Caveats
 
-- `migrate --apply` stays blocked in shipped releases through `1.1.0`. Gate 8 (above)
-  proposes unblocking it for `1.2.0` under the accepted `fix`-engine scope; until Gate 8
-  is accepted and implemented, `--apply` remains blocked.
+- `migrate --apply` was blocked in shipped releases through `1.1.0`. Gate 8 (above)
+  unblocks it for `1.2.0` under the accepted `fix`-engine scope; broader migration
+  (Tier B fields, path repair, `verified` edits, status changes) stays out of scope.
 - `fix` writes only the accepted scope above; broader autofix (Tier B fields, path repair, enrichment, status downgrade) stays out of scope until separately accepted.
 - `validate` reuses audit coverage rather than separate layered validators.
 - YAML parsing covers the standard frontmatter subset only.

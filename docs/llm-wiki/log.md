@@ -24,6 +24,18 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - docs(gate): Gate 8 수락 (accepted_for_1.2.0)
+
+- status: needs_review
+- actor: Claude Code (사용자 WoongHwan-Kim 승인)
+- scope: docs, gate
+- changed:
+  - GATE_REVIEW.md
+- summary:
+  - 사용자가 "Gate 8 수락, 진행"으로 승인함에 따라 Gate 8을 `proposed_for_1.2.0` → `accepted_for_1.2.0`로 확정했다. rename map은 비운 채 출시(현재 v1이 유일한 블록버전). 이로써 migrate --apply 구현(step 2) 착수가 해금된다.
+- caveats:
+  - 결정 문서만 변경. 코드 변경은 후속 커밋(step 1 업그레이드 리포트 → step 2 migrate --apply).
+
 ## 2026-07-14 - docs(gate): Gate 8 초안 — migrate --apply 범위 (1.2 착수)
 
 - status: needs_review
