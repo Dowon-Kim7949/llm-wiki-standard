@@ -5,6 +5,30 @@
 `@dowonk-7949/llm-wiki-standard`의 주요 변경 사항을 기록합니다. 이 프로젝트는
 [유의적 버전(Semantic Versioning)](https://semver.org/)을 따르며, 항목은 최신순입니다.
 
+## 1.6.0 — 2026-07-14
+
+에이전트 네이티브(MCP). 에이전트가 CLI를 spawn하지 않고 위키를 툴로 질의·점검하게
+한다. 하위호환 — 새 명령·모듈만 추가하며 CLI·JSON·프로그래매틱 API·frontmatter 계약은
+그대로다.
+
+### 추가 (Added)
+
+- `llm-wiki mcp` — stdio 위의 Model Context Protocol 서버(개행 구분 JSON-RPC 2.0).
+  Node 내장만으로 구현(서드파티 MCP SDK 없음)해 무의존성 정책을 유지한다. MCP 클라이언트에
+  `{ "command": "npx", "args": ["-y", "@dowonk-7949/llm-wiki-standard", "mcp"] }`로 등록한다.
+- 읽기 전용 MCP 툴: `validate`, `audit`, `next`, `status`, `doctor`, `stats`, `graph`,
+  `explain`, `handoff`, `prompt`. 쓰기/변경 명령은 노출하지 않으며 어떤 MCP 툴도 파일을 쓰지
+  않는다(`annotations.readOnlyHint`). 각 `tools/call`은 명령의 구조화 결과(`schemaVersion`
+  포함)를 `structuredContent`로, 사람용 요약을 텍스트로 반환한다. 명령 예외는 `isError`로.
+- 패키지 진입점의 프로그래매틱 MCP 표면: `startMcpServer`, `MCP_TOOLS`, `handleMcpMessage`,
+  `MCP_PROTOCOL_VERSION`. 범위: `GATE_REVIEW.md`(Gate 11).
+
+### 참고 (Notes)
+
+- 하위호환·부가적 변경. 배칭 미지원(pinned 프로토콜 `2025-06-18`에서 제거) — 배열 메시지는
+  단일 `-32600`으로 응답한다. 이 버전은 MCP 툴 호출에 `llm-wiki.config.json` 기본값을
+  병합하지 않는다(명시 인자만).
+
 ## 1.5.2 — 2026-07-14
 
 커뮤니티 표준(Community standards). GitHub 권장 커뮤니티 표준을 충족하도록 저장소용

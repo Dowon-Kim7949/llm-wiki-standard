@@ -47,9 +47,19 @@ Humans review and approve verified status.
 CI continuously checks quality.
 ```
 
-## Shipped Through 1.5.0
+## Shipped Through 1.6.0
 
-`1.5.0` (this release) is the programmatic-API line: the package is now
+`1.6.0` (this release) is the agent-native line: `llm-wiki mcp` runs a Model
+Context Protocol server over stdio so agents (Claude Code, Cursor, other MCP
+clients) query and check the wiki as tools instead of shelling out. It exposes
+the read-only commands (`validate`/`audit`/`next`/`status`/`doctor`/`stats`/
+`graph`/`explain`/`handoff`/`prompt`) as MCP tools — no write command is exposed,
+no tool writes files. Hand-rolled JSON-RPC 2.0 on Node built-ins (no third-party
+SDK), preserving the zero-runtime-dependency invariant; results reuse the 1.5
+result shape (`schemaVersion`). Backward-compatible — a new command and module
+only. Scope: `GATE_REVIEW.md` (Gate 11).
+
+`1.5.0` is the programmatic-API line: the package is now
 importable in-process via `package.json` `exports` (`src/index.js`), exposing a
 frozen `commands` map over the command functions, `normalizeOptions`,
 `parseArgs`/`run`, and `SCHEMA_VERSION`, with return shapes documented via JSDoc
@@ -109,17 +119,7 @@ not re-list shipped work.
 - **Breaking changes are out of scope for `1.x`** and are parked under "Beyond
   the 1.x Horizon" below.
 
-## Release Plan (1.6 → 1.7)
-
-### 1.6 — Agent-native (MCP)
-
-Goal: let Codex / Claude Code / other agents maintain the wiki natively.
-
-- **MCP server** exposing `validate`, `audit`, `next`, `graph`, and
-  `handoff`/`prompt` as tools, so agents query and check the wiki instead of
-  shelling out.
-
-Why here: highest agent-first leverage, but depends on the 1.5 API being stable.
+## Release Plan (1.7)
 
 ### 1.7 — Team & org scale
 

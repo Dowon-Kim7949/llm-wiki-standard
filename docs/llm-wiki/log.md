@@ -24,6 +24,31 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - feat: 에이전트 네이티브 MCP 서버 + 1.6.0 준비
+
+- status: needs_review
+- actor: Claude Code
+- scope: code, docs, release
+- changed:
+  - src/mcp/tools.js, src/mcp/dispatch.js, src/mcp/server.js (신규)
+  - src/cli.js (`llm-wiki mcp` 명령 배선 + help), src/index.js (MCP 표면 export)
+  - tests/mcp.test.js (신규: 단위 + spawn 라운드트립)
+  - package.json (version 1.5.2 → 1.6.0), tests/verification.test.js (버전 어서션)
+  - CHANGELOG.md/.ko.md, ROADMAP.md/.ko.md (Shipped Through 1.6.0, Release Plan → 1.7)
+  - docs/llm-wiki/PUBLIC_API.md, ARCHITECTURE_CONVENTIONS.md, DOMAIN_FEATURES.md, GATE_REVIEW.md(Gate 11), domains/00_overview.md
+  - README.md/.ko.md (MCP 서버 섹션), docs/llm-wiki/releases/v1.6.0.md (신규)
+- summary:
+  - ROADMAP 1.6(에이전트 네이티브)을 구현했다. `llm-wiki mcp`가 stdio 위 MCP 서버를 실행하고, 읽기 전용 명령 10개(validate/audit/next/status/doctor/stats/graph/explain/handoff/prompt)를 MCP 툴로 노출한다. 서드파티 SDK 없이 Node 내장만으로 개행 구분 JSON-RPC 2.0을 직접 구현(무의존성 불변식 유지). 툴 결과는 1.5 result(`schemaVersion`)를 `structuredContent`로, 사람용 요약을 텍스트로 반환. 쓰기 명령은 노출하지 않음. GATE_REVIEW Gate 11로 범위 승인.
+  - 구현 후 적대적 다차원 리뷰(프로토콜/정확성/무의존성·안전/통합/테스트, 워크플로)로 확정 결함 4종을 수정했다: 프로토콜 버전 협상을 지원 버전 allowlist로(임의 버전 echo 금지), known-method 알림(id 없음) 무응답, 배열(배치)을 `-32600`으로 거부(2025-06-18 배칭 제거·빈 배열 무응답 해소), graph 툴 설명 정확화. 테스트 커버리지도 보강(isError 분기·파싱오류 -32700·배열·graph format·알림 무응답).
+  - 최종 완결성 검증(워크플로)에서 `domains/00_overview.md` 도메인 지도가 stale함을 확인해 현행화했다: 누락됐던 Knowledge(graph/stats)·Release(release-notes)·Agent-native(mcp) 추가, `drift` 반영, stale했던 "migrate --apply 차단" 서술을 Gate 8 기준으로 정정.
+- evidence:
+  - src/mcp/dispatch.js#symbol:handleMessage
+  - src/mcp/tools.js#symbol:TOOL_DEFS
+  - src/mcp/server.js#symbol:startMcpServer
+- caveats:
+  - node --test 통과(신규 MCP 테스트 포함), validate-frontmatter --strict 확인 예정, 실제 stdio 라운드트립 검증. 무의존성 유지(런타임 서드파티 의존성 추가 없음).
+  - 배포 전이다(태그/npm 미실행). doc-sync로 PUBLIC_API·ARCHITECTURE_CONVENTIONS·DOMAIN_FEATURES가 verified→needs_review로 강등 → 사람 재검토 필요.
+
 ## 2026-07-14 - release: 1.5.2 준비 (커뮤니티 표준)
 
 - status: needs_review

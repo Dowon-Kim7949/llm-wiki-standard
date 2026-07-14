@@ -5,6 +5,34 @@
 All notable changes to `@dowonk-7949/llm-wiki-standard` are documented here. This
 project follows [Semantic Versioning](https://semver.org/). Entries are newest-first.
 
+## 1.6.0 — 2026-07-14
+
+Agent-native (MCP). Let agents query and check the wiki as tools instead of
+shelling out. Backward-compatible — a new command and module only; the CLI,
+JSON, programmatic-API, and frontmatter contracts are unchanged.
+
+### Added
+
+- `llm-wiki mcp` — a Model Context Protocol server over stdio (newline-delimited
+  JSON-RPC 2.0), implemented with Node built-ins only (no third-party MCP SDK),
+  preserving the zero-runtime-dependency policy. Register it in an MCP client
+  with `{ "command": "npx", "args": ["-y", "@dowonk-7949/llm-wiki-standard", "mcp"] }`.
+- Read-only MCP tools: `validate`, `audit`, `next`, `status`, `doctor`, `stats`,
+  `graph`, `explain`, `handoff`, `prompt`. No write/mutating command is exposed —
+  no MCP tool writes files (`annotations.readOnlyHint`). Each `tools/call` returns
+  the command's structured result (with `schemaVersion`) as `structuredContent`
+  plus a human-readable text summary; a thrown command surfaces as `isError`.
+- Programmatic MCP surface from the package entry point: `startMcpServer`,
+  `MCP_TOOLS`, `handleMcpMessage`, `MCP_PROTOCOL_VERSION`. Scope: `GATE_REVIEW.md`
+  (Gate 11).
+
+### Notes
+
+- Backward-compatible and additive. Batching is not supported (removed in the
+  pinned MCP protocol `2025-06-18`); an array message is answered with a single
+  `-32600`. `llm-wiki.config.json` defaults are not merged into MCP tool calls in
+  this version (explicit arguments only).
+
 ## 1.5.2 — 2026-07-14
 
 Community standards. Repository-facing docs so the project meets GitHub's

@@ -384,6 +384,24 @@ const code = await run(["audit", "--cwd", process.cwd()]);  // 0 pass / 1 error 
 
 The command surface, `SCHEMA_VERSION`, and the shared result fields are the stable contract — see `docs/llm-wiki/PUBLIC_API.md`.
 
+## MCP Server (Agent-native)
+
+`llm-wiki mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio so agents (Claude Code, Cursor, and other MCP clients) can query and check the wiki as tools instead of shelling out. It speaks newline-delimited JSON-RPC 2.0, implemented with Node built-ins only — no third-party MCP SDK, so the zero-runtime-dependency policy holds.
+
+Register it in an MCP client:
+
+```json
+{
+  "mcpServers": {
+    "llm-wiki": { "command": "npx", "args": ["-y", "@dowonk-7949/llm-wiki-standard", "mcp"] }
+  }
+}
+```
+
+- **Read-only tools:** `validate`, `audit`, `next`, `status`, `doctor`, `stats`, `graph`, `explain`, `handoff`, `prompt`. No write/mutating command (`init`, `fix`, `migrate`, `drift`, `quickstart`) is exposed — **no MCP tool writes files.**
+- Each `tools/call` returns the command's structured result (with `schemaVersion`) as `structuredContent`, plus a human-readable text summary. A thrown command surfaces as `isError: true`, not a protocol error.
+- `--cwd` sets the default project root for tool calls; a tool may pass its own `cwd`. See `docs/llm-wiki/PUBLIC_API.md` (MCP Server) and `GATE_REVIEW.md` (Gate 11).
+
 ## Evidence Contract
 
 Use three evidence layers together:

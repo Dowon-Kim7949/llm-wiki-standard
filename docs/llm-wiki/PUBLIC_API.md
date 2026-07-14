@@ -2,15 +2,12 @@
 title: Public Api
 tags:
   - llm-wiki
-  - verified
-status: verified
+status: needs_review
 doc_type: public_api
 project: llm-wiki-standard
 last_updated: 2026-07-14
 author: cli-generated
 last_edited_by: Claude Code
-reviewed_by: WoongHwan-Kim
-reviewed_at: 2026-07-14
 wiki_block_version: v1
 source_files:
   - src/cli.js
@@ -18,6 +15,8 @@ source_files:
   - src/config-file.js
   - src/index.js
   - src/report.js
+  - src/mcp/tools.js
+  - src/mcp/dispatch.js
   - package.json
 evidence:
   - src/cli.js#symbol:COMMANDS
@@ -29,6 +28,8 @@ evidence:
   - src/index.js#symbol:commands
   - src/index.js#symbol:normalizeOptions
   - src/report.js#symbol:dashboardDocHref
+  - src/mcp/tools.js#symbol:TOOL_DEFS
+  - src/mcp/dispatch.js#symbol:handleMessage
 related:
   - docs/llm-wiki/index.md
   - docs/llm-wiki/domains/00_overview.md
@@ -129,6 +130,32 @@ const code = await run(["audit", "--cwd", process.cwd()]);       // 0 pass / 1 e
 
 `audit`/`validate`/`status`의 `--format html` 대시보드에는 Document Index가 있고, 각 문서 링크(`<a href>`)는 **`--out` 파일의 위치 기준 상대경로**로 계산된다(1.5.1부터). 예를 들어 `--out docs/reports/dash.html`로 쓰면 링크가 그 파일에서 위키 문서로 가는 상대경로가 되어, 하위 폴더에서 열어도 링크가 깨지지 않는다. `--out` 없이 stdout으로 출력할 때는 repo-root 기준 상대경로를 그대로 쓴다.
 
+## MCP Server (Agent-native) — 1.6
+
+`llm-wiki mcp`는 **stdio 위에서 Model Context Protocol(MCP) 서버**를 실행한다. 에이전트(Claude Code·Cursor 등 MCP 클라이언트)가 CLI를 spawn하지 않고 위키를 **툴로 질의·점검**하게 한다. 서드파티 SDK 없이 Node 내장만으로 **개행 구분 JSON-RPC 2.0**을 직접 구현한다(무의존성 불변식 유지). 프로그래매틱으로는 `startMcpServer(options)`로 실행하고, 순수 핸들러 `handleMcpMessage(msg, ctx)`·툴 정의 `MCP_TOOLS`·`MCP_PROTOCOL_VERSION`도 export된다.
+
+MCP 클라이언트 등록 예시:
+
+```json
+{ "mcpServers": {
+  "llm-wiki": { "command": "npx", "args": ["-y", "@dowonk-7949/llm-wiki-standard", "mcp"] }
+}}
+```
+
+### 노출 툴 (모두 읽기 전용)
+
+`validate` · `audit` · `next` · `status` · `doctor` · `stats` · `graph` · `explain` · `handoff` · `prompt`. **쓰기/변경 명령(init/fix/migrate/drift/quickstart)은 MCP로 노출하지 않는다** — 에이전트는 위키를 조회·점검할 뿐 바꾸지 않는다(`annotations.readOnlyHint: true`). 각 툴 인자는 `inputSchema`(JSON Schema)로 검증되며 `cwd`(기본=서버 실행 위치)·`type`·`profiles`·`strict` 등을 받는다.
+
+### 툴 결과 형태
+
+`tools/call` 결과는 `structuredContent`(명령 결과 객체 = `schemaVersion` 포함, `.text` 제거)와 `content[{type:"text"}]`(사람용 텍스트 리포트; graph는 요청 format의 렌더링, mermaid/dot 포함)로 반환한다. 명령이 예외를 던지면 프로토콜 에러가 아니라 `isError: true` 결과로 감싼다(MCP 관례).
+
+### 프로토콜 처리
+
+- 지원 메서드: `initialize`(protocolVersion 협상 — 지원 버전만 echo, 아니면 pinned로 폴백), `notifications/initialized`, `ping`, `tools/list`, `tools/call`.
+- JSON-RPC 2.0 준수: 알림(id 없음)에는 무응답, 미지원 메서드 `-32601`, 잘못된 툴/파라미터 `-32602`, 파싱 오류 `-32700`, 배열(배치)은 `-32600`(2025-06-18은 배칭 제거).
+- stdout은 프로토콜 전용(로그는 stderr). stdin EOF 시 정상 종료.
+
 ## Stability
 
 - 명령 이름·JSON 출력 형태는 CI/래퍼가 의존하므로 보수적으로 유지한다.
@@ -136,6 +163,7 @@ const code = await run(["audit", "--cwd", process.cwd()]);       // 0 pass / 1 e
 - `migrate --apply`는 GATE_REVIEW Gate 8 범위로 활성화돼 있다(preview-first, `fix` 범위 + `wiki_block_version` 업그레이드, `verified` 내용·status 불변). `graph`/`stats`는 읽기전용이다.
 - `fix`는 `GATE_REVIEW.md`의 "Autofix (--fix) Scope Decision"에 명시된 좁은 범위만 수정한다: `verified` 문서 내용·`docs/llm-wiki/` 밖 파일·`source_files`/`evidence` 값·Tier B 필드(title/doc_type/project/author)·미보강 내용은 건드리지 않는다.
 - `llm-wiki.config.json` 스키마는 실사용 피드백 전까지 최소(위 4개 필드)로 유지한다.
+- MCP 서버(1.6)는 읽기 전용 툴만 노출하고 무의존성(Node 내장 JSON-RPC)으로 구현한다. MCP 툴 이름 집합과 결과 형태(1.5 result + `schemaVersion`)가 새 안정 계약이다(GATE_REVIEW Gate 11). v1은 MCP 툴 호출에 `llm-wiki.config.json`을 병합하지 않는다(명시 인자만; 향후 개선).
 
 ## Evidence
 
@@ -150,6 +178,8 @@ const code = await run(["audit", "--cwd", process.cwd()]);       // 0 pass / 1 e
 - `src/commands.js#symbol:withText` — 모든 명령 결과 객체에 `schemaVersion`을 부여한다.
 - `src/config.js#symbol:JSON_SCHEMA_VERSION` — 결과 객체·`--format json`의 `schemaVersion` 단일 소스.
 - `src/report.js#symbol:dashboardDocHref` — HTML 대시보드 Document Index 링크를 `--out` 위치 기준 상대경로로 계산.
+- `src/mcp/tools.js#symbol:TOOL_DEFS` — MCP로 노출하는 읽기 전용 툴 정의(commands 위 얇은 래퍼).
+- `src/mcp/dispatch.js#symbol:handleMessage` — MCP JSON-RPC 핸들러(initialize/tools.list/tools.call/ping; 프로토콜 준수).
 
 ## Review Notes
 
@@ -157,3 +187,4 @@ const code = await run(["audit", "--cwd", process.cwd()]);       // 0 pass / 1 e
 - 2026-07-14에 1.4.0의 새 명령(`graph`, `stats`)과 graph 전용 `--format mermaid|dot`을 반영하고, stale했던 "migrate --apply 차단" 서술을 정정한 뒤, 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-14에 1.5 프로그래매틱 API(`package.json` `exports` → `src/index.js`, 동결된 `commands` 맵·개별 함수 export·`normalizeOptions`·`parseArgs`/`run`·`SCHEMA_VERSION`)와 `--format json`의 부가적 `schemaVersion` 필드를 반영하고, 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-14에 1.5.1 API/출력 결함 수정을 반영했다(소비 프로젝트 스모크 테스트 발견): 결과 객체가 `schemaVersion`을 항상 담고 `.text`는 항상 텍스트임을 명시, `normalizeOptions`가 `parseArgs` 결과를 수용, `run(argv)`가 exit code 반환, HTML 대시보드 링크를 `--out` 기준 상대경로로. 모두 additive/refinement라 안정 계약을 깨지 않는다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
+- 2026-07-14에 1.6 에이전트 네이티브(MCP 서버 `llm-wiki mcp`) 계약을 추가했다: stdio JSON-RPC 2.0 직접 구현(무의존성), 읽기 전용 툴 10개(쓰기 미노출), 결과는 `structuredContent`(schemaVersion 포함)+텍스트. 적대적 다차원 리뷰(프로토콜/정확성/안전/통합/테스트)로 확정 결함(버전 협상·알림 무응답·배치 처리·graph 설명)을 수정했다. LLM 편집으로 `needs_review`로 강등되었으며 사람 재검토가 필요하다.

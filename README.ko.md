@@ -371,6 +371,24 @@ const code = await run(["audit", "--cwd", process.cwd()]);  // 0 pass / 1 error 
 
 명령 표면·`SCHEMA_VERSION`·공통 결과 필드가 안정 계약입니다 — `docs/llm-wiki/PUBLIC_API.md` 참조.
 
+## MCP 서버 (에이전트 네이티브)
+
+`llm-wiki mcp`는 stdio 위에서 [Model Context Protocol](https://modelcontextprotocol.io) 서버를 실행해, 에이전트(Claude Code·Cursor 등 MCP 클라이언트)가 CLI를 spawn하지 않고 위키를 툴로 질의·점검하게 합니다. 개행 구분 JSON-RPC 2.0을 Node 내장만으로 직접 구현하여(서드파티 MCP SDK 없음) 무의존성 정책을 유지합니다.
+
+MCP 클라이언트 등록:
+
+```json
+{
+  "mcpServers": {
+    "llm-wiki": { "command": "npx", "args": ["-y", "@dowonk-7949/llm-wiki-standard", "mcp"] }
+  }
+}
+```
+
+- **읽기 전용 툴:** `validate`, `audit`, `next`, `status`, `doctor`, `stats`, `graph`, `explain`, `handoff`, `prompt`. 쓰기/변경 명령(`init`, `fix`, `migrate`, `drift`, `quickstart`)은 노출하지 않습니다 — **어떤 MCP 툴도 파일을 쓰지 않습니다.**
+- 각 `tools/call`은 명령의 구조화 결과(`schemaVersion` 포함)를 `structuredContent`로, 사람용 요약을 텍스트로 반환합니다. 명령이 예외를 던지면 프로토콜 에러가 아니라 `isError: true`로 감쌉니다.
+- `--cwd`는 툴 호출의 기본 프로젝트 루트이며, 툴이 자체 `cwd`를 넘길 수 있습니다. `docs/llm-wiki/PUBLIC_API.md`(MCP Server)와 `GATE_REVIEW.md`(Gate 11) 참조.
+
 ## Evidence 계약
 
 다음 세 가지 근거 계층을 함께 사용합니다.

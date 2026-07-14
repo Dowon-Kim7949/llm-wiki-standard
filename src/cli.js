@@ -2,6 +2,7 @@ import path from "node:path";
 import { audit, doctor, driftCommand, explainCommand, fixCommand, graphCommand, handoffCommand, initCommand, migrateCommand, nextCommand, promptCommand, quickstartCommand, releaseNotesCommand, statsCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "./commands.js";
 import { printResult } from "./report.js";
 import { loadProjectConfig, mergeConfigIntoOptions } from "./config-file.js";
+import { startMcpServer } from "./mcp/server.js";
 
 const COMMANDS = new Map([
   ["doctor", doctor],
@@ -53,6 +54,15 @@ export async function main(argv) {
     printHelp();
     process.exitCode = 3;
     return 3;
+  }
+
+  // mcp is a long-running stdio server, not a request/response command: it does
+  // not go through the format/handler/printResult path. It resolves when stdin
+  // closes (client disconnect).
+  if (command === "mcp") {
+    await startMcpServer(options);
+    process.exitCode = 0;
+    return 0;
   }
 
   const allowedFormats = command === "graph" ? GRAPH_FORMATS : SUPPORTED_FORMATS;
@@ -270,7 +280,8 @@ const COMMAND_OPTION_RULES = {
   drift: new Set(["cwd", "dry-run", "downgrade", "format", "out"]),
   graph: new Set(["cwd", "format", "out"]),
   stats: new Set(["cwd", "type", "profile", "agent", "strict", "format", "out"]),
-  "release-notes": new Set(["cwd", "version", "since", "format", "out"])
+  "release-notes": new Set(["cwd", "version", "since", "format", "out"]),
+  mcp: new Set(["cwd"])
 };
 
 function validateCommandOptions(command, usedOptions, errors) {
@@ -358,6 +369,7 @@ Usage:
   llm-wiki graph [--format text|json|mermaid|dot] [--cwd <path>] [--out <path>]
   llm-wiki stats [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--strict] [--format text|json|markdown|html] [--out <path>]
   llm-wiki release-notes [--version <x.y.z>] [--since <git-ref>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki mcp [--cwd <path>]
 
 Safety:
   init writes only when --write is explicit. Existing wiki docs default to --existing skip.
@@ -368,6 +380,7 @@ Safety:
   drift reports evidence.stale drift and, only with --downgrade, flips drifted verified documents to needs_review (status + last_updated). It never promotes to verified.
   graph is read-only: it emits the wiki knowledge graph (documents + resolved doc-to-doc links) as text, JSON, Mermaid, or Graphviz DOT.
   stats is read-only: it reports a wiki health snapshot (verified %, enrichment %, evidence coverage, staleness, orphans).
+  mcp starts a read-only Model Context Protocol server over stdio, exposing the read-only commands (validate/audit/next/status/doctor/stats/graph/explain/handoff/prompt) as MCP tools. No MCP tool writes files.
   Adapter checks and suggestions are opt-in with --agent. ANTIGRAVITY.md remains an info-level candidate.
   prompt prints repeatable post-wiki agent workflows and does not write project files unless --out is used for the report.
   next is advisory: it reuses audit coverage and recommends follow-up actions without writing files.
@@ -576,5 +589,30 @@ Purpose:
   Generates a needs_review release-notes document for a version. It groups conventional commits (feat/fix/perf/refactor/docs) into Korean-first bilingual sections (추가/변경/수정/문서/기타), and falls back to a fillable scaffold when git history is unavailable. Defaults the version to package.json; use --out to write the document.
 
   By default the range is "since the last v* tag". Pass --since <git-ref> (for example the previous release tag) to force the base range as <git-ref>..HEAD, which is useful for regenerating a version's notes after its tag already exists.
+`,
+  mcp: `llm-wiki mcp
+
+Usage:
+  llm-wiki mcp [--cwd <path>]
+
+Purpose:
+  Starts a Model Context Protocol (MCP) server over stdio so agents (Claude
+  Code, Cursor, and other MCP clients) can query and check the wiki as tools
+  instead of shelling out. The server speaks newline-delimited JSON-RPC 2.0 on
+  stdin/stdout; logs go to stderr. It runs until stdin closes.
+
+  Register it in an MCP client, for example:
+    { "mcpServers": { "llm-wiki": {
+        "command": "npx",
+        "args": ["-y", "@dowonk-7949/llm-wiki-standard", "mcp"] } } }
+
+Tools (all read-only — no MCP tool writes files):
+  validate, audit, next, status, doctor, stats, graph, explain, handoff, prompt.
+  Each returns the command's structured result (with schemaVersion) as
+  structuredContent plus a human-readable text summary.
+
+  --cwd sets the default project root for tool calls that omit their own cwd.
+  Implemented with Node built-ins only (no third-party MCP SDK), preserving the
+  zero-runtime-dependency policy.
 `
 };

@@ -2,20 +2,18 @@
 title: Domain Features
 tags:
   - llm-wiki
-  - verified
-status: verified
+status: needs_review
 doc_type: domain_overview
 project: llm-wiki-standard
 last_updated: 2026-07-14
 author: cli-generated
 last_edited_by: Claude Code
-reviewed_by: WoongHwan-Kim
-reviewed_at: 2026-07-14
 wiki_block_version: v1
 source_files:
   - src/commands.js
   - src/detector.js
   - src/index.js
+  - src/mcp/tools.js
 evidence:
   - src/commands.js#symbol:scanEnrichment
   - src/commands.js#symbol:scanRelatedReferences
@@ -23,6 +21,7 @@ evidence:
   - src/commands.js#symbol:planDomainDocs
   - src/detector.js#symbol:detectProject
   - src/index.js#symbol:commands
+  - src/mcp/tools.js#symbol:TOOL_DEFS
 related:
   - docs/llm-wiki/index.md
   - docs/llm-wiki/domains/00_overview.md
@@ -48,6 +47,7 @@ contains_sensitive_info: false
 - **범위 한정 자동수정(`fix`)** — `fix`가 승인된 좁은 범위의 안전한 수정만 적용한다: 누락 Tier A frontmatter 필드 삽입, frontmatter `evidence` 기준 본문 `## Evidence` 섹션 보완, 깨진 related/markdown 링크에 대한 `needs_review` 스텁 생성, 수정 문서의 `last_updated` 갱신. 기본은 미리보기이고 `--write` 시에만 쓴다. `verified` 문서 내용·`docs/llm-wiki/` 밖 파일·`source_files`/`evidence` 값·Tier B 필드(title/doc_type/project/author)·미보강 내용은 건드리지 않는다. 근거: `src/commands.js#symbol:fixCommand`, 범위 결정은 `GATE_REVIEW.md`.
 - **OKF v0.1 호환** — `--profile okf-v0.1`로 `type`/`aliases`/`tags`와 wiki 링크를 검증한다. 코어 검증도 OKF `type`를 필수 `doc_type`의 부가적 alias로 수용한다(1.3).
 - **프로그래매틱 API** — CLI를 spawn하지 않고 패키지를 import해 명령을 in-process로 실행한다. `package.json` `exports`(`src/index.js`)가 동결된 `commands` 맵(CLI 표면과 1:1)·개별 함수 export·`normalizeOptions`(옵션 정규화)·`parseArgs`/`run`·`SCHEMA_VERSION`을 공개한다. `--format json` 출력에는 계약 pin용 `schemaVersion` 부가 필드가 붙는다(단일 소스 `src/config.js#JSON_SCHEMA_VERSION`, 기존 필드 불변). 근거: `src/index.js#symbol:commands`, 계약은 `docs/llm-wiki/PUBLIC_API.md`(Programmatic API).
+- **에이전트 네이티브(MCP 서버)** — `llm-wiki mcp`가 stdio 위에서 Model Context Protocol 서버를 띄워, 읽기 전용 명령(validate/audit/next/status/doctor/stats/graph/explain/handoff/prompt)을 MCP 툴로 노출한다. 에이전트(Claude Code·Cursor 등)가 shell out 대신 툴로 위키를 질의·점검한다. 각 툴은 명령 결과를 `structuredContent`(1.5 `schemaVersion` 포함)로, 사람용 요약을 텍스트 콘텐츠로 반환한다. 서드파티 SDK 없이 Node 내장만으로 개행 구분 JSON-RPC 2.0을 직접 구현(무의존성 불변식 유지). **쓰기 명령은 노출하지 않는다**(읽기 전용). 근거: `src/mcp/tools.js#symbol:TOOL_DEFS`, 범위 결정은 `GATE_REVIEW.md`(Gate 11).
 
 ## Evidence
 
@@ -57,6 +57,7 @@ contains_sensitive_info: false
 - `src/commands.js#symbol:planDomainDocs` — backend/fullstack 도메인 문서 계획(정렬·병합·순번).
 - `src/detector.js#symbol:detectProject` — 프로젝트 유형 추론.
 - `src/index.js#symbol:commands` — 프로그래매틱 API의 동결된 명령 맵(CLI 표면과 1:1).
+- `src/mcp/tools.js#symbol:TOOL_DEFS` — MCP로 노출하는 읽기 전용 툴 정의(commands 위 얇은 래퍼).
 
 ## Open Questions
 
@@ -68,3 +69,4 @@ contains_sensitive_info: false
 - 2026-07-14에 1.3.0 기능(PHP/Ruby/.NET 감지 · backend/fullstack 도메인 문서 분리 생성 · OKF `type` alias)을 반영해 갱신하고 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-14에 1.4.0 기능(파일 기반 도메인 감지[Gate 10] · `graph`/`stats` 명령 · 대시보드 Document Index)을 반영해 갱신하고 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-14에 1.5 프로그래매틱 API(`exports`/`commands` 맵 · `normalizeOptions` · `--format json`의 `schemaVersion`)를 기능으로 추가하고, 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
+- 2026-07-14에 1.6 에이전트 네이티브(MCP 서버 `llm-wiki mcp`, 읽기 전용 툴 10개)를 기능으로 추가했다. LLM 편집으로 `needs_review`로 강등되었으며 사람 재검토가 필요하다.

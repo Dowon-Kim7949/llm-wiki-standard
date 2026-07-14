@@ -43,6 +43,7 @@ This document records the default decisions for the `0.1.0` stable release line 
 | Gate 8 Migration Apply Scope Approval | `accepted_for_1.2.0` | Unblock `migrate --apply` for the `1.2.0` line under a pre-decided, preview-first, `verified`-preserving scope that reuses the accepted `fix` engine (Gate 6) plus `wiki_block_version` stamping. Revisits Gate 4's block for the `1.x` line. Accepted by WoongHwan-Kim on 2026-07-14; the rename map ships empty (`v1` is the only block version). See "Migration Apply Scope Decision" below. |
 | Gate 9 Drift Downgrade Scope Approval | `accepted_for_1.2.0` | Add an opt-in `llm-wiki drift` command: report-only by default, `--downgrade` flips drifted `verified` documents to `needs_review` and refreshes `last_updated`, nothing else. It never promotes to `verified` and never edits other content. Accepted by WoongHwan-Kim on 2026-07-14. See "Drift Downgrade Scope Decision" below. |
 | Gate 10 Domain Detection Scope Approval | `accepted` | Expand backend/fullstack `init` domain detection to cover BOTH directory-per-domain (`domains/domain/modules/features`) and file-per-domain route/resource modules (`endpoints/routers/routes/resources/controllers/handlers`), via a bounded, exclusion-guarded project scan tuned for near-zero false positives. Accepted by WoongHwan-Kim on 2026-07-14. See "Domain Detection Scope Decision" below. |
+| Gate 11 MCP Tool Surface Scope Approval | `accepted_for_1.6.0` | Add a `llm-wiki mcp` command that runs a Model Context Protocol server over stdio, exposing only the READ-ONLY commands as MCP tools. Hand-rolled JSON-RPC 2.0 on Node built-ins (no third-party SDK), preserving the zero-runtime-dependency invariant. No write/mutating command is exposed; results reuse the 1.5 result shape (`schemaVersion`) as `structuredContent`. See "MCP Tool Surface Scope Decision" below. |
 
 ## 1.0.0 Stability Milestone
 
@@ -290,6 +291,54 @@ deterministically, and ordinal-numbered (`NN_<slug>.md`).
 - Only for `backend`/`fullstack`, non-`--minimal` init. Preview under `--dry-run`,
   writes only under `--write`, `--existing skip` preserves existing docs, all
   generated docs stay `needs_review`, and `verified` is never auto-assigned.
+
+## MCP Tool Surface Scope Decision (accepted for 1.6.0)
+
+Accepted for the `1.6.0` line. `1.6` makes the wiki agent-native: `llm-wiki mcp`
+runs a Model Context Protocol server over stdio so agents (Claude Code, Cursor,
+other MCP clients) query and check the wiki as tools instead of shelling out.
+
+### Decisions
+
+- **Hand-rolled, zero-dependency.** MCP over stdio is newline-delimited JSON-RPC
+  2.0; the implemented message set (`initialize`, `notifications/initialized`,
+  `ping`, `tools/list`, `tools/call`) is small and stable. It is implemented with
+  Node built-ins only — **no `@modelcontextprotocol/sdk`** — preserving the
+  "no runtime third-party dependencies" invariant. Source: `src/mcp/`.
+- **Read-only tool surface.** Exactly these commands are exposed as MCP tools:
+  `validate`, `audit`, `next`, `status`, `doctor`, `stats`, `graph`, `explain`,
+  `handoff`, `prompt`. **No write/mutating command** (`init`, `fix`, `migrate`,
+  `drift`, `quickstart`) is exposed, and tools carry `annotations.readOnlyHint`.
+  Agents can inspect the wiki over MCP but cannot change it.
+- **Result shape reuse.** `tools/call` returns the command's result object as
+  `structuredContent` (carrying the 1.5 `schemaVersion`, with `text` stripped)
+  plus a human-readable text content block. A thrown command surfaces as
+  `isError: true` (MCP convention), not a JSON-RPC protocol error.
+- **Entry point.** A single new `llm-wiki mcp` command (no separate binary),
+  special-cased as a long-running stdio server. `--cwd` sets the default project
+  root for tool calls.
+
+### Stable contract (new)
+
+The MCP tool name set and the tool result shape (1.5 result + `schemaVersion`)
+are stable for the `1.x` line; removing/renaming a tool or breaking the result
+shape is a breaking change. Additive tools/fields follow the same SemVer policy
+as the CLI.
+
+### Honest limits (v1)
+
+- `llm-wiki.config.json` defaults are NOT merged into MCP tool calls in v1
+  (explicit arguments only); planned as a later enhancement.
+- The pinned protocol version is `2025-06-18`; the server replies with the
+  client's requested version only when supported, otherwise its pinned version.
+- Batching is not supported (removed in the pinned protocol); an array message
+  is answered with a single `-32600 Invalid Request`.
+
+### Unchanged guarantees
+
+- stdout is the protocol channel (JSON-RPC only); logs go to stderr. The server
+  runs until stdin closes. No MCP tool writes files, and sensitive-info redaction
+  in the result path is unchanged.
 
 ## Release Caveats
 

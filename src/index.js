@@ -37,6 +37,9 @@ import {
 } from "./commands.js";
 import { defaultOptions, main, parseArgs } from "./cli.js";
 import { JSON_SCHEMA_VERSION } from "./config.js";
+import { startMcpServer } from "./mcp/server.js";
+import { handleMessage as handleMcpMessage, MCP_PROTOCOL_VERSION } from "./mcp/dispatch.js";
+import { TOOL_DEFS as MCP_TOOLS } from "./mcp/tools.js";
 
 /**
  * A single finding produced by a scan/validation.
@@ -166,3 +169,12 @@ export {
 // -> exit code), matching bin/llm-wiki.js.
 export { parseArgs };
 export { main as run };
+
+// MCP (Model Context Protocol) server surface (1.6). `startMcpServer(options)`
+// runs the read-only stdio server (the `llm-wiki mcp` command); `MCP_TOOLS` is
+// the frozen read-only tool set exposed over MCP; `handleMcpMessage(msg, ctx)`
+// is the pure JSON-RPC dispatcher (transport-agnostic, for tests/wrappers);
+// `MCP_PROTOCOL_VERSION` is the advertised MCP protocol version. All MCP tools
+// are read-only — no MCP tool writes files. See docs/llm-wiki/PUBLIC_API.md.
+export { startMcpServer };
+export { handleMcpMessage, MCP_PROTOCOL_VERSION, MCP_TOOLS };
