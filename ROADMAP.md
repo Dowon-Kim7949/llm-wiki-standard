@@ -47,9 +47,16 @@ Humans review and approve verified status.
 CI continuously checks quality.
 ```
 
-## Shipped Through 1.2.0
+## Shipped Through 1.3.0
 
-`1.2.0` (this release) is the safe upgrades & migration line: a
+`1.3.0` (this release) is the detect & adapt breadth line: backend/fullstack
+`init` now detects business-domain directories and creates a per-domain document
+(`domains/NN_<name>.md`, `doc_type: domain`) linked from the overview; ecosystem
+detection for PHP/Ruby/.NET; Windsurf and Gemini CLI writable adapters (JetBrains
+AI as an info-level candidate); and OKF `type` accepted as an additive alias for
+`doc_type`.
+
+`1.2.0` is the safe upgrades & migration line: a
 `wiki_block_version`-aware upgrade report in `migrate`/`doctor`; `migrate --apply`
 unblocked under an accepted, preview-first, `verified`-preserving scope
 (GATE_REVIEW Gate 8) that reuses the `fix` engine plus block-version stamping; a
@@ -87,21 +94,7 @@ not re-list shipped work.
 - **Breaking changes are out of scope for `1.x`** and are parked under "Beyond
   the 1.x Horizon" below.
 
-## Release Plan (1.3 → 1.7)
-
-### 1.3 — Detect & adapt breadth
-
-Goal: fit more projects and more tools out of the box.
-
-- **Detector depth** — resolve the stdlib-server limitation (Go `net/http`, Flask,
-  etc. classify as `library` today) and add PHP (`composer.json`), Ruby
-  (`Gemfile`), and .NET (`*.csproj`).
-- **More adapters** — Windsurf (`.windsurf/rules`), JetBrains AI, and confirming
-  the Gemini/Antigravity contract, reusing the `ADAPTER_TARGETS` pattern.
-- **Additive OKF alignment** — accept OKF `type` as an optional alias alongside
-  `doc_type` (no removal; the breaking unification stays out of `1.x`).
-
-Why here: low risk, broadens the addressable base, no dependencies.
+## Release Plan (1.4 → 1.7)
 
 ### 1.4 — Knowledge you can see
 
@@ -164,6 +157,9 @@ Additive candidates worth doing but not yet slotted into a release:
 - Richer enrichment linting (flag docs with evidence but thin bodies).
 - Per-command JSON examples in `help` output for wrapper authors.
 - More `prompt --task` presets as real workflows emerge.
+- Stdlib-server detection — classify Go `net/http` / Python stdlib HTTP servers as
+  `backend` instead of `library` (deferred from `1.3`: reliable detection needs
+  source scanning and risks false positives, so it needs a bounded heuristic).
 
 ## Beyond the 1.x Horizon (not planned now)
 

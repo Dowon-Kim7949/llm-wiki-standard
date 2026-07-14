@@ -5,6 +5,29 @@
 `@dowonk-7949/llm-wiki-standard`의 주요 변경 사항을 기록합니다. 이 프로젝트는
 [유의적 버전(Semantic Versioning)](https://semver.org/)을 따르며, 항목은 최신순입니다.
 
+## 1.3.0 — 2026-07-14
+
+디텍터 & 어댑터 확장. 더 많은 프로젝트·도구를 기본 지원한다. 하위호환 — 새 감지·
+어댑터·opt-in 허용만 추가.
+
+### 추가 (Added)
+
+- backend/fullstack `init`이 업무 도메인 디렉터리(`src|app/{domains,domain,modules,
+  features}`·`internal/{domain,domains,modules}`의 직속 하위, 공통 기술 디렉터리 제외)를
+  감지해 도메인별 문서(`domains/NN_<name>.md`, `doc_type: domain`, `source_files`=탐지
+  디렉터리)를 만들고 `domains/00_overview.md`에서 링크한다. 결정적 정렬, 여러 위치의
+  동일 도메인은 하나로 병합.
+- PHP(`composer.json`)·Ruby(`Gemfile`/`gems.rb`)·.NET(`*.csproj`/`*.fsproj`) 생태계
+  감지. 웹 프레임워크 신호로 backend/library 판정.
+- Windsurf(`.windsurf/rules/llm-wiki.md`)·Gemini CLI(`GEMINI.md`) writable 어댑터
+  추가, JetBrains AI(`.junie/guidelines.md`)는 info-level candidate. `--agent all`은
+  하위호환으로 codex/claude/antigravity 유지.
+
+### 변경 (Changed)
+
+- OKF `type`를 필수 `doc_type` 필드의 alias로 허용한다. OKF 스타일 문서가 필드를
+  중복하지 않고 검증을 통과한다. Additive — 제거·rename 없음.
+
 ## 1.2.0 — 2026-07-14
 
 안전 업그레이드 & 마이그레이션. 기존 wiki를 삭제·재생성하지 않고 CLI 계약에 맞춰

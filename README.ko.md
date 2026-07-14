@@ -62,7 +62,7 @@ docs/llm-wiki/
     `-- TASK_PROMPT.template.md
 ```
 
-Frontend, backend, fullstack, library, OKF profile을 선택하면 component inventory, API contract, data model, security 및 operations guide, end-to-end workflow, public API reference, OKF knowledge template 같은 프로젝트 유형별 문서가 추가됩니다. 생성 파일은 안전한 시작 초안이며, Codex 또는 Claude Code가 실제 프로젝트 근거를 확인하여 내용을 보강합니다.
+Frontend, backend, fullstack, library, OKF profile을 선택하면 component inventory, API contract, data model, security 및 operations guide, end-to-end workflow, public API reference, OKF knowledge template 같은 프로젝트 유형별 문서가 추가됩니다. backend·fullstack 프로젝트에서는 `init`이 업무 도메인 디렉터리(예: `src/modules/*`, `app/domains/*`, `internal/domain/*`)를 감지해 도메인별 문서(`docs/llm-wiki/domains/NN_<name>.md`, `doc_type: domain`)를 만들고 `domains/00_overview.md`에서 링크합니다. 생성 파일은 안전한 시작 초안이며, Codex 또는 Claude Code가 실제 프로젝트 근거를 확인하여 내용을 보강합니다.
 
 ## 사용 조건
 
@@ -153,7 +153,7 @@ npx llm-wiki quickstart --write --type frontend --agent claude
 
 - Node·Python·Go·Rust·JVM 매니페스트 signal 또는 `--type`으로 project type을 감지합니다.
 - 공통 `docs/llm-wiki` 문서 구조를 만듭니다.
-- 선택한 adapter 파일이 없을 때만 생성합니다. 예: `AGENTS.md`(Codex), `CLAUDE.md`(Claude Code), `.cursor/rules/llm-wiki.mdc`(Cursor), `.github/copilot-instructions.md`(GitHub Copilot).
+- 선택한 adapter 파일이 없을 때만 생성합니다. 예: `AGENTS.md`(Codex), `CLAUDE.md`(Claude Code), `.cursor/rules/llm-wiki.mdc`(Cursor), `.github/copilot-instructions.md`(GitHub Copilot), `.windsurf/rules/llm-wiki.md`(Windsurf), `GEMINI.md`(Gemini CLI). 파일 계약이 미확인인 도구(JetBrains AI, Antigravity)는 info-level candidate로 두고 생성하지 않습니다.
 - frontmatter, encoding, local markdown link, `[[wiki links]]`, adapter entrypoint, sensitive-info 규칙을 검증합니다.
 - LLM-WIKI frontmatter contract를 `rules/frontmatter.schema.json`으로 게시하고, 같은 runtime contract로 frontmatter를 검증합니다.
 - wiki frontmatter의 local `source_files` 항목이 실제로 존재하는지 확인합니다.

@@ -5,6 +5,33 @@
 All notable changes to `@dowonk-7949/llm-wiki-standard` are documented here. This
 project follows [Semantic Versioning](https://semver.org/). Entries are newest-first.
 
+## 1.3.0 — 2026-07-14
+
+Detect & adapt breadth. Fit more projects and more tools out of the box.
+Backward-compatible — new detection, adapters, and opt-in acceptance only.
+
+### Added
+
+- Backend/fullstack `init` now detects business-domain directories (immediate
+  subdirectories of `src|app/{domains,domain,modules,features}` and
+  `internal/{domain,domains,modules}`, excluding common technical dirs) and
+  creates a per-domain document (`domains/NN_<name>.md`, `doc_type: domain`,
+  `source_files` = detected dirs) linked from `domains/00_overview.md`.
+  Deterministic ordering; duplicate domains across locations merge into one doc.
+- Ecosystem detection for PHP (`composer.json`), Ruby (`Gemfile`/`gems.rb`), and
+  .NET (`*.csproj`/`*.fsproj`), classified backend vs library by web-framework
+  signals.
+- Adapters for Windsurf (`.windsurf/rules/llm-wiki.md`) and Gemini CLI
+  (`GEMINI.md`) as writable adapters; JetBrains AI (`.junie/guidelines.md`) as an
+  info-level candidate. `--agent all` stays codex/claude/antigravity for
+  backward compatibility.
+
+### Changed
+
+- `type` (OKF) is now accepted as an alias for the required `doc_type` field, so
+  OKF-style documents validate without duplicating the field. Additive — nothing
+  is removed or renamed.
+
 ## 1.2.0 — 2026-07-14
 
 Safe upgrades & migration. Keep an existing wiki in step with the CLI's contract

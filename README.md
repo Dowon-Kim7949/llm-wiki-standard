@@ -62,7 +62,7 @@ docs/llm-wiki/
     `-- TASK_PROMPT.template.md
 ```
 
-Frontend, backend, fullstack, library, and OKF profiles add focused documents such as component inventories, API contracts, data models, security and operations guides, end-to-end workflows, public API references, and OKF knowledge templates. The generated files are safe starting drafts; Codex or Claude Code enriches them from real project evidence.
+Frontend, backend, fullstack, library, and OKF profiles add focused documents such as component inventories, API contracts, data models, security and operations guides, end-to-end workflows, public API references, and OKF knowledge templates. For backend and fullstack projects, `init` also detects business-domain directories (for example `src/modules/*`, `app/domains/*`, `internal/domain/*`) and creates a per-domain document (`docs/llm-wiki/domains/NN_<name>.md`, `doc_type: domain`) linked from `domains/00_overview.md`. The generated files are safe starting drafts; Codex or Claude Code enriches them from real project evidence.
 
 ## Requirements
 
@@ -167,7 +167,7 @@ Expected Claude Code work is the same as Codex work: read the adapter and wiki e
 
 - Detects a project type from local signals across Node, Python, Go, Rust, and JVM manifests, or accepts `--type`.
 - Creates the common `docs/llm-wiki` document structure.
-- Creates selected adapter files when absent, such as `AGENTS.md` (Codex), `CLAUDE.md` (Claude Code), `.cursor/rules/llm-wiki.mdc` (Cursor), or `.github/copilot-instructions.md` (GitHub Copilot).
+- Creates selected adapter files when absent, such as `AGENTS.md` (Codex), `CLAUDE.md` (Claude Code), `.cursor/rules/llm-wiki.mdc` (Cursor), `.github/copilot-instructions.md` (GitHub Copilot), `.windsurf/rules/llm-wiki.md` (Windsurf), or `GEMINI.md` (Gemini CLI). Tools whose file contract is unconfirmed (JetBrains AI, Antigravity) stay info-level candidates and are not written.
 - Validates frontmatter, encoding, local markdown links, `[[wiki links]]`, adapter entrypoints, and sensitive-info rules.
 - Publishes the LLM-WIKI frontmatter contract as `rules/frontmatter.schema.json` and validates frontmatter against the same runtime contract.
 - Checks that local `source_files` entries in wiki frontmatter exist.

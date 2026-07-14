@@ -24,6 +24,32 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - release: 1.3.0 준비 (디텍터 & 어댑터 확장)
+
+- status: needs_review
+- actor: Claude Code
+- scope: release, docs
+- changed:
+  - package.json
+  - tests/verification.test.js
+  - CHANGELOG.md
+  - CHANGELOG.ko.md
+  - README.md
+  - README.ko.md
+  - ROADMAP.md
+  - ROADMAP.ko.md
+  - docs/llm-wiki/DOMAIN_FEATURES.md
+  - docs/llm-wiki/PUBLIC_API.md
+  - docs/llm-wiki/releases/v1.3.0.md
+- summary:
+  - 1.3(디텍터 & 어댑터 확장) 라인을 1.3.0으로 릴리스 준비했다. package.json·버전 assertion 테스트를 1.2.0 → 1.3.0으로 올렸다. 이 릴리스는 앞서 main에 올라간 A2(PHP/Ruby/.NET 감지)·B(Windsurf/Gemini/JetBrains 어댑터)·C(OKF type alias)와 domain 분리 생성(`611b82b`)을 함께 포함한다.
+  - CHANGELOG(EN·KO)에 1.3.0 항목 작성. README(EN·KO)에 domain 분리 생성과 Windsurf/Gemini 어댑터를 반영. ROADMAP(EN·KO)의 1.3을 shipped로 옮기고 Release Plan을 1.4→1.7로 조정, 보류한 stdlib-server 감지를 Unscheduled 백로그에 기록했다.
+  - doc-sync: DOMAIN_FEATURES(감지 생태계 확장 + 도메인 분리 + OKF alias)와 PUBLIC_API(migrate --apply·drift 명령·신규 --agent·--apply/--downgrade 옵션 — 1.2부터 뒤처져 있던 부분까지 정합)를 갱신했다. 두 문서는 내용 변경으로 `verified` → `needs_review`로 강등됐다. v1.3.0 릴리스 노트 작성.
+- caveats:
+  - push/tag(v1.3.0)·npm 배포는 사용자의 명시적 "배포" 지시 후에만 진행한다.
+  - needs_review 재검토 대기 문서: DOMAIN_FEATURES, PUBLIC_API(이번), 그리고 이전 사이클의 VERSIONING·project-profile. 사람 검토 후 verified 재승인 필요.
+  - stdlib-server 감지(로드맵 A1)는 이번 1.3에서 제외(백로그).
+
 ## 2026-07-14 - feat: OKF type를 doc_type 병행 alias로 허용 (1.3 C)
 
 - status: needs_review
