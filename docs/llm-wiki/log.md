@@ -24,6 +24,22 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - feat: OKF type를 doc_type 병행 alias로 허용 (1.3 C)
+
+- status: needs_review
+- actor: Claude Code
+- scope: code, test
+- changed:
+  - src/frontmatter.js
+  - src/commands.js
+  - tests/frontmatter.test.js
+- summary:
+  - OKF 정렬(additive): 문서가 `doc_type` 대신/과 함께 OKF `type`를 가질 수 있게 했다. 비어 있지 않은 스칼라 `type`가 코어의 `doc_type` 필수 요구를 충족한다. 공용 헬퍼 `hasRequiredField(frontmatter, field)`를 `src/frontmatter.js`에 추가해 `validateFrontmatter`와 fix/migrate 엔진의 누락 필드 판정(verified skip 이유 + Tier A/B 계산)이 동일 규칙을 쓰도록 통일했다.
+  - 순수 additive다: 기존 `doc_type` 문서는 불변이고, 이전에 실패하던 `type`-only 문서만 이제 통과한다. 제거·rename·통합은 없다(계약 파괴는 1.x 밖 유지). okf-v0.1 프로필의 `type` 필수 검사(okf.type_required)와는 독립적이라 상호 보완된다.
+  - 테스트 추가(frontmatter.test.js): `type`만 있어도 doc_type 요구 충족, 둘 다 있어도 OK, 둘 다 없으면 여전히 실패. 전체 136 pass.
+- caveats:
+  - 로드맵 1.3의 세 번째(마지막) 기능 항목. 이로써 1.3 계획 3항목(A2 생태계 감지 · B 어댑터 확장 · C OKF type alias)이 모두 구현됐다. 다음은 release: prepare 1.3.0(이미 main에 있는 domain 분리 포함).
+
 ## 2026-07-14 - feat: 어댑터 확장 Windsurf/Gemini/JetBrains (1.3 B)
 
 - status: needs_review

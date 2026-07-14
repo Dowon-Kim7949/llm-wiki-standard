@@ -36,6 +36,47 @@ contains_sensitive_info: false
   assert.deepEqual(validateFrontmatter(parsed.frontmatter), []);
 });
 
+test("accepts OKF type as an alias for doc_type (additive)", () => {
+  const base = `---
+title: Sample
+tags:
+  - llm-wiki
+status: needs_review
+{{DOC_TYPE_LINE}}
+project: sample
+last_updated: 2026-07-02
+author: ai-generated
+last_edited_by: Codex
+wiki_block_version: v1
+source_files:
+  - package.json
+related:
+  - docs/llm-wiki/log.md
+visibility: internal
+contains_sensitive_info: false
+---
+
+# Sample
+`;
+  const docTypeMissing = (frontmatter) =>
+    validateFrontmatter(frontmatter).some(
+      (finding) => finding.rule === "frontmatter.required" && finding.message.includes("doc_type")
+    );
+
+  // OKF `type` alone satisfies the doc_type requirement.
+  const withType = parseFrontmatter(base.replace("{{DOC_TYPE_LINE}}", "type: concept"));
+  assert.deepEqual(withType.errors, []);
+  assert.equal(docTypeMissing(withType.frontmatter), false);
+
+  // Both present is fine too.
+  const withBoth = parseFrontmatter(base.replace("{{DOC_TYPE_LINE}}", "doc_type: wiki_index\ntype: concept"));
+  assert.equal(docTypeMissing(withBoth.frontmatter), false);
+
+  // Neither present still fails.
+  const withNeither = parseFrontmatter(base.replace("{{DOC_TYPE_LINE}}\n", ""));
+  assert.equal(docTypeMissing(withNeither.frontmatter), true);
+});
+
 test("does not expose raw sensitive values", () => {
   const findings = scanSensitiveInfo("API_TOKEN=super-secret-token-value");
   assert.equal(findings.length, 1);

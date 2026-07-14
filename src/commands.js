@@ -6,7 +6,7 @@ import { CORE_REQUIRED_DOCS, CURRENT_WIKI_BLOCK_VERSION, PROFILE_DOCS, VALID_STA
 import { detectProject } from "./detector.js";
 import { findMojibakeIndicators, hasUtf8Bom, readUtf8, writeUtf8 } from "./encoding.js";
 import { listMarkdownFiles, pathExists, toPosix } from "./files.js";
-import { parseFrontmatter, validateFrontmatter } from "./frontmatter.js";
+import { hasRequiredField, parseFrontmatter, validateFrontmatter } from "./frontmatter.js";
 import { schemaRequiredFields } from "./frontmatter-schema.js";
 import { renderTextReport } from "./report.js";
 import { scanSensitiveInfo } from "./sensitive-info.js";
@@ -942,7 +942,7 @@ async function runMechanicalRemediation(cwd, { write, upgradeBlockVersion = fals
 
     if (parsed.frontmatter.status === "verified") {
       const reasons = [];
-      const missing = schemaRequiredFields().filter((field) => !(field in parsed.frontmatter));
+      const missing = schemaRequiredFields().filter((field) => !hasRequiredField(parsed.frontmatter, field));
       if (missing.length > 0) reasons.push(`missing ${missing.join(", ")}`);
       const verifiedEvidence = Array.isArray(parsed.frontmatter.evidence)
         ? parsed.frontmatter.evidence.filter((item) => typeof item === "string" && item.trim()).map((item) => item.trim())
@@ -972,7 +972,7 @@ async function runMechanicalRemediation(cwd, { write, upgradeBlockVersion = fals
     let body = split.body;
 
     // 1) Missing Tier A required frontmatter fields.
-    const missingRequired = schemaRequiredFields().filter((field) => !(field in parsed.frontmatter));
+    const missingRequired = schemaRequiredFields().filter((field) => !hasRequiredField(parsed.frontmatter, field));
     const tierBMissing = missingRequired.filter((field) => FIX_TIER_B_FIELDS.has(field));
     const tierAMissing = missingRequired.filter((field) => !FIX_TIER_B_FIELDS.has(field));
 

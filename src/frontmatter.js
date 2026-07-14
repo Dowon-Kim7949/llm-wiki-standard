@@ -50,6 +50,16 @@ export function parseFrontmatter(markdown) {
   };
 }
 
+// OKF alignment (additive, 1.3): a document may carry OKF `type` instead of or
+// alongside `doc_type`. A non-empty scalar `type` satisfies the `doc_type`
+// requirement, so OKF-style documents validate without duplicating the field.
+// Nothing is removed or renamed — the breaking unification stays out of 1.x.
+export function hasRequiredField(frontmatter, field) {
+  if (field in frontmatter) return true;
+  if (field === "doc_type" && typeof frontmatter.type === "string" && frontmatter.type.trim() !== "") return true;
+  return false;
+}
+
 export function validateFrontmatter(frontmatter, options = {}) {
   const findings = [];
 
@@ -58,7 +68,7 @@ export function validateFrontmatter(frontmatter, options = {}) {
   }
 
   for (const field of schemaRequiredFields()) {
-    if (!(field in frontmatter)) {
+    if (!hasRequiredField(frontmatter, field)) {
       findings.push({
         severity: "error",
         rule: "frontmatter.required",
