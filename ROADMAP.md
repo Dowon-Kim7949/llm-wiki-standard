@@ -8,7 +8,7 @@ tags:
 status: needs_review
 doc_type: roadmap
 project: llm-wiki-standard
-last_updated: 2026-07-14
+last_updated: 2026-07-15
 author: ai-generated
 last_edited_by: Claude Code
 wiki_block_version: v1
@@ -19,6 +19,7 @@ source_files:
   - src/frontmatter-schema.js
   - src/detector.js
   - src/git.js
+  - src/config-file.js
   - CHANGELOG.md
 related:
   - GATE_REVIEW.md
@@ -119,34 +120,121 @@ not re-list shipped work.
 - **Breaking changes are out of scope for `1.x`** and are parked under "Beyond
   the 1.x Horizon" below.
 
-## Release Plan (1.7)
-
-### 1.7 — Team & org scale
+## Release Plan (1.7–1.11) — Team & org scale, split
 
 Goal: support adoption beyond a single repo and a single maintainer.
 
-- **Monorepo profile** — per-package wikis with aggregated validation and graph.
-- **Cross-repository knowledge links** — a conservative reference format for API
-  specs, domain docs, and service contracts in separate repos.
-- **Config schema growth** — custom document sets, per-project rule toggles, and
-  template overrides (gated on real usage of the minimal `llm-wiki.config.json`).
-- **Visibility governance** — optional enforcement of `internal|restricted|public`.
-- **First-class GitHub Action + GitHub Release** — a composite action (one `uses:`
-  step) and a GitHub Release generated from the release notes on tag push.
+This line originally read as a single `1.7 — Team & org scale` bundling five
+gate-sized, interdependent features (monorepo profile, cross-repository links,
+config schema growth, visibility governance, GitHub Action + Release). That is the
+largest surface, the most dependencies, and — by its own note — the most in need of
+real multi-team feedback before design. Shipping all five as one release
+contradicts two of this roadmap's own rules: *one minor at a time, in order* and
+*slip a release rather than ship it half-verified* (any one feature slipping would
+block the other four). So the line is **split into ordered minors, lowest-risk and
+highest-leverage first**, each pulled by need and each recording its scope as a new
+`GATE_REVIEW.md` gate (the next is Gate 12) *before* code — the same discipline that
+framed every prior scope decision.
 
-Why last: the largest surface, the most dependencies, and the most in need of real
-multi-team feedback before design.
+### Enabling prep (additive; no new headline release)
+
+Small backward-compatible patches that unblock the later minors and start
+generating the real-usage feedback the big features need. None of these change the
+`1.0.0` contract:
+
+- **Unify config loading below the command layer.** Today `loadProjectConfig` /
+  `mergeConfigIntoOptions` (`src/config-file.js`) run only on the CLI path
+  (`src/cli.js#main`); the 1.5 programmatic API and the 1.6 MCP surface never merge
+  `llm-wiki.config.json` (Gate 11 honest limit). Move the merge into the shared
+  entry so all three surfaces resolve the same effective options — otherwise config
+  growth bakes an inconsistency into a new stable contract.
+- **Scaffold a starter `llm-wiki.config.json`.** `init` / `quickstart` write a
+  minimal config (additive, preview-first, `--write` only, never overwriting an
+  existing one), and `doctor` echoes the effective merged config. The roadmap gates
+  config growth "on real usage of the minimal config," but usage cannot accrue while
+  no command ever produces one — this makes the gate's precondition observable.
+- **Write the design inputs the later minors depend on, ahead of their code:** the
+  missing visibility governance policy doc (a `project-profile` Open Question), a
+  monorepo test fixture under `tests/fixtures/`, and the cross-repo reference-format
+  spec — each captured as its own accepted `GATE_REVIEW` gate.
+
+### 1.7 — CI/CD adoption (lead)
+
+The one feature from the original bundle with **no dependency on the other four and
+no touch to the invariant-bearing core scanner** — so it is the lowest-risk,
+highest-leverage piece, and shipping it early generates the multi-team feedback the
+remaining minors need before their design freezes.
+
+- **First-class GitHub Action** — a composite action (one `uses:` step) wrapping the
+  read-only `validate` via `npx`.
+- **GitHub Release on tag push** — generated from release notes, extending
+  `.github/workflows/publish.yml`; built with the runner's `gh` CLI (no third-party
+  action, protecting the zero-dep ethos), in a job isolated to `contents: write`,
+  with the release body run through the sensitive-info scan.
+- **Per-command `--format json` examples in `help`** (moved up from the backlog) for
+  Action / wrapper / MCP authors.
+
+Deferred behind a dedicated gate: Marketplace publishing and Action floating-tag
+versioning, which first require deconflicting the `v*` npm-publish tag namespace and
+the `publish.yml` version-match guard.
+
+### 1.8 — Config schema growth
+
+Extend the pre-reserved `llm-wiki.config.json` seam (unknown keys are already
+ignored by design) with **custom document sets, per-project rule toggles, and
+template overrides**. This is the hard dependency gate: both monorepo (per-package
+config) and visibility governance (a rule toggle) consume it. Pre-work: consolidate
+the per-scan inlined severities into one registry so rule toggles are coherent, and
+fix a hard guardrail that template overrides can never set `status: verified`. Folds
+in richer enrichment linting (`content.thin_body`, warning-level) as a toggleable
+rule to dogfood the toggle machinery. Pulled once the scaffolded config has produced
+real-world usage to design against.
+
+### 1.9 — Visibility governance
+
+Opt-in enforcement of the already-required `internal|restricted|public` field via a
+config rule toggle — **off by default, warning-level, read-only** — reusing the
+sensitive-info scan for a public-vs-content consistency check. Small, and it proves
+the 1.8 config design end-to-end on a real feature before the larger monorepo
+consumer depends on it. Blocked on the policy doc and its gate; must never become a
+default error/blocked rule (that would break the additive invariant).
+
+### 1.10 — Monorepo profile
+
+Per-package wikis with aggregated validation and graph, built as an **opt-in map
+over the already cwd-parameterized pipeline** (`audit` / `collectWikiGraph` /
+`findMissingDocs`), with a strictly additive `packages[]` JSON shape so single-repo
+output stays byte-identical. Now built with config toggles, real CI feedback, and
+enrichment signals in hand. Land additive workspace *detection* in `detector.js`
+early; defer zero-dep pnpm/YAML workspace parsing honestly (npm/yarn `workspaces`
+first).
+
+### 1.11 — Cross-repository knowledge links
+
+A conservative, **non-fetching** reference format (a reserved scheme) so cross-repo
+references to API specs, domain docs, and service contracts resolve without tripping
+the missing-target rules — recognize but never verify (verification would need
+network/git and break the zero-dep invariant). Last: the most design-heavy and
+feedback-hungry, and it needs monorepo, config growth, and visibility in place
+first. A ready-now slice can land earlier — harden the external-reference classifier
+so cross-repo `[[..]]` links stop emitting false `wiki_link.missing`.
+
+Why split this way: order is by leverage, risk, and dependency. Each minor stays
+independently shippable and verifiable, and the biggest, most feedback-hungry
+features (monorepo, cross-repo) come after the cheaper adoption and config work has
+put the CLI in front of real multi-team usage.
 
 ## Unscheduled 1.x Backlog
 
 Additive candidates worth doing but not yet slotted into a release:
 
-- Richer enrichment linting (flag docs with evidence but thin bodies).
-- Per-command JSON examples in `help` output for wrapper authors.
 - More `prompt --task` presets as real workflows emerge.
 - Stdlib-server detection — classify Go `net/http` / Python stdlib HTTP servers as
   `backend` instead of `library` (deferred from `1.3`: reliable detection needs
   source scanning and risks false positives, so it needs a bounded heuristic).
+
+Promoted into the release plan above: per-command JSON `help` examples (→ 1.7) and
+richer enrichment linting (→ 1.8, as a toggleable `content.thin_body` rule).
 
 ## Beyond the 1.x Horizon (not planned now)
 

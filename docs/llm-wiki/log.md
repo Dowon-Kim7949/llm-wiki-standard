@@ -24,6 +24,22 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-15 - docs: ROADMAP 1.7 단일 라인 → 1.7~1.11 순차 분할 재작성 (1.7 계획 1단계)
+
+- status: needs_review
+- actor: Claude Code (사용자 WoongHwan-Kim 방향 결정: "1.7 분할안에 전적으로 동의, 단계별로 진행")
+- scope: docs
+- changed:
+  - ROADMAP.md, ROADMAP.ko.md
+- summary:
+  - 1.7 착수 전 다중 에이전트 분석(기능 5개 + 교차 2개, 전부 소스 근거)에 따라, monolithic `1.7 — 팀 & 조직 확장`(게이트 크기 상호의존 기능 5개 번들)을 leverage·risk·dependency 순서의 순차 마이너로 분할해 로드맵을 재작성했다. 이 번들은 로드맵 자신의 규칙("한 번에 하나씩", "절반 검증이면 릴리스를 미룬다")과 충돌한다.
+  - 새 구조: (enabling prep, 새 헤드라인 릴리스 아님) config 로딩을 CLI/programmatic/MCP 세 표면에 통일(현재 CLI 경로만 병합 — Gate 11 한계) · init/quickstart 스타터 `llm-wiki.config.json` 스캐폴딩(preview-first) + doctor 유효 config echo(로드맵의 "실사용 게이트" 전제를 관측 가능하게) · visibility 정책 문서·모노레포 픽스처·cross-repo 포맷 스펙을 코드 이전에 게이트로 작성. (1.7 CI/CD 도입, 리드) composite GitHub Action + 태그 push GitHub Release(gh CLI·격리 contents:write·본문 민감정보 스캔) + 명령별 JSON help 예시. (1.8) config 스키마 확장(하드 의존성 게이트). (1.9) visibility 거버넌스(opt-in·warning·read-only). (1.10) monorepo 프로필(cwd 파라미터화 파이프라인 위 opt-in map, 부가적 `packages[]`). (1.11) cross-repo 지식 링크(비-fetch 예약 스킴).
+  - Unscheduled 백로그에서 두 항목을 릴리스 계획으로 승격 표기: 명령별 JSON help 예시(→1.7), 더 풍부한 enrichment 린팅(→1.8 토글 규칙 `content.thin_body`). 각 마이너 범위는 착수 시 새 GATE_REVIEW 게이트(다음 Gate 12)로 사전 결정한다는 규율을 명문화.
+  - frontmatter: last_updated 2026-07-15, source_files에 src/config-file.js 추가(존재 확인). status는 규칙대로 needs_review 유지.
+- caveats:
+  - 코드/명령 표면·JSON 출력·frontmatter 계약 불변(계획 문서만 변경). ROADMAP.md/.ko.md는 docs/llm-wiki 밖 루트 문서라 validate/validate-frontmatter 스캔 대상이 아니며(frontmatter 수동 검증: 중복 키 없음), KO는 EN 정본을 미러링한다.
+  - 다음 단계(단계별 진행): Gate 12(1.7 GitHub Action + Release 범위) 작성 → 1.7 구현 → 후속 마이너 enabling prep. push/tag/배포는 사용자의 명시적 지시 후에만.
+
 ## 2026-07-15 - docs: 1.6 doc-sync 문서 verified 재승인 + MCP 로컬 등록 정리
 
 - status: verified
