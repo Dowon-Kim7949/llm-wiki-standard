@@ -46,7 +46,7 @@ This document records the default decisions for the `0.1.0` stable release line 
 | Gate 9 Drift Downgrade Scope Approval | `accepted_for_1.2.0` | Add an opt-in `llm-wiki drift` command: report-only by default, `--downgrade` flips drifted `verified` documents to `needs_review` and refreshes `last_updated`, nothing else. It never promotes to `verified` and never edits other content. Accepted by WoongHwan-Kim on 2026-07-14. See "Drift Downgrade Scope Decision" below. |
 | Gate 10 Domain Detection Scope Approval | `accepted` | Expand backend/fullstack `init` domain detection to cover BOTH directory-per-domain (`domains/domain/modules/features`) and file-per-domain route/resource modules (`endpoints/routers/routes/resources/controllers/handlers`), via a bounded, exclusion-guarded project scan tuned for near-zero false positives. Accepted by WoongHwan-Kim on 2026-07-14. See "Domain Detection Scope Decision" below. |
 | Gate 11 MCP Tool Surface Scope Approval | `accepted_for_1.6.0` | Add a `llm-wiki mcp` command that runs a Model Context Protocol server over stdio, exposing only the READ-ONLY commands as MCP tools. Hand-rolled JSON-RPC 2.0 on Node built-ins (no third-party SDK), preserving the zero-runtime-dependency invariant. No write/mutating command is exposed; results reuse the 1.5 result shape (`schemaVersion`) as `structuredContent`. See "MCP Tool Surface Scope Decision" below. |
-| Gate 12 CI/CD Adoption (GitHub Action + Release) Scope Approval | `proposed_for_1.7.0` | Add a composite GitHub Action (`.github/actions/validate/action.yml`) that wraps the read-only `validate` via `npx`, and a GitHub Release generated on `v*` tag push by an isolated `contents: write` job using the runner's built-in `gh` CLI (no third-party action). The release body comes from a new additive `release-notes --body-only` mode and is run through the sensitive-info scan before publish. Marketplace listing and floating-tag (`@v1`) versioning are DEFERRED behind a later gate that first deconflicts the `v*` npm-publish tag namespace and the `publish.yml` version-match guard. See "CI/CD Adoption Scope Decision" below. |
+| Gate 12 CI/CD Adoption (GitHub Action + Release) Scope Approval | `accepted_for_1.7.0` | Add a composite GitHub Action (`.github/actions/validate/action.yml`) that wraps the read-only `validate` via `npx`, and a GitHub Release generated on `v*` tag push by an isolated `contents: write` job using the runner's built-in `gh` CLI (no third-party action). The release body comes from a new additive `release-notes --body-only` mode and is run through the sensitive-info scan before publish. Marketplace listing and floating-tag (`@v1`) versioning are DEFERRED behind a later gate that first deconflicts the `v*` npm-publish tag namespace and the `publish.yml` version-match guard. See "CI/CD Adoption Scope Decision" below. |
 
 ## 1.0.0 Stability Milestone
 
@@ -343,17 +343,18 @@ as the CLI.
   runs until stdin closes. No MCP tool writes files, and sensitive-info redaction
   in the result path is unchanged.
 
-## CI/CD Adoption Scope Decision (proposed for 1.7.0)
+## CI/CD Adoption Scope Decision (accepted for 1.7.0)
 
-Proposed for the `1.7.0` line as the lead of the split "Team & org scale" plan
-(see `ROADMAP.md`, "Release Plan (1.7–1.11)"). `1.7` makes the CLI cheap to adopt
-in CI/CD: a one-`uses:`-step GitHub Action wrapping the read-only `validate`, and a
-GitHub Release generated on tag push. It is the only feature from the original 1.7
-bundle with no dependency on the other four and no change to the invariant-bearing
-core scanner — it wraps existing commands and extends packaging/CI only.
+Accepted for the `1.7.0` line (WoongHwan-Kim, 2026-07-15) as the lead of the split
+"Team & org scale" plan (see `ROADMAP.md`, "Release Plan (1.7–1.11)"). `1.7` makes
+the CLI cheap to adopt in CI/CD: a one-`uses:`-step GitHub Action wrapping the
+read-only `validate`, and a GitHub Release generated on tag push. It is the only
+feature from the original 1.7 bundle with no dependency on the other four and no
+change to the invariant-bearing core scanner — it wraps existing commands and
+extends packaging/CI only.
 
-This gate is drafted for human acceptance before any code, mirroring Gates 6/8/9/10.
-Flip to `accepted_for_1.7.0` on explicit approval.
+Drafted for human acceptance before any code (mirroring Gates 6/8/9/10) and accepted
+as drafted; implementation follows under the scope below.
 
 ### Decisions
 

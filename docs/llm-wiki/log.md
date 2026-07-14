@@ -24,6 +24,18 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-15 - docs(gate): Gate 12 수락 (accepted_for_1.7.0)
+
+- status: needs_review
+- actor: Claude Code (사용자 WoongHwan-Kim 승인)
+- scope: docs, gate
+- changed:
+  - GATE_REVIEW.md
+- summary:
+  - 사용자가 "Gate 12 수락 → 1.7 구현 착수"로 승인함에 따라 Gate 12를 `proposed_for_1.7.0` → `accepted_for_1.7.0`으로 확정했다(표 행 + 범위 섹션 제목/서두). 이로써 1.7(CI/CD 도입) 구현 착수가 해금된다: composite action.yml, publish.yml의 격리된 Release 잡, `release-notes --body-only` 부가 모드 + 본문 민감정보 스캔, 명령별 JSON help 예시.
+- caveats:
+  - 결정 문서만 변경. 코드 변경은 후속 커밋. publish.yml(배포 CI) 수정이 포함되므로 push/tag/배포는 사용자의 명시적 지시 후에만.
+
 ## 2026-07-15 - docs(gate): Gate 12 초안 — 1.7 CI/CD 도입(GitHub Action + Release) 범위 (proposed_for_1.7.0)
 
 - status: needs_review
