@@ -2,12 +2,15 @@
 title: Architecture Conventions
 tags:
   - llm-wiki
-status: needs_review
+  - verified
+status: verified
 doc_type: architecture_conventions
 project: llm-wiki-standard
-last_updated: 2026-07-14
+last_updated: 2026-07-15
 author: cli-generated
 last_edited_by: Claude Code
+reviewed_by: WoongHwan-Kim
+reviewed_at: 2026-07-15
 wiki_block_version: v1
 source_files:
   - src/cli.js
@@ -83,4 +86,4 @@ contains_sensitive_info: false
 
 - 2026-07-14에 1.3.0 명령 표면과 소스 구조를 기준으로 재검토했다.
 - 2026-07-14에 1.5 프로그래매틱 API 모듈(`src/index.js`)과 `--format json`의 `schemaVersion` 부가를 반영하고, 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
-- 2026-07-14에 1.6 MCP 서버 모듈군(`src/mcp/{tools,dispatch,server}.js`, `llm-wiki mcp` 명령)을 반영했다. LLM 편집으로 `needs_review`로 강등되었으며 사람 재검토가 필요하다.
+- 2026-07-14에 1.6 MCP 서버 모듈군(`src/mcp/{tools,dispatch,server}.js`, `llm-wiki mcp` 명령)을 반영했다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.

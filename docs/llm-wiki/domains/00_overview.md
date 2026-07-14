@@ -2,12 +2,15 @@
 title: Domain Overview
 tags:
   - llm-wiki
-status: needs_review
+  - verified
+status: verified
 doc_type: domain_overview
 project: llm-wiki-standard
-last_updated: 2026-07-14
+last_updated: 2026-07-15
 author: cli-generated
 last_edited_by: Claude Code
+reviewed_by: WoongHwan-Kim
+reviewed_at: 2026-07-15
 wiki_block_version: v1
 source_files:
   - src/commands.js
@@ -61,4 +64,4 @@ contains_sensitive_info: false
 ## Review Notes
 
 - 2026-07-14에 1.3.0 명령어군과 공통 관심사를 기준으로 재검토했다.
-- 2026-07-14에 도메인 지도를 현행화했다: 누락됐던 Knowledge(`graph`/`stats`, 1.4)·Release(`release-notes`)·Agent-native(`mcp`, 1.6)를 추가하고, stale했던 "migrate --apply 안정판 차단" 서술을 Gate 8(해금, preview-first) 기준으로 정정했으며, `drift`(Gate 9)를 반영했다. LLM 편집으로 `needs_review`로 강등되었으며 사람 재검토가 필요하다.
+- 2026-07-14에 도메인 지도를 현행화했다: 누락됐던 Knowledge(`graph`/`stats`, 1.4)·Release(`release-notes`)·Agent-native(`mcp`, 1.6)를 추가하고, stale했던 "migrate --apply 안정판 차단" 서술을 Gate 8(해금, preview-first) 기준으로 정정했으며, `drift`(Gate 9)를 반영했다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.

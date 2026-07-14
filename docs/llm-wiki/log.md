@@ -24,6 +24,20 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-15 - docs: 1.6 doc-sync 문서 verified 재승인 + MCP 로컬 등록 정리
+
+- status: verified
+- actor: Claude Code (사용자 WoongHwan-Kim 검토·승인)
+- scope: docs
+- changed:
+  - docs/llm-wiki/PUBLIC_API.md, ARCHITECTURE_CONVENTIONS.md, DOMAIN_FEATURES.md, domains/00_overview.md (needs_review → verified)
+  - docs/llm-wiki/README.md (verified 유지, reviewed_at/last_updated → 2026-07-15)
+- summary:
+  - 1.6.0 배포 후, 1.6 doc-sync로 needs_review로 내려가 있던 4개 문서(PUBLIC_API·ARCHITECTURE_CONVENTIONS·DOMAIN_FEATURES·domains/00_overview)를 사람 검토·승인에 따라 `verified`로 재승인했다(`verified` 태그·`reviewed_by: WoongHwan-Kim`·`reviewed_at: 2026-07-15`, 리뷰 노트 재승인 문구). 추가로 위키 README(`docs/llm-wiki/README.md`)가 루트 README 재작성(front-door 슬림, c21c504)을 source로 인용해 `evidence.stale`로 떠서, 내용이 여전히 정확함을 확인하고 검토일을 2026-07-15로 갱신해 해소했다.
+  - 사전 검증용으로 등록해 둔 로컬 MCP 서버(`claude mcp add llm-wiki -s local`)를 정리했다. 이 등록은 사용자 홈 `~/.claude.json`에만 있던 로컬 전용 항목으로, git·npm 배포물에 흔적이 없어 배포된 1.6.0에는 아무 영향이 없었다(제거는 정돈 목적). 다시 쓰려면 배포판 기준으로 `claude mcp add llm-wiki -s local -- npx -y @dowonk-7949/llm-wiki-standard mcp`.
+- caveats:
+  - validate 0 findings, validate-frontmatter --strict clean(26 docs), node --test 173 통과. 이로써 재검토 부채 없음(log.md·releases/*.md만 관례상 needs_review).
+
 ## 2026-07-15 - docs: README(EN/KO) 프론트도어형으로 슬림 재구성
 
 - status: needs_review

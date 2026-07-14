@@ -2,12 +2,15 @@
 title: Domain Features
 tags:
   - llm-wiki
-status: needs_review
+  - verified
+status: verified
 doc_type: domain_overview
 project: llm-wiki-standard
-last_updated: 2026-07-14
+last_updated: 2026-07-15
 author: cli-generated
 last_edited_by: Claude Code
+reviewed_by: WoongHwan-Kim
+reviewed_at: 2026-07-15
 wiki_block_version: v1
 source_files:
   - src/commands.js
@@ -69,4 +72,4 @@ contains_sensitive_info: false
 - 2026-07-14에 1.3.0 기능(PHP/Ruby/.NET 감지 · backend/fullstack 도메인 문서 분리 생성 · OKF `type` alias)을 반영해 갱신하고 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-14에 1.4.0 기능(파일 기반 도메인 감지[Gate 10] · `graph`/`stats` 명령 · 대시보드 Document Index)을 반영해 갱신하고 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-14에 1.5 프로그래매틱 API(`exports`/`commands` 맵 · `normalizeOptions` · `--format json`의 `schemaVersion`)를 기능으로 추가하고, 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
-- 2026-07-14에 1.6 에이전트 네이티브(MCP 서버 `llm-wiki mcp`, 읽기 전용 툴 10개)를 기능으로 추가했다. LLM 편집으로 `needs_review`로 강등되었으며 사람 재검토가 필요하다.
+- 2026-07-14에 1.6 에이전트 네이티브(MCP 서버 `llm-wiki mcp`, 읽기 전용 툴 10개)를 기능으로 추가했다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
