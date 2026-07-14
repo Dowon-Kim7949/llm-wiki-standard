@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CORE_REQUIRED_DOCS, PROFILE_DOCS, VALID_STATUSES } from "./config.js";
+import { CORE_REQUIRED_DOCS, CURRENT_WIKI_BLOCK_VERSION, PROFILE_DOCS, VALID_STATUSES } from "./config.js";
 import { detectProject } from "./detector.js";
 import { findMojibakeIndicators, hasUtf8Bom, readUtf8, writeUtf8 } from "./encoding.js";
 import { listMarkdownFiles, pathExists, toPosix } from "./files.js";
@@ -101,6 +101,7 @@ export async function doctor(options) {
   const configExists = await pathExists(path.join(cwd, "llm-wiki.config.json"));
   const packageManager = await detectPackageManager(cwd);
   const packageReadiness = await inspectPackageReadiness(cwd);
+  const blockVersions = wikiExists ? await analyzeBlockVersions(cwd) : null;
 
   const checks = [
     `node: ${process.version}`,
@@ -108,6 +109,9 @@ export async function doctor(options) {
     `cwd: ${cwd}`,
     `package_manager: ${packageManager ?? "not detected"}`,
     `wiki_entry: ${wikiExists ? "present" : "missing"}`,
+    blockVersions
+      ? `wiki_block_version: current=${blockVersions.current}, gap=${blockVersionGapDocs(blockVersions).length}/${blockVersions.docs.length} docs${blockVersionGapDocs(blockVersions).length ? " (run migrate --dry-run)" : ""}`
+      : `wiki_block_version: current=${CURRENT_WIKI_BLOCK_VERSION}`,
     `llm_wiki_config: ${configExists ? "present" : "absent"}`,
     `project_type: ${detection.projectType} (${detection.confidence})`,
     "utf8_policy: explicit read/write helpers enabled",
@@ -663,8 +667,11 @@ async function initDryRun(options, detection, agents, candidates) {
 
 export async function migrateCommand(options) {
   if (options.apply) {
-    return blockedApply("migrate", "migrate --apply is intentionally blocked until automatic migration scope is accepted. Use migrate --dry-run or migrate --dry-run --out <path> to prepare a reviewable migration plan.");
+    return blockedApply("migrate", "migrate --apply is not yet enabled in this build. Its scope is accepted (GATE_REVIEW Gate 8); use migrate --dry-run to preview the wiki_block_version upgrade report and planned changes.");
   }
+
+  const analysis = await analyzeBlockVersions(options.cwd);
+  const upgrade = buildUpgradeReport(analysis);
 
   const auditResult = await audit({ ...options, dryRun: true });
   const safeAdds = auditResult.findings
@@ -680,10 +687,23 @@ export async function migrateCommand(options) {
   return withText({
     command: "migrate",
     dryRun: true,
+    upgradeReport: {
+      current: analysis.current,
+      counts: upgrade.counts,
+      gapDocuments: upgrade.gapDocs.map((doc) => ({
+        path: doc.rel,
+        state: doc.state,
+        recorded: doc.recorded,
+        status: doc.status
+      })),
+      aheadDocuments: upgrade.aheadDocs.map((doc) => ({ path: doc.rel, recorded: doc.recorded }))
+    },
     safeAdds,
     reviewItems,
     blockedItems
   }, "LLM-WIKI Migration Dry Run", [
+    { title: "Upgrade Report (wiki_block_version)", body: upgrade.lines },
+    { title: "Documents to Upgrade", body: upgrade.detail },
     { title: "Safe Automatic Changes", body: safeAdds },
     { title: "Human Review Required", body: reviewItems },
     { title: "Blocked Items", body: blockedItems },
@@ -699,6 +719,88 @@ function blockedApply(command, message) {
   }, `LLM-WIKI ${command} Blocked`, [{ title: "Blocked", body: [message] }]);
 }
 
+// ---- wiki_block_version upgrade analysis --------------------------------
+// The migration engine compares each document's recorded wiki_block_version
+// against CURRENT_WIKI_BLOCK_VERSION to report the contract gap (read-only) and,
+// under migrate --apply (GATE_REVIEW Gate 8), to stamp conforming documents.
+
+function parseBlockVersion(value) {
+  if (typeof value !== "string") return null;
+  const match = value.trim().match(/^v(\d+)$/i);
+  return match ? Number(match[1]) : null;
+}
+
+// Documents the migration / fix engines operate on: wiki markdown excluding the
+// intentional templates/ scaffolds.
+async function listWikiContentDocs(cwd) {
+  const wikiRoot = path.join(cwd, "docs", "llm-wiki");
+  if (!(await pathExists(wikiRoot))) return [];
+  return (await listMarkdownFiles(wikiRoot))
+    .filter((file) => !toPosix(path.relative(cwd, file)).includes("/templates/"));
+}
+
+// Classify every wiki content document by its recorded block version relative
+// to the current CLI contract. Read-only.
+async function analyzeBlockVersions(cwd) {
+  const currentNumber = parseBlockVersion(CURRENT_WIKI_BLOCK_VERSION);
+  const docs = [];
+  for (const file of await listWikiContentDocs(cwd)) {
+    const rel = toPosix(path.relative(cwd, file));
+    const parsed = parseFrontmatter(await readUtf8(file));
+    const hasField = Boolean(parsed.frontmatter) && "wiki_block_version" in parsed.frontmatter;
+    const raw = hasField ? parsed.frontmatter.wiki_block_version : undefined;
+    const version = parseBlockVersion(raw);
+    let state;
+    if (!hasField || raw === null || String(raw).trim() === "") state = "unrecorded";
+    else if (version === null) state = "unknown";
+    else if (version < currentNumber) state = "behind";
+    else if (version > currentNumber) state = "ahead";
+    else state = "current";
+    docs.push({
+      rel,
+      recorded: hasField ? raw : null,
+      version,
+      state,
+      status: parsed.frontmatter?.status ?? null
+    });
+  }
+  return { current: CURRENT_WIKI_BLOCK_VERSION, currentNumber, docs };
+}
+
+function summarizeBlockVersions(analysis) {
+  const counts = { current: 0, behind: 0, ahead: 0, unrecorded: 0, unknown: 0 };
+  for (const doc of analysis.docs) counts[doc.state] += 1;
+  return counts;
+}
+
+// Documents whose recorded block version trails or is missing relative to the
+// current contract — the upgrade candidates migrate would bring forward.
+function blockVersionGapDocs(analysis) {
+  return analysis.docs.filter(
+    (doc) => doc.state === "behind" || doc.state === "unrecorded" || doc.state === "unknown"
+  );
+}
+
+// Human-readable upgrade report for the migrate dry run.
+function buildUpgradeReport(analysis) {
+  const counts = summarizeBlockVersions(analysis);
+  const gapDocs = blockVersionGapDocs(analysis);
+  const lines = [
+    `cli_block_version: ${analysis.current}`,
+    `documents: ${analysis.docs.length}`,
+    `at_current: ${counts.current}`,
+    `behind: ${counts.behind}`,
+    `unrecorded: ${counts.unrecorded}`,
+    `unknown: ${counts.unknown}`,
+    `ahead: ${counts.ahead}`
+  ];
+  const detail = gapDocs.length
+    ? gapDocs.map((doc) => `${doc.rel}: ${doc.state}${doc.recorded ? ` (${doc.recorded})` : ""} → ${analysis.current}`)
+    : ["All documents are at the current block version."];
+  const aheadDocs = analysis.docs.filter((doc) => doc.state === "ahead");
+  return { counts, gapDocs, aheadDocs, lines, detail };
+}
+
 // ---- fix command (scoped autofix) --------------------------------------
 // The accepted scope is recorded in GATE_REVIEW.md ("Autofix (--fix) Scope
 // Decision"). fix applies only safe, mechanically decidable remediations under
@@ -710,7 +812,7 @@ const FIX_TIER_A_SCALAR_DEFAULTS = {
   status: "needs_review",
   visibility: "internal",
   contains_sensitive_info: "false",
-  wiki_block_version: "v1",
+  wiki_block_version: CURRENT_WIKI_BLOCK_VERSION,
   last_edited_by: "llm-wiki-cli"
 };
 const FIX_TIER_A_ARRAY_FIELDS = ["tags", "source_files", "related"];
@@ -747,8 +849,7 @@ export async function fixCommand(options) {
   const changeList = write ? applied : planned;
   const stubTargets = new Map(); // relPosix target -> Set of referencing docs
 
-  const files = (await listMarkdownFiles(wikiRoot))
-    .filter((file) => !toPosix(path.relative(cwd, file)).includes("/templates/"));
+  const files = await listWikiContentDocs(cwd);
 
   for (const file of files) {
     const rel = toPosix(path.relative(cwd, file));

@@ -24,6 +24,24 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - feat: wiki_block_version 인식 업그레이드 리포트 (1.2 step 1, 읽기전용)
+
+- status: needs_review
+- actor: Claude Code
+- scope: code, test
+- changed:
+  - src/config.js
+  - src/template-renderer.js
+  - src/commands.js
+  - tests/verification.test.js
+- summary:
+  - `wiki_block_version`을 단일 소스 상수로 승격했다: `src/config.js`에 `CURRENT_WIKI_BLOCK_VERSION = "v1"`과 (현재 비어 있는) `BLOCK_VERSION_FIELD_RENAMES`를 추가하고, 문서 생성 템플릿(`template-renderer.js`)과 fix의 Tier A 기본값이 이 상수에서 값을 받도록 했다(출력은 v1로 동일).
+  - 읽기전용 업그레이드 리포트를 추가했다: `analyzeBlockVersions`가 각 wiki 콘텐츠 문서(templates 제외)의 기록된 블록버전을 현재 계약과 비교해 current/behind/unrecorded/unknown/ahead로 분류한다. `migrate --dry-run`에 "Upgrade Report (wiki_block_version)" + "Documents to Upgrade" 섹션과 `upgradeReport` JSON 페이로드를 노출하고, `doctor`에 `wiki_block_version: current=… gap=n/N docs` 요약 라인을 추가했다.
+  - fix가 새 공용 헬퍼 `listWikiContentDocs`(templates 제외 파일셋)를 재사용하도록 리팩터해 migrate와 파일셋 정의를 통일했다. 테스트 추가(버전 갭 분류·ahead는 갭 아님). 전체 113 pass.
+- caveats:
+  - 이 커밋은 읽기전용이다. `migrate --apply`는 이 빌드에서 아직 blocked이며(메시지를 Gate 8 수락 상태에 맞게 갱신), 실제 해금은 step 2에서 fix 엔진 재사용으로 구현한다.
+  - `ahead`(현재 CLI보다 최신 블록버전) 문서는 리포트만 하고 절대 강등/다운스탬프하지 않는다.
+
 ## 2026-07-14 - docs(gate): Gate 8 수락 (accepted_for_1.2.0)
 
 - status: needs_review

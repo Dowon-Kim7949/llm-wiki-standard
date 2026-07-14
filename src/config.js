@@ -14,6 +14,19 @@ export const REQUIRED_FRONTMATTER_FIELDS = [
   "contains_sensitive_info"
 ];
 
+// Single source of truth for the wiki_block_version stamped by the current CLI.
+// Documents generated or migrated by this CLI carry this value; the migration
+// engine compares each document's recorded block version against it to report
+// the contract gap. Bump this (e.g. "v2") only alongside a frontmatter-contract
+// change, and add the old->new field renames to BLOCK_VERSION_FIELD_RENAMES.
+export const CURRENT_WIKI_BLOCK_VERSION = "v1";
+
+// Per-block-version required-field renames applied by `migrate --apply`
+// (GATE_REVIEW Gate 8). Keyed by the document's recorded block version; each
+// entry maps an old field name to its current-contract name. Empty today
+// because v1 is the only block version — the mechanism is forward-looking.
+export const BLOCK_VERSION_FIELD_RENAMES = {};
+
 export const VALID_STATUSES = new Set(["draft", "needs_review", "verified", "deprecated"]);
 
 export const VALID_VISIBILITIES = new Set(["internal", "public", "restricted"]);
