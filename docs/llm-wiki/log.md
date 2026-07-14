@@ -24,6 +24,21 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-14 - docs(gate): Gate 8 초안 — migrate --apply 범위 (1.2 착수)
+
+- status: needs_review
+- actor: Claude Code
+- scope: docs, gate
+- changed:
+  - GATE_REVIEW.md
+- summary:
+  - 1.2(안전 업그레이드 & 마이그레이션) 헤드라인의 전제조건인 Gate 8(Migration Apply Scope Approval)을 `proposed_for_1.2.0`으로 초안 작성했다. Review Status 표에 Gate 8 행을 추가하고, fix 엔진(Gate 6)의 승인 범위를 그대로 재사용하는 "Migration Apply Scope Decision (proposed for 1.2.0)" 섹션을 넣었다.
+  - 핵심 결정: migrate는 fix의 "버전 인식 형제"다 — 문서의 `wiki_block_version`과 CLI 현재 블록버전의 계약 갭을 보고하고, fix가 신뢰받는 동일한 기계적 수정을 적용하며, 문서가 현재 계약에 부합해진 뒤에만 `wiki_block_version`을 stamp한다. preview-first(`--dry-run`↔`--apply` 배타), verified 문서 내용·status·source_files/evidence 값·Tier B 필드는 보고만. renamed-field 기계는 만들되 rename map은 현재 비어 있음(v1 단일 계약).
+  - Gate 8 수락 시 Gate 4의 migrate --apply 차단을 1.x 라인에서 대체함을 명시했고, Release Caveats도 갱신했다.
+- caveats:
+  - **사람 승인 대기 상태다.** Gate 8이 수락되기 전까지 migrate --apply 구현(코드)은 착수하지 않는다. GATE_REVIEW.md는 docs/llm-wiki/ 밖이라 validate 스캔 대상이 아니며, frontmatter status는 이미 needs_review다.
+  - 이 커밋은 결정 문서만 바꾼다. 코드·CLI 표면 변경 없음.
+
 ## 2026-07-14 - fix(ci): CRLF-안전 okf 테스트 + .gitattributes(eol=lf)
 
 - status: needs_review

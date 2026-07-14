@@ -40,6 +40,7 @@ This document records the default decisions for the `0.1.0` stable release line 
 | Gate 5 Implementation Approval | `accepted_for_0.1.0` | Ship `@dowonk-7949/llm-wiki-standard@0.1.0` as the first stable npmjs release candidate. |
 | Gate 6 Autofix (`--fix`) Scope Approval | `accepted_for_0.1.8` | Ship a scoped `llm-wiki fix` command (default preview, `--write` applies) limited to the safe remediations in "Autofix (`--fix`) Scope Decision" below. Content-bearing fixes never touch `verified` documents, and nothing outside `docs/llm-wiki/` is written. |
 | Gate 7 1.0.0 Stability Approval | `accepted_for_1.0.0` | Promote the `0.1.8` contract to a stable `1.0.0` with no functional command changes. Declare the CLI command/option surface, `--format json` output shape, and required frontmatter contract stable; breaking changes to these now require a major version bump. See "1.0.0 Stability Milestone" below. |
+| Gate 8 Migration Apply Scope Approval | `proposed_for_1.2.0` | **Awaiting human acceptance.** Unblock `migrate --apply` for the `1.2.0` line under a pre-decided, preview-first, `verified`-preserving scope that reuses the accepted `fix` engine (Gate 6) plus `wiki_block_version` stamping. Revisits Gate 4's block for the `1.x` line. Implementation is blocked until this gate is accepted. See "Migration Apply Scope Decision" below. |
 
 ## 1.0.0 Stability Milestone
 
@@ -129,9 +130,74 @@ Accepted for the `0.1.8` line. `llm-wiki fix` applies only the safest, mechanica
 - All created or edited documents remain `needs_review`.
 - UTF-8 read/write throughout; edits are minimal targeted insertions rather than full-document rewrites, since the frontmatter layer parses but does not re-serialize.
 
+## Migration Apply Scope Decision (proposed for 1.2.0)
+
+Proposed for the `1.2.0` line, **pending human acceptance**. Gate 8 revisits
+Gate 4: `migrate --apply` has been blocked since `0.1.0` because automatic
+migration writes needed a separately accepted scope. This decision grants that
+scope by **reusing the accepted `fix` engine** (Gate 6) under a
+`wiki_block_version` upgrade framing. When accepted, `migrate --apply` is
+unblocked with the scope below and Gate 4's block no longer applies to the `1.x`
+line. Until then, `--apply` stays blocked.
+
+`migrate` is the version-aware sibling of `fix`: it reports the contract gap
+between each document's `wiki_block_version` and the CLI's current block version,
+applies the same mechanical remediations `fix` is trusted with, and stamps a
+document's `wiki_block_version` to current only once that document has been
+brought to the current contract. It never touches meaning-bearing values,
+`verified` content, or document `status`.
+
+### Command surface
+
+- `llm-wiki migrate` / `migrate --dry-run` — preview only (unchanged). Shows the
+  version-gap upgrade report and the planned mechanical changes; writes nothing.
+- `llm-wiki migrate --apply` — applies the planned upgrade. Preview-first:
+  `--dry-run` and `--apply` cannot be combined, mirroring `fix`.
+
+### May change (only under `docs/llm-wiki/`, only on non-`verified` documents)
+
+The write actions are exactly the accepted `fix` scope, plus one migrate-only
+action (block-version stamping):
+
+| Finding / gap | Migrate action |
+| --- | --- |
+| `frontmatter.required` (Tier A fields only) | Insert the missing required field with a safe mechanical default (same defaults as `fix`). |
+| Renamed required field | Rename to the current contract name **only when a rename mapping is defined for the document's `wiki_block_version`**. The rename map is empty today (`v1` is the only block version), so no rename occurs yet; the mechanism is forward-looking. |
+| `evidence.section_missing` / `section_empty` / `section_unlisted` | Reconcile the body `## Evidence` section from frontmatter `evidence` (same as `fix`). |
+| `related.missing` / `markdown_link.missing` | Create a `needs_review` stub at the broken target (same stub conditions as `fix`). |
+| `last_updated` freshness | Refresh `last_updated`, only on documents this run actually modifies. |
+| `wiki_block_version` gap | Backfill when missing, and stamp to the current block version **as the final step, only once the document otherwise conforms to the current contract**. Stamping is what records "this document has been migrated." |
+
+### Must not change (reported only, never auto-applied)
+
+Identical to the `fix` refusals:
+
+- Tier B meaning-bearing required fields (`title`, `doc_type`, `project`, `author`).
+- `source_files` / `evidence` reference values — paths are never invented or rewritten.
+- `content.not_enriched` — enrichment needs real source-backed knowledge.
+- Document `status` — migrate never promotes to `verified` and never auto-downgrades
+  `verified` → `needs_review`. `verified` documents are skipped entirely for content
+  edits and are never stamped to a new block version. The opt-in drift downgrade is a
+  separate, drift-triggered decision (ROADMAP 1.2 item 3), not part of migrate.
+- Anything outside `docs/llm-wiki/`, plus `log.md` (append-only) and adapter files.
+- Files with mojibake indicators, and any result matching sensitive-info rules (blocked),
+  mirroring `fix` and `init --write`.
+
+### Guarantees
+
+- Idempotent: a second `migrate --apply` with no intervening changes writes nothing.
+- All created or edited documents remain `needs_review`.
+- A `verified` document is never stamped to a new `wiki_block_version`; its contract
+  gap is reported for a human, because stamping would falsely assert the document
+  matches the current contract without review.
+- UTF-8 throughout; edits are minimal targeted insertions that reuse the `fix` engine's
+  split/insert helpers (no frontmatter re-serialization).
+
 ## Release Caveats
 
-- `migrate --apply` remains intentionally blocked.
+- `migrate --apply` stays blocked in shipped releases through `1.1.0`. Gate 8 (above)
+  proposes unblocking it for `1.2.0` under the accepted `fix`-engine scope; until Gate 8
+  is accepted and implemented, `--apply` remains blocked.
 - `fix` writes only the accepted scope above; broader autofix (Tier B fields, path repair, enrichment, status downgrade) stays out of scope until separately accepted.
 - `validate` reuses audit coverage rather than separate layered validators.
 - YAML parsing covers the standard frontmatter subset only.
