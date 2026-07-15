@@ -6,6 +6,7 @@ import { CORE_REQUIRED_DOCS, CURRENT_WIKI_BLOCK_VERSION, JSON_SCHEMA_VERSION, PR
 import { detectProject } from "./detector.js";
 import { findMojibakeIndicators, hasUtf8Bom, readUtf8, writeUtf8 } from "./encoding.js";
 import { listMarkdownFiles, pathExists, toPosix } from "./files.js";
+import { CONFIG_FILENAME, loadProjectConfig } from "./config-file.js";
 import { hasRequiredField, parseFrontmatter, validateFrontmatter } from "./frontmatter.js";
 import { schemaRequiredFields } from "./frontmatter-schema.js";
 import { renderTextReport } from "./report.js";
@@ -121,7 +122,7 @@ export async function doctor(options) {
   const cwd = options.cwd;
   const detection = await detectProject(cwd, options.type, options.profiles);
   const wikiExists = await pathExists(path.join(cwd, "docs", "llm-wiki", "index.md"));
-  const configExists = await pathExists(path.join(cwd, "llm-wiki.config.json"));
+  const configState = await describeEffectiveConfig(cwd);
   const packageManager = await detectPackageManager(cwd);
   const packageReadiness = await inspectPackageReadiness(cwd);
   const blockVersions = wikiExists ? await analyzeBlockVersions(cwd) : null;
@@ -135,7 +136,7 @@ export async function doctor(options) {
     blockVersions
       ? `wiki_block_version: current=${blockVersions.current}, gap=${blockVersionGapDocs(blockVersions).length}/${blockVersions.docs.length} docs${blockVersionGapDocs(blockVersions).length ? " (run migrate --dry-run)" : ""}`
       : `wiki_block_version: current=${CURRENT_WIKI_BLOCK_VERSION}`,
-    `llm_wiki_config: ${configExists ? "present" : "absent"}`,
+    `llm_wiki_config: ${configState}`,
     `project_type: ${detection.projectType} (${detection.confidence})`,
     "utf8_policy: explicit read/write helpers enabled",
     "migration_apply: enabled (GATE_REVIEW Gate 8; preview-first, verified-preserving)"
@@ -152,6 +153,22 @@ export async function doctor(options) {
     detection,
     packageReadiness
   }, "LLM-WIKI Doctor", sections);
+}
+
+// Echoes the effective project config (llm-wiki.config.json) for doctor so the
+// config the CLI/programmatic-API/MCP surfaces merge is observable: "absent",
+// "present (type=..., profiles=..., agents=..., strict=on)", or a "present
+// (invalid: N error(s))" note when the file is malformed.
+async function describeEffectiveConfig(cwd) {
+  const { found, config, errors } = await loadProjectConfig(cwd);
+  if (!found) return "absent";
+  if (errors.length > 0) return `present (invalid: ${errors.length} error${errors.length === 1 ? "" : "s"})`;
+  const parts = [];
+  if (config.type != null) parts.push(`type=${config.type}`);
+  if (Array.isArray(config.profiles) && config.profiles.length > 0) parts.push(`profiles=${config.profiles.join("+")}`);
+  if (Array.isArray(config.agents) && config.agents.length > 0) parts.push(`agents=${config.agents.join("+")}`);
+  if (config.strict) parts.push("strict=on");
+  return parts.length > 0 ? `present (${parts.join(", ")})` : "present (no keys set)";
 }
 
 export async function validateFrontmatterCommand(options) {
@@ -672,6 +689,34 @@ export async function releaseNotesCommand(options) {
   };
 }
 
+// Scaffolds a minimal starter llm-wiki.config.json at the project root for
+// init/quickstart. Additive and preview-first, and NEVER overwrites an existing
+// file (a project's config is user-owned, like the append-only log) — so it is
+// skipped even under --existing overwrite. Seeds the detected type and selected
+// agents so the file is useful immediately; unknown/empty fields are left out.
+// Returns { planned, created, skipped } message arrays for the init report.
+async function scaffoldProjectConfig(cwd, detection, agents, { write }) {
+  if (await pathExists(path.join(cwd, CONFIG_FILENAME))) {
+    return { planned: [], created: [], skipped: [`${CONFIG_FILENAME} exists; kept existing config (never overwritten).`] };
+  }
+  const config = {};
+  if (detection.projectType && detection.projectType !== "unknown") config.type = detection.projectType;
+  if (Array.isArray(agents) && agents.length > 0) config.agents = [...agents];
+  const summary = describeScaffoldConfig(config);
+  if (!write) {
+    return { planned: [`${CONFIG_FILENAME} would be created (${summary}).`], created: [], skipped: [] };
+  }
+  await writeFile(path.join(cwd, CONFIG_FILENAME), `${JSON.stringify(config, null, 2)}\n`, { encoding: "utf8" });
+  return { planned: [], created: [`${CONFIG_FILENAME} created (${summary}).`], skipped: [] };
+}
+
+function describeScaffoldConfig(config) {
+  const parts = [];
+  if (config.type) parts.push(`type=${config.type}`);
+  if (config.agents && config.agents.length > 0) parts.push(`agents=${config.agents.join("+")}`);
+  return parts.length > 0 ? parts.join(", ") : "empty starter; add type/profiles/agents/strict";
+}
+
 export async function initCommand(options) {
   const detection = await detectProject(options.cwd, options.type, options.profiles);
   const agents = selectedAgents(options);
@@ -706,6 +751,10 @@ async function initDryRun(options, detection, agents, candidates) {
   const adapterPlan = await planAdapterSuggestions(options.cwd, agents);
   planned.push(...adapterPlan.planned);
   skipped.push(...adapterPlan.skipped);
+
+  const configScaffold = await scaffoldProjectConfig(options.cwd, detection, agents, { write: false });
+  planned.push(...configScaffold.planned);
+  skipped.push(...configScaffold.skipped);
 
   if (options.withAdapters && agents.length > 0) {
     skipped.push("--with-adapters is treated as legacy shorthand for --agent all.");
@@ -1509,6 +1558,10 @@ async function initWrite(options, detection, agents, candidates, domainContext =
   created.push(...adapterWrites.created);
   skipped.push(...adapterWrites.skipped);
   blocked.push(...adapterWrites.blocked);
+
+  const configScaffold = await scaffoldProjectConfig(options.cwd, detection, agents, { write: true });
+  created.push(...configScaffold.created);
+  skipped.push(...configScaffold.skipped);
 
   if (options.withAdapters && agents.length > 0) {
     skipped.push("--with-adapters is treated as legacy shorthand for --agent all.");

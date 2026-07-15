@@ -24,6 +24,23 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-15 - feat: EP2 starter config scaffold + doctor echo — 1.7.2 enabling-prep
+
+- status: needs_review
+- actor: Claude Code (사용자 WoongHwan-Kim 지시)
+- scope: code, tests
+- changed:
+  - src/commands.js (init/quickstart가 최소 llm-wiki.config.json을 scaffold: `scaffoldProjectConfig` 헬퍼 — additive·preview-first·기존 파일 절대 미덮어씀[--existing overwrite에서도]; `doctor`가 `describeEffectiveConfig`로 config 선언 키[type/profiles/agents/strict]를 echo; config-file.js import 추가)
+  - tests/verification.test.js (doctor echo 테스트 갱신 + EP2 4개: doctor invalid echo, init scaffold, init never-overwrite, init dry-run preview)
+- summary:
+  - Gate 13 enabling-prep #2. `init`/`quickstart --write`가 감지된 type과 선택된 agents를 담은 최소 starter config를 생성하고(quickstart는 initCommand 위임으로 자동 상속), dry-run은 미리보기만 한다. 기존 config는 append-only log처럼 사용자 소유로 보고 절대 덮어쓰지 않는다. `doctor`는 이제 `llm_wiki_config: present (type=..., agents=...)`처럼 effective config를 echo해 Gate 13의 "실사용" 전제를 관측 가능하게 만든다. EP1과 함께 1.7.2 patch로 배포 예정. additive·preview-first, 1.0.0 계약·zero-dep 불변.
+- evidence:
+  - src/commands.js#symbol:scaffoldProjectConfig
+  - src/commands.js#symbol:describeEffectiveConfig
+- caveats:
+  - 지식 문서 doc-sync(DOMAIN_FEATURES/PUBLIC_API 등)는 1.7.2 release-prep에서 EP1과 함께 일괄 반영한다.
+  - 테스트 187 pass. validate/validate-frontmatter 0. 실제 init/doctor 구동으로 scaffold·skip·echo 확인.
+
 ## 2026-07-15 - feat: EP1 config 로딩 일원화 (CLI/API/MCP 동일 effective options) — 1.7.2 enabling-prep
 
 - status: needs_review

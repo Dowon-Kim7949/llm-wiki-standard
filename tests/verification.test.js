@@ -2323,7 +2323,40 @@ test("doctor reports llm-wiki.config.json presence", async () => {
   const present = await doctor({ cwd, type: null, profiles: [], format: "text" });
 
   assert.ok(absent.checks.includes("llm_wiki_config: absent"));
-  assert.ok(present.checks.includes("llm_wiki_config: present"));
+  // doctor echoes the config's declared keys (EP2), so the merged config is observable.
+  assert.ok(present.checks.some((c) => c.startsWith("llm_wiki_config: present")));
+  assert.ok(present.checks.some((c) => c.includes("type=library")));
+});
+
+test("doctor echoes an invalid config as a present/invalid note", async () => {
+  const cwd = await makeProject("doctor-config-bad-");
+  await writeFile(path.join(cwd, "llm-wiki.config.json"), "{ not json", { encoding: "utf8" });
+  const result = await doctor({ cwd, type: null, profiles: [], format: "text" });
+  assert.ok(result.checks.some((c) => c.startsWith("llm_wiki_config: present (invalid")));
+});
+
+test("init --write scaffolds a starter llm-wiki.config.json (EP2)", async () => {
+  const cwd = await makeProject("init-config-scaffold-");
+  const result = await initCommand({ cwd, write: true, minimal: false, withAdapters: false, type: "backend", agents: [], profiles: [], existing: "skip" });
+  const config = JSON.parse(await readFile(path.join(cwd, "llm-wiki.config.json"), { encoding: "utf8" }));
+  assert.equal(config.type, "backend");
+  assert.ok(result.created.some((line) => line.includes("llm-wiki.config.json created")));
+});
+
+test("init never overwrites an existing llm-wiki.config.json, even with --existing overwrite", async () => {
+  const cwd = await makeProject("init-config-keep-");
+  await writeFile(path.join(cwd, "llm-wiki.config.json"), JSON.stringify({ type: "frontend" }), { encoding: "utf8" });
+  const result = await initCommand({ cwd, write: true, minimal: false, withAdapters: false, type: "backend", agents: [], profiles: [], existing: "overwrite" });
+  const config = JSON.parse(await readFile(path.join(cwd, "llm-wiki.config.json"), { encoding: "utf8" }));
+  assert.equal(config.type, "frontend"); // user config left untouched
+  assert.ok(result.skipped.some((line) => line.includes("llm-wiki.config.json exists")));
+});
+
+test("init --dry-run previews the config scaffold without writing it", async () => {
+  const cwd = await makeProject("init-config-preview-");
+  const result = await initCommand({ cwd, dryRun: true, minimal: false, withAdapters: false, type: "backend", agents: [], profiles: [] });
+  assert.ok(result.planned.some((line) => line.includes("llm-wiki.config.json would be created")));
+  assert.equal(await fileExists(path.join(cwd, "llm-wiki.config.json")), false);
 });
 
 test("doctor reports package release readiness for package roots", async () => {
