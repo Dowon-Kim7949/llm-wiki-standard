@@ -2,15 +2,13 @@
 title: Domain Features
 tags:
   - llm-wiki
-  - verified
-status: verified
+  - needs-review
+status: needs_review
 doc_type: domain_overview
 project: llm-wiki-standard
 last_updated: 2026-07-15
 author: cli-generated
 last_edited_by: Claude Code
-reviewed_by: WoongHwan-Kim
-reviewed_at: 2026-07-15
 wiki_block_version: v1
 source_files:
   - src/commands.js
@@ -31,6 +29,8 @@ evidence:
   - src/cli.js#symbol:applyProjectConfig
   - src/index.js#symbol:resolveOptions
   - src/commands.js#symbol:scaffoldProjectConfig
+  - src/commands.js#symbol:applyRuleConfig
+  - src/commands.js#symbol:scanThinBody
 related:
   - docs/llm-wiki/index.md
   - docs/llm-wiki/domains/00_overview.md
@@ -59,6 +59,7 @@ contains_sensitive_info: false
 - **에이전트 네이티브(MCP 서버)** — `llm-wiki mcp`가 stdio 위에서 Model Context Protocol 서버를 띄워, 읽기 전용 명령(validate/audit/next/status/doctor/stats/graph/explain/handoff/prompt)을 MCP 툴로 노출한다. 에이전트(Claude Code·Cursor 등)가 shell out 대신 툴로 위키를 질의·점검한다. 각 툴은 명령 결과를 `structuredContent`(1.5 `schemaVersion` 포함)로, 사람용 요약을 텍스트 콘텐츠로 반환한다. 서드파티 SDK 없이 Node 내장만으로 개행 구분 JSON-RPC 2.0을 직접 구현(무의존성 불변식 유지). **쓰기 명령은 노출하지 않는다**(읽기 전용). 근거: `src/mcp/tools.js#symbol:TOOL_DEFS`, 범위 결정은 `GATE_REVIEW.md`(Gate 11).
 - **CI/CD 도입(1.7)** — `release-notes --body-only`가 변경 섹션 본문만 안전 추출(frontmatter/H1/스캐폴드 라인 제외)하고 본문 민감정보 스캔에 매치 시 차단(exit 2)해 GitHub Release 본문으로 쓴다. `.github/actions/validate/action.yml` 컴포지트 GitHub Action이 읽기 전용 `validate`를 `npx`로 감싸며 다른 액션을 끌어오지 않아 무의존성을 유지한다. `v*` 태그 push 시 `publish.yml`의 격리된 `contents: write` 잡이 러너 `gh` CLI로 GitHub Release를 만든다(본문은 `release-notes --body-only`). 근거: `src/release-notes.js#symbol:buildReleaseNotesBody`, 범위 결정은 `GATE_REVIEW.md`(Gate 12).
 - **프로젝트 설정 일관화(config, 1.7.2 enabling-prep)** — `llm-wiki.config.json` 병합이 CLI뿐 아니라 프로그래매틱 API·MCP 세 표면에서 동일하게 동작한다(공유 `applyProjectConfig`; API는 config 인식 async `resolveOptions` 추가; MCP는 `tools/call`마다 대상 프로젝트 config를 병합, malformed는 `isError`). `init`/`quickstart --write`가 최소 starter config를 scaffold하고(감지 type·선택 agents 반영·기존 파일 미덮어씀·preview-first) `doctor`가 effective config를 echo해, Gate 13(1.8 config schema growth)의 "실사용" 전제를 관측 가능하게 만든다. additive·opt-in, 1.0.0 계약·zero-dep 불변. 근거: `src/cli.js#symbol:applyProjectConfig`·`src/index.js#symbol:resolveOptions`, 범위는 `GATE_REVIEW.md`(Gate 13).
+- **config rule 토글(1.8)** — `llm-wiki.config.json`의 `rules` 맵으로 프로젝트가 개별 finding rule을 끄거나(`off`) severity를 재정의한다(`{ "rule.id": "off"|"blocked"|"error"|"warning"|"info" }`). `audit`/`status`/`validate-frontmatter`에 중앙(`applyRuleConfig`) 적용되고 세 표면(CLI/API/MCP) 모두 반영된다. 레지스트리 rule만 대상이며 **`sensitive.*`(민감정보)는 안전상 절대 토글 불가**. opt-in lint `content.thin_body`(기본 off, `rules`로 켬)가 얇은 본문 문서를 표시해 토글 기계를 dogfood한다. 근거: `src/commands.js#symbol:applyRuleConfig`, 범위는 `GATE_REVIEW.md`(Gate 13, accepted).
 
 ## Evidence
 
@@ -73,6 +74,8 @@ contains_sensitive_info: false
 - `src/cli.js#symbol:applyProjectConfig` — CLI/API/MCP 공유 config 로드·병합 seam(1.7.2).
 - `src/index.js#symbol:resolveOptions` — config 인식 옵션 해석(프로그래매틱 API·MCP 사용).
 - `src/commands.js#symbol:scaffoldProjectConfig` — init/quickstart starter config scaffold(미덮어씀).
+- `src/commands.js#symbol:applyRuleConfig` — config `rules` 토글을 findings에 중앙 적용(1.8; `sensitive.*` 비토글).
+- `src/commands.js#symbol:scanThinBody` — opt-in `content.thin_body` lint(1.8; 기본 off).
 
 ## Open Questions
 
@@ -87,3 +90,4 @@ contains_sensitive_info: false
 - 2026-07-14에 1.6 에이전트 네이티브(MCP 서버 `llm-wiki mcp`, 읽기 전용 툴 10개)를 기능으로 추가했다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-15에 1.7 CI/CD 도입(`release-notes --body-only` + 본문 민감정보 차단, 컴포지트 validate GitHub Action, 태그 트리거 GitHub Release 잡)을 기능으로 추가했다(Gate 12). 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-15에 1.7.2 enabling-prep(config 로딩을 CLI/API/MCP로 일원화 + `resolveOptions`, init/quickstart starter config scaffold, doctor effective-config echo)를 "프로젝트 설정 일관화" 기능으로 추가했다(Gate 13). 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
+- 2026-07-15에 1.8.0 config schema growth(Gate 13, accepted)를 반영했다: config `rules` 맵의 per-project rule 토글(중앙 `applyRuleConfig`; `sensitive.*` 비토글)과 opt-in lint `content.thin_body`(기본 off)를 기능으로 추가했다. LLM 편집이므로 `needs_review`로 내리고 사람 재검토를 기다린다.

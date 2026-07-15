@@ -177,6 +177,11 @@ design-input docs below remain.
 
 ### 1.8 — Config schema growth
 
+**Shipped in 1.8.0:** per-project rule toggles (the `rules` map) and the
+`content.thin_body` opt-in lint; the severity-consolidation pre-work landed
+(audited behavior-preserving, 0 mismatches). Remaining for `1.8.x`: custom document
+sets and template overrides (with the never-`verified` guardrail).
+
 Extend the pre-reserved `llm-wiki.config.json` seam (unknown keys are already
 ignored by design) with **custom document sets, per-project rule toggles, and
 template overrides**. This is the hard dependency gate: both monorepo (per-package

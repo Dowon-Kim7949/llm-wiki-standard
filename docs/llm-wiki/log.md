@@ -24,6 +24,24 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-15 - release: 1.8.0 준비 (config schema growth — rule 토글)
+
+- status: needs_review
+- actor: Claude Code (사용자 WoongHwan-Kim 지시)
+- scope: release, docs
+- changed:
+  - package.json (1.7.2 → 1.8.0), tests/verification.test.js (버전 assertion → 1.8.0)
+  - CHANGELOG.md, CHANGELOG.ko.md (1.8.0 항목)
+  - docs/llm-wiki/releases/v1.8.0.md (신규 릴리스 노트)
+  - docs/llm-wiki/PUBLIC_API.md, DOMAIN_FEATURES.md, ARCHITECTURE_CONVENTIONS.md (rule 토글 doc-sync; verified → needs_review)
+  - ROADMAP.md, ROADMAP.ko.md (1.8 섹션에 1.8.0 출시 표기)
+- summary:
+  - Gate 13 1.8.0(config schema growth 첫 피처): per-project rule 토글(`rules` 맵; 중앙 `applyRuleConfig`, `sensitive.*` 안전 비토글) + opt-in lint `content.thin_body`(기본 off)를 릴리스 준비했다. MINOR bump(피처 추가). severity 수렴 pre-work는 감사로 동작 보존 확인. 커스텀 문서셋·템플릿 오버라이드는 `1.8.x` 잔여. 지식 문서 3개 doc-sync → needs_review.
+- caveats:
+  - 배포 전 검증: node --test 191 pass, validate 0, validate-frontmatter --strict 0, npm pack v1.8.0 확인 예정.
+  - RE-VERIFY 부채: PUBLIC_API/DOMAIN_FEATURES/ARCHITECTURE_CONVENTIONS (배포 후 사람 검토로 verified 재승인 필요).
+  - 태그·push는 사용자 "배포" 승인 후. log.md·releases/*.md는 관례상 needs_review 유지.
+
 ## 2026-07-15 - feat: content.thin_body opt-in lint (1.8.0 dogfood)
 
 - status: needs_review

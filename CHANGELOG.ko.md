@@ -5,6 +5,32 @@
 `@dowonk-7949/llm-wiki-standard`의 주요 변경 사항을 기록합니다. 이 프로젝트는
 [유의적 버전(Semantic Versioning)](https://semver.org/)을 따르며, 항목은 최신순입니다.
 
+## 1.8.0 — 2026-07-15
+
+config 스키마 확장 — per-project rule 토글(Gate 13). config-schema-growth 라인의 첫 피처
+슬라이스로, 1.7.2 enabling-prep 위에 세운다. Additive·opt-in이며 CLI·JSON·프로그래매틱
+API·frontmatter 계약은 불변, 런타임 의존성 추가 없음.
+
+### 추가 (Added)
+
+- per-project **rule 토글**: `llm-wiki.config.json`의 `rules` 맵으로 개별 finding rule을
+  끄거나 severity를 재정의한다 — `{ "rule.id": "off" | "blocked" | "error" | "warning" |
+  "info" }`. `audit`/`status`/`validate-frontmatter`의 findings에 중앙에서 적용되며(그래서
+  `validate`·`next`도 상속), 1.7.2의 통합 `resolveOptions`를 타고 CLI·프로그래매틱 API·MCP
+  전반에 동일 적용된다. 레지스트리 rule만 토글 대상이고 **민감정보 카테고리는 절대 토글
+  불가** — config로 비밀 탐지를 끌 수 없다. 근거: `src/config-file.js`, `src/commands.js`.
+- `content.thin_body` — 기본 off인 opt-in enrichment lint. 본문 prose가 매우 얇은 wiki
+  콘텐츠 문서를 표시한다. 프로젝트별로 `rules` 맵에 `"content.thin_body"`를 설정해 켠다.
+  토글 기계를 dogfood한다. 근거: `src/commands.js`.
+- `doctor`가 `llm_wiki_config` 라인에 활성 rule 토글 수를 echo한다.
+
+### 참고 (Notes)
+
+- Additive·opt-in: 명시/CLI 값이 이기고 zero-runtime-dependency 정책은 불변. 범위:
+  `GATE_REVIEW.md`(Gate 13, accepted). severity 레지스트리 수렴 pre-work는 감사로 동작
+  보존 확인(push 지점·레지스트리 불일치 0). Gate 13의 나머지(커스텀 문서셋·템플릿
+  오버라이드)는 `1.8.x`로 후속.
+
 ## 1.7.2 — 2026-07-15
 
 config 스키마 확장(Gate 13)을 위한 enabling-prep. Additive·하위호환 — CLI·JSON·프로그래매틱

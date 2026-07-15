@@ -5,6 +5,37 @@
 All notable changes to `@dowonk-7949/llm-wiki-standard` are documented here. This
 project follows [Semantic Versioning](https://semver.org/). Entries are newest-first.
 
+## 1.8.0 — 2026-07-15
+
+Config schema growth — per-project rule toggles (Gate 13). The first feature slice
+of the config-schema-growth line, built on the 1.7.2 enabling prep. Additive and
+opt-in; the CLI, JSON, programmatic-API, and frontmatter contracts are unchanged,
+and no runtime dependency is added.
+
+### Added
+
+- Per-project **rule toggles**: a `rules` map in `llm-wiki.config.json` turns a
+  finding rule off or overrides its severity —
+  `{ "rule.id": "off" | "blocked" | "error" | "warning" | "info" }`. Applied
+  centrally over `audit`/`status`/`validate-frontmatter` findings (so `validate`
+  and `next` inherit it), across the CLI, programmatic API, and MCP via the 1.7.2
+  unified `resolveOptions`. Only registry rules are toggleable, and the
+  sensitive-info category is never toggleable — config can never disable secret
+  detection. Source: `src/config-file.js`, `src/commands.js`.
+- `content.thin_body` — an opt-in enrichment lint (off by default) that flags wiki
+  content documents with very little body prose. Enable it per project by setting
+  `"content.thin_body"` in the `rules` map. It dogfoods the toggle machinery.
+  Source: `src/commands.js`.
+- `doctor` echoes the active rule-toggle count in its `llm_wiki_config` line.
+
+### Notes
+
+- Additive/opt-in; explicit/CLI values still win and the zero-runtime-dependency
+  policy is preserved. Scope: `GATE_REVIEW.md` (Gate 13, accepted). The
+  severity-registry consolidation pre-work was audited as behavior-preserving (0
+  push-site/registry mismatches). Custom document sets and template overrides —
+  the rest of Gate 13 — follow in `1.8.x`.
+
 ## 1.7.2 — 2026-07-15
 
 Enabling prep for config schema growth (Gate 13). Additive and backward-compatible
