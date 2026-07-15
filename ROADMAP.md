@@ -155,6 +155,10 @@ Small backward-compatible patches that unblock the later minors and start
 generating the real-usage feedback the big features need. None of these change the
 `1.0.0` contract:
 
+**Status:** the first two — config-loading unification and the starter-config
+scaffold + `doctor` echo — shipped as **`1.7.2`** (Gate 13 enabling prep). The
+design-input docs below remain.
+
 - **Unify config loading below the command layer.** Today `loadProjectConfig` /
   `mergeConfigIntoOptions` (`src/config-file.js`) run only on the CLI path
   (`src/cli.js#main`); the 1.5 programmatic API and the 1.6 MCP surface never merge

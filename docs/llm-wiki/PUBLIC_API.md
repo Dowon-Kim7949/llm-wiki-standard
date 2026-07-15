@@ -2,15 +2,13 @@
 title: Public Api
 tags:
   - llm-wiki
-  - verified
-status: verified
+  - needs-review
+status: needs_review
 doc_type: public_api
 project: llm-wiki-standard
 last_updated: 2026-07-15
 author: cli-generated
 last_edited_by: Claude Code
-reviewed_by: WoongHwan-Kim
-reviewed_at: 2026-07-15
 wiki_block_version: v1
 source_files:
   - src/cli.js
@@ -31,6 +29,9 @@ evidence:
   - src/config-file.js#symbol:mergeConfigIntoOptions
   - src/index.js#symbol:commands
   - src/index.js#symbol:normalizeOptions
+  - src/index.js#symbol:resolveOptions
+  - src/cli.js#symbol:applyProjectConfig
+  - src/commands.js#symbol:scaffoldProjectConfig
   - src/report.js#symbol:dashboardDocHref
   - src/mcp/tools.js#symbol:TOOL_DEFS
   - src/mcp/dispatch.js#symbol:handleMessage
@@ -89,7 +90,7 @@ contains_sensitive_info: false
 CLI 표면과 별개로, 패키지를 in-process로 import해 쓸 수 있는 프로그래매틱 API를 `package.json` `exports`(`.` → `src/index.js`)로 공개한다. CI 래퍼·에디터·테스트가 `llm-wiki` 바이너리를 spawn하지 않고 명령을 실행할 때 쓴다.
 
 ```js
-import { commands, normalizeOptions, parseArgs, run, SCHEMA_VERSION } from "@dowonk-7949/llm-wiki-standard";
+import { commands, normalizeOptions, resolveOptions, parseArgs, run, SCHEMA_VERSION } from "@dowonk-7949/llm-wiki-standard";
 
 // 1) 부분 옵션으로 직접 호출
 const result = await commands.audit(normalizeOptions({ cwd: process.cwd() }));
@@ -100,13 +101,18 @@ const result = await commands.audit(normalizeOptions({ cwd: process.cwd() }));
 const parsed = parseArgs(["audit", "--cwd", process.cwd(), "--strict"]);
 const audited = await commands.audit(normalizeOptions(parsed));  // parseArgs 결과 직접 수용
 
+// 2b) config 인식: 프로젝트의 llm-wiki.config.json을 CLI처럼 병합 (1.7.2)
+const { options, errors } = await resolveOptions({ cwd: process.cwd() });
+if (errors.length === 0) await commands.audit(options);          // 세 표면(CLI/API/MCP) 동일 effective options
+
 // 3) CLI 전체를 in-process로 실행하고 exit code로 성패 분기
 const code = await run(["audit", "--cwd", process.cwd()]);       // 0 pass / 1 error / 2 blocked / 3 usage
 ```
 
 - **`commands`** — CLI 명령 이름 → 핸들러 함수의 **동결(frozen) 맵**. 키 집합은 `src/cli.js`의 `COMMANDS`와 1:1이며 안정 계약이다. 각 핸들러는 정규화된 옵션 객체를 받아 결과 객체로 resolve한다.
 - **개별 함수 export** — `audit`, `doctor`, `validateCommand`, `fixCommand`, `graphCommand` 등 소스 이름으로도 직접 import할 수 있으며 `commands` 맵의 값과 동일 참조다.
-- **`normalizeOptions(overrides?)`** — 부분 옵션을 받아 모든 기본값을 채우고 `cwd`를 절대경로로 해석한 완전한 옵션 객체를 돌려준다(배열은 매 호출마다 새로 만든다). 편의상 `parseArgs` 결과(`{ command, options, errors }`)를 그대로 넘겨도 되며, 이 경우 중첩된 `.options`를 override로 쓴다 → `normalizeOptions(parseArgs(argv))`와 `normalizeOptions(parseArgs(argv).options)`가 동일 결과를 낸다(전체 객체가 조용히 기본값으로 폴백되지 않는다).
+- **`normalizeOptions(overrides?)`** — 부분 옵션을 받아 모든 기본값을 채우고 `cwd`를 절대경로로 해석한 완전한 옵션 객체를 돌려준다(배열은 매 호출마다 새로 만든다). 편의상 `parseArgs` 결과(`{ command, options, errors }`)를 그대로 넘겨도 되며, 이 경우 중첩된 `.options`를 override로 쓴다 → `normalizeOptions(parseArgs(argv))`와 `normalizeOptions(parseArgs(argv).options)`가 동일 결과를 낸다(전체 객체가 조용히 기본값으로 폴백되지 않는다). **동기(sync)** 이며 config는 로드하지 않는다(계약 불변).
+- **`resolveOptions(overrides?)`** — `normalizeOptions`의 **config 인식(async) 동반자**(1.7.2). 완전 옵션을 만든 뒤 프로젝트의 `llm-wiki.config.json`(`cwd` 기준)을 로드·병합해 CLI가 계산하는 것과 동일한 effective options를 `{ options, errors }`로 돌려준다. 명시/override 값이 이기고 config는 미설정 항목만 채우며 `strict`는 additive로만 켤 수 있다. `errors`는 CLI가 exit 3으로 처리하는 조건(잘못된 JSON·필드·config-supplied agent)과 동일하며, 호출자가 표면화 방식을 정한다. 이로써 CLI·프로그래매틱 API·MCP 세 표면이 하나의 config에서 동일 옵션을 해석한다(공유 `src/cli.js#applyProjectConfig`). 동기 `normalizeOptions`·동결 `commands` 맵은 불변이고 `resolveOptions`는 부가 export다.
 - **`parseArgs(argv)`** — argv 배열을 `{ command, options, errors }`로 파싱한다(CLI와 동일). **`run(argv)`** — argv를 받아 출력까지 처리하고 **숫자 exit code를 반환**한다(0 pass / 1 error·strict-warning / 2 blocked / 3 usage). `process.exitCode`도 같은 값으로 설정하므로 `bin/llm-wiki.js`는 그대로 동작한다.
 - **`SCHEMA_VERSION`** — JSON 출력의 `schemaVersion` 필드 및 결과 객체의 `schemaVersion`과 같은 정수. shell-out이든 import든 동일 계약을 pin할 수 있다.
 
@@ -166,8 +172,8 @@ MCP 클라이언트 등록 예시:
 - 프로그래매틱 API(`commands` 맵 키, 개별 함수 export, `SCHEMA_VERSION`, 공통 결과 필드)는 안정 계약이다. 명령별 payload 필드는 CLI `--format json`과 동일한 부가적(additive) SemVer 정책을 따른다.
 - `migrate --apply`는 GATE_REVIEW Gate 8 범위로 활성화돼 있다(preview-first, `fix` 범위 + `wiki_block_version` 업그레이드, `verified` 내용·status 불변). `graph`/`stats`는 읽기전용이다.
 - `fix`는 `GATE_REVIEW.md`의 "Autofix (--fix) Scope Decision"에 명시된 좁은 범위만 수정한다: `verified` 문서 내용·`docs/llm-wiki/` 밖 파일·`source_files`/`evidence` 값·Tier B 필드(title/doc_type/project/author)·미보강 내용은 건드리지 않는다.
-- `llm-wiki.config.json` 스키마는 실사용 피드백 전까지 최소(위 4개 필드)로 유지한다.
-- MCP 서버(1.6)는 읽기 전용 툴만 노출하고 무의존성(Node 내장 JSON-RPC)으로 구현한다. MCP 툴 이름 집합과 결과 형태(1.5 result + `schemaVersion`)가 새 안정 계약이다(GATE_REVIEW Gate 11). v1은 MCP 툴 호출에 `llm-wiki.config.json`을 병합하지 않는다(명시 인자만; 향후 개선).
+- `llm-wiki.config.json` 스키마는 실사용 피드백 전까지 최소(위 4개 필드)로 유지한다. 1.7.2부터 `init`/`quickstart --write`가 최소 config를 scaffold하고(기존 파일 미덮어씀) `doctor`가 effective config를 echo한다(스키마 확장은 Gate 13/1.8).
+- MCP 서버(1.6)는 읽기 전용 툴만 노출하고 무의존성(Node 내장 JSON-RPC)으로 구현한다. MCP 툴 이름 집합과 결과 형태(1.5 result + `schemaVersion`)가 새 안정 계약이다(GATE_REVIEW Gate 11). 1.7.2부터 MCP 툴 호출도 대상 프로젝트의 `llm-wiki.config.json`을 `resolveOptions`로 병합해 CLI·API와 동일한 effective options를 쓴다(malformed config는 `isError`로 표면화).
 
 ## Evidence
 
@@ -177,7 +183,10 @@ MCP 클라이언트 등록 예시:
 - `src/commands.js#symbol:fixCommand` — 범위 한정 자동수정(기본 미리보기, `--write` 적용).
 - `src/config-file.js#symbol:mergeConfigIntoOptions` — config 기본값과 CLI 플래그의 병합 우선순위.
 - `src/index.js#symbol:commands` — 프로그래매틱 API의 동결된 명령 맵과 개별 함수 export.
-- `src/index.js#symbol:normalizeOptions` — 부분 옵션 또는 `parseArgs` 결과(`.options`)를 완전 옵션으로 정규화(`src/cli.js#symbol:defaultOptions` 공유).
+- `src/index.js#symbol:normalizeOptions` — 부분 옵션 또는 `parseArgs` 결과(`.options`)를 완전 옵션으로 정규화(`src/cli.js#symbol:defaultOptions` 공유). 동기·config 미로드.
+- `src/index.js#symbol:resolveOptions` — config 인식 옵션 해석(normalizeOptions + `llm-wiki.config.json` 병합); CLI·API·MCP 세 표면 공유(1.7.2).
+- `src/cli.js#symbol:applyProjectConfig` — config 로드+병합+agent 재정규화의 공유 구현(세 표면이 동일 effective options를 얻는 seam).
+- `src/commands.js#symbol:scaffoldProjectConfig` — init/quickstart의 starter config scaffold(additive·preview-first·기존 파일 미덮어씀).
 - `src/cli.js#symbol:main` — `run(argv)`의 실체. 숫자 exit code를 반환하고 `process.exitCode`도 설정한다.
 - `src/commands.js#symbol:withText` — 모든 명령 결과 객체에 `schemaVersion`을 부여한다.
 - `src/config.js#symbol:JSON_SCHEMA_VERSION` — 결과 객체·`--format json`의 `schemaVersion` 단일 소스.
@@ -193,3 +202,4 @@ MCP 클라이언트 등록 예시:
 - 2026-07-14에 1.5.1 API/출력 결함 수정을 반영했다(소비 프로젝트 스모크 테스트 발견): 결과 객체가 `schemaVersion`을 항상 담고 `.text`는 항상 텍스트임을 명시, `normalizeOptions`가 `parseArgs` 결과를 수용, `run(argv)`가 exit code 반환, HTML 대시보드 링크를 `--out` 기준 상대경로로. 모두 additive/refinement라 안정 계약을 깨지 않는다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-14에 1.6 에이전트 네이티브(MCP 서버 `llm-wiki mcp`) 계약을 추가했다: stdio JSON-RPC 2.0 직접 구현(무의존성), 읽기 전용 툴 10개(쓰기 미노출), 결과는 `structuredContent`(schemaVersion 포함)+텍스트. 적대적 다차원 리뷰(프로토콜/정확성/안전/통합/테스트)로 확정 결함(버전 협상·알림 무응답·배치 처리·graph 설명)을 수정했다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-15에 1.7 계약을 반영했다: `release-notes`에 `--body-only`(변경 섹션 본문만; frontmatter/H1/스캐폴드 제외, 본문 민감정보 스캔·매치 시 차단 exit 2)를 추가하고 Key Options에 등재했다. `src/release-notes.js`를 source_files에 추가했다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
+- 2026-07-15에 1.7.2(enabling-prep) 계약을 반영했다: `resolveOptions`(config 인식 async 옵션 해석)를 프로그래매틱 API에 추가하고, MCP 툴 호출이 `llm-wiki.config.json`을 병합하도록 갱신하면서 1.6의 "MCP는 config 미병합" 서술을 정정했다. `init`/`quickstart`의 starter config scaffold와 `doctor`의 effective-config echo도 명시했다. 모두 additive(동기 `normalizeOptions`·동결 `commands` 맵 불변). LLM 편집이므로 `needs_review`로 내리고 사람 재검토를 기다린다.

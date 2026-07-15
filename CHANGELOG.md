@@ -5,6 +5,44 @@
 All notable changes to `@dowonk-7949/llm-wiki-standard` are documented here. This
 project follows [Semantic Versioning](https://semver.org/). Entries are newest-first.
 
+## 1.7.2 — 2026-07-15
+
+Enabling prep for config schema growth (Gate 13). Additive and backward-compatible
+— no CLI, JSON, programmatic-API, or frontmatter contract change, and no runtime
+dependency added. Config now resolves consistently across all three surfaces, and
+init/quickstart/doctor make it observable.
+
+### Added
+
+- `resolveOptions(overrides)` — a config-aware async companion to `normalizeOptions`
+  in the programmatic API: it merges the project's `llm-wiki.config.json` (from
+  `cwd`) like the CLI does and returns `{ options, errors }`. The sync
+  `normalizeOptions` and the frozen `commands` map are unchanged. Source:
+  `src/index.js`, `src/cli.js`.
+- `init` / `quickstart --write` scaffold a minimal `llm-wiki.config.json` at the
+  project root (seeded with the detected type and selected agents), additive and
+  preview-first, and never overwriting an existing config. Source: `src/commands.js`.
+- `doctor` echoes the effective config (`llm_wiki_config: present (type=...,
+  agents=...)`, or a `present (invalid: N errors)` note) instead of a bare
+  present/absent.
+
+### Changed
+
+- Config loading moved below the command layer: the MCP server now merges the
+  inspected project's `llm-wiki.config.json` on every `tools/call` (a malformed
+  config surfaces as `isError`), so the CLI, programmatic API, and MCP resolve the
+  same effective options. Source: `src/cli.js` (`applyProjectConfig`),
+  `src/mcp/dispatch.js`. Previously only the CLI merged config (the Gate 11 honest
+  limit).
+
+### Notes
+
+- Additive/opt-in: explicit/CLI values still win, config only fills unset fields and
+  can additively turn `strict` on; the `1.0.0` contracts and the zero-runtime-
+  dependency policy are preserved. Scope: `GATE_REVIEW.md` (Gate 13, proposed). This
+  is the enabling prep that lets real config usage accrue before `1.8` grows the
+  schema (custom document sets, rule toggles, template overrides).
+
 ## 1.7.1 — 2026-07-15
 
 Patch. Repository hygiene only — no CLI, JSON, programmatic-API, or frontmatter

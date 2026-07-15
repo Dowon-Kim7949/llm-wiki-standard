@@ -5,6 +5,38 @@
 `@dowonk-7949/llm-wiki-standard`의 주요 변경 사항을 기록합니다. 이 프로젝트는
 [유의적 버전(Semantic Versioning)](https://semver.org/)을 따르며, 항목은 최신순입니다.
 
+## 1.7.2 — 2026-07-15
+
+config 스키마 확장(Gate 13)을 위한 enabling-prep. Additive·하위호환 — CLI·JSON·프로그래매틱
+API·frontmatter 계약 변경 없음, 런타임 의존성 추가 없음. 이제 config가 세 표면에서 일관되게
+해석되고, init/quickstart/doctor가 이를 관측 가능하게 만든다.
+
+### 추가 (Added)
+
+- `resolveOptions(overrides)` — 프로그래매틱 API에 `normalizeOptions`의 config 인식 async
+  동반자를 추가한다: 프로젝트의 `llm-wiki.config.json`(`cwd` 기준)을 CLI처럼 병합해
+  `{ options, errors }`를 돌려준다. 동기 `normalizeOptions`와 동결 `commands` 맵은 불변.
+  근거: `src/index.js`, `src/cli.js`.
+- `init` / `quickstart --write`가 프로젝트 루트에 최소 `llm-wiki.config.json`을 scaffold한다
+  (감지된 type·선택 agents로 시드). additive·preview-first이며 기존 config는 절대 덮어쓰지
+  않는다. 근거: `src/commands.js`.
+- `doctor`가 단순 present/absent 대신 effective config를 echo한다(`llm_wiki_config: present
+  (type=..., agents=...)`, 잘못된 파일은 `present (invalid: N errors)`).
+
+### 변경 (Changed)
+
+- config 로딩을 command layer 아래로 이동: MCP 서버가 이제 `tools/call`마다 대상 프로젝트의
+  `llm-wiki.config.json`을 병합한다(malformed는 `isError`로 표면화). 이로써 CLI·프로그래매틱
+  API·MCP가 동일한 effective options를 해석한다. 근거: `src/cli.js`(`applyProjectConfig`),
+  `src/mcp/dispatch.js`. 이전에는 CLI만 config를 병합했다(Gate 11 honest limit).
+
+### 참고 (Notes)
+
+- Additive·opt-in: 명시/CLI 값이 이기고 config는 미설정 항목만 채우며 `strict`를 additive로만
+  켠다. `1.0.0` 계약과 zero-runtime-dependency 정책은 불변. 범위: `GATE_REVIEW.md`(Gate 13,
+  proposed). 이는 `1.8`이 스키마(커스텀 문서셋·rule 토글·템플릿 오버라이드)를 확장하기 전에
+  config 실사용을 축적하기 위한 enabling-prep다.
+
 ## 1.7.1 — 2026-07-15
 
 패치. 저장소 위생만 정리 — CLI·JSON·프로그래매틱 API·frontmatter 계약 변경 없음,

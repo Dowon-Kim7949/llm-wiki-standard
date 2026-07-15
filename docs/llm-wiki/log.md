@@ -24,6 +24,24 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-15 - release: 1.7.2 준비 (EP1+EP2 enabling-prep, config 일관화)
+
+- status: needs_review
+- actor: Claude Code (사용자 WoongHwan-Kim 지시)
+- scope: release, docs
+- changed:
+  - package.json (1.7.1 → 1.7.2), tests/verification.test.js (버전 assertion → 1.7.2)
+  - CHANGELOG.md, CHANGELOG.ko.md (1.7.2 항목: Added resolveOptions·config scaffold·doctor echo / Changed MCP config 병합)
+  - docs/llm-wiki/releases/v1.7.2.md (신규 릴리스 노트)
+  - docs/llm-wiki/PUBLIC_API.md, DOMAIN_FEATURES.md, ARCHITECTURE_CONVENTIONS.md (EP1/EP2 doc-sync; verified → needs_review)
+  - ROADMAP.md, ROADMAP.ko.md (enabling-prep EP1/EP2를 1.7.2 출시로 표기)
+- summary:
+  - EP1(config 로딩 CLI/API/MCP 일원화 + `resolveOptions`)과 EP2(init/quickstart starter config scaffold + doctor effective-config echo)를 묶어 1.7.2로 릴리스 준비했다. Gate 13(1.8 config schema growth)의 enabling-prep으로, config 실사용을 축적하기 위한 additive 패치다. CLI·JSON·프로그래매틱 API·frontmatter 계약과 zero-dep 불변. 지식 문서 3개는 doc-sync로 needs_review로 내렸다.
+- caveats:
+  - 배포 전 검증: node --test 187 pass, validate 0, validate-frontmatter --strict 0, npm pack 확인 예정.
+  - RE-VERIFY 부채: PUBLIC_API/DOMAIN_FEATURES/ARCHITECTURE_CONVENTIONS (배포 후 사람 검토로 verified 재승인 필요).
+  - 태그·push는 사용자 "배포" 승인 후. log.md·releases/*.md는 관례상 needs_review 유지.
+
 ## 2026-07-15 - feat: EP2 starter config scaffold + doctor echo — 1.7.2 enabling-prep
 
 - status: needs_review
