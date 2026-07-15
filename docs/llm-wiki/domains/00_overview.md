@@ -2,13 +2,15 @@
 title: Domain Overview
 tags:
   - llm-wiki
-  - needs-review
-status: needs_review
+  - verified
+status: verified
 doc_type: domain_overview
 project: llm-wiki-standard
 last_updated: 2026-07-15
 author: cli-generated
 last_edited_by: Claude Code
+reviewed_by: WoongHwan-Kim
+reviewed_at: 2026-07-15
 wiki_block_version: v1
 source_files:
   - src/commands.js
@@ -63,4 +65,4 @@ contains_sensitive_info: false
 
 - 2026-07-14에 1.3.0 명령어군과 공통 관심사를 기준으로 재검토했다.
 - 2026-07-14에 도메인 지도를 현행화했다: 누락됐던 Knowledge(`graph`/`stats`, 1.4)·Release(`release-notes`)·Agent-native(`mcp`, 1.6)를 추가하고, stale했던 "migrate --apply 안정판 차단" 서술을 Gate 8(해금, preview-first) 기준으로 정정했으며, `drift`(Gate 9)를 반영했다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
-- 2026-07-15에 1.7 CI/CD 도입을 반영했다: Release 도메인에 `release-notes --body-only`(GitHub Release 본문용, 민감정보 스캔·차단)를 추가하고, 컴포지트 validate Action·태그 트리거 Release 잡은 저장소/CI 표면임을 명시했다(Gate 12). 내용 변경으로 `needs_review`로 내려갔으며 사람 재검토가 필요하다.
+- 2026-07-15에 1.7 CI/CD 도입을 반영했다: Release 도메인에 `release-notes --body-only`(GitHub Release 본문용, 민감정보 스캔·차단)를 추가하고, 컴포지트 validate Action·태그 트리거 Release 잡은 저장소/CI 표면임을 명시했다(Gate 12). 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.

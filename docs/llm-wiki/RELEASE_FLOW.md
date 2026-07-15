@@ -2,13 +2,15 @@
 title: Release Flow
 tags:
   - llm-wiki
-  - needs-review
-status: needs_review
+  - verified
+status: verified
 doc_type: release_flow
 project: llm-wiki-standard
 last_updated: 2026-07-15
 author: cli-generated
 last_edited_by: Claude Code
+reviewed_by: WoongHwan-Kim
+reviewed_at: 2026-07-15
 wiki_block_version: v1
 source_files:
   - package.json
@@ -53,4 +55,4 @@ contains_sensitive_info: false
 ## Review Notes
 
 - 2026-07-14에 1.3.0 릴리스 설정과 체크리스트를 기준으로 재검토했다.
-- 2026-07-15에 1.7.0 CI/CD 도입을 반영했다: `v*` 태그 push 시 `publish.yml`이 npm Trusted Publishing에 더해 격리된 `contents: write` GitHub Release 잡(`gh` CLI·`release-notes --body-only` 본문)을 실행한다(Gate 12). 내용 변경으로 `verified` → `needs_review`로 내려갔으며 사람 재검토가 필요하다.
+- 2026-07-15에 1.7.0 CI/CD 도입을 반영했다: `v*` 태그 push 시 `publish.yml`이 npm Trusted Publishing에 더해 격리된 `contents: write` GitHub Release 잡(`gh` CLI·`release-notes --body-only` 본문)을 실행한다(Gate 12). 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.

@@ -6,11 +6,11 @@ tags:
 status: verified
 doc_type: versioning
 project: llm-wiki-standard
-last_updated: 2026-07-14
+last_updated: 2026-07-15
 author: cli-generated
 last_edited_by: Claude Code
 reviewed_by: WoongHwan-Kim
-reviewed_at: 2026-07-14
+reviewed_at: 2026-07-15
 wiki_block_version: v1
 source_files:
   - package.json
@@ -51,3 +51,4 @@ contains_sensitive_info: false
 ## Review Notes
 
 - 2026-07-14에 버전 정책을 version-agnostic으로 전환하고(특정 버전 숫자 표기 제거 → `package.json` 단일 소스 참조) 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
+- 2026-07-15에 1.7.0 릴리스 준비로 인용 소스(`package.json` 버전 bump·`RELEASE_CHECKLIST.md` version-agnostic 갱신)가 바뀌어 evidence.stale이 떴으나, version-agnostic 정책 내용은 그대로 정확함을 확인하고 검토 기준일을 갱신해 해소했다(사람 검토 reviewed_by: WoongHwan-Kim). 내용 변경 없음.

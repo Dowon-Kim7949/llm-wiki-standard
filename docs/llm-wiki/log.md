@@ -24,6 +24,19 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-15 - docs: 1.7 doc-sync 문서 6개 verified 재승인
+
+- status: verified
+- actor: Claude Code (사용자 WoongHwan-Kim 검토·승인)
+- scope: docs
+- changed:
+  - docs/llm-wiki/RELEASE_FLOW.md, PUBLIC_API.md, DOMAIN_FEATURES.md, domains/00_overview.md, project-profile.md, ARCHITECTURE_CONVENTIONS.md (needs_review → verified)
+  - docs/llm-wiki/VERSIONING.md (verified 유지, reviewed_at/last_updated → 2026-07-15)
+- summary:
+  - 1.7.0 doc-sync로 needs_review로 내려갔던 지식 문서 6개를 사람 검토·승인에 따라 `verified`로 재승인했다(`verified` 태그·`reviewed_by: WoongHwan-Kim`·`reviewed_at: 2026-07-15`, 리뷰 노트를 재승인 문구로 갱신). 추가로 VERSIONING.md가 인용 소스(`package.json` 버전 bump·`RELEASE_CHECKLIST.md` 갱신) 변경으로 `evidence.stale`이 떠서, version-agnostic 내용이 여전히 정확함을 확인하고 검토 기준일을 2026-07-15로 갱신해 해소했다(내용 변경 없음). 이로써 1.7.0 배포 전 재검토 부채가 없다(log.md·releases/*.md만 관례상 needs_review).
+- caveats:
+  - `reviewed_at: 2026-07-15`가 같은날(2026-07-15) src 변경을 end-of-day 기준으로 커버하므로 `evidence.stale` 없음. validate 0 findings, validate-frontmatter --strict clean. 배포 직전 상태.
+
 ## 2026-07-15 - release: 1.7.0 준비 (CI/CD 도입) + 전 문서 1.7.0 정합화
 
 - status: needs_review
