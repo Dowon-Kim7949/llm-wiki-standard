@@ -174,6 +174,11 @@ config가 설계 근거가 될 실사용을 만들어낸 뒤 당긴다.
 
 ### 1.9 — 가시성 거버넌스
 
+**1.9.0 출시:** sensitive-info 스캔을 재사용하는 opt-in 일관성 린트 2개
+(`visibility.public_sensitive`, `visibility.declared_mismatch`)와 정책 문서
+`docs/llm-wiki/VISIBILITY.md`(GATE_REVIEW Gate 14). 기본 off·warning·read-only, 민감값
+미노출. 다음 예정 마이너: `1.10`.
+
 이미 필수인 `internal|restricted|public` 필드를 config 규칙 토글로 선택적 강제 —
 **기본 off, warning 레벨, 읽기 전용** — 하며, public-대-내용 일관성 검사에 민감정보
 스캔을 재사용한다. 작지만 1.8 config 설계를 실기능으로 end-to-end 증명하므로, 더 큰

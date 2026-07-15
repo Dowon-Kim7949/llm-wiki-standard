@@ -195,6 +195,11 @@ real-world usage to design against.
 
 ### 1.9 — Visibility governance
 
+**Shipped in 1.9.0:** two opt-in consistency lints (`visibility.public_sensitive`,
+`visibility.declared_mismatch`) reusing the sensitive-info scan, plus the
+`docs/llm-wiki/VISIBILITY.md` policy doc (GATE_REVIEW Gate 14). Off by default,
+warning-level, read-only; the raw value is never surfaced. Next planned minor: `1.10`.
+
 Opt-in enforcement of the already-required `internal|restricted|public` field via a
 config rule toggle — **off by default, warning-level, read-only** — reusing the
 sensitive-info scan for a public-vs-content consistency check. Small, and it proves

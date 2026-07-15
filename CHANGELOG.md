@@ -5,6 +5,36 @@
 All notable changes to `@dowonk-7949/llm-wiki-standard` are documented here. This
 project follows [Semantic Versioning](https://semver.org/). Entries are newest-first.
 
+## 1.9.0 — 2026-07-15
+
+Visibility governance (Gate 14). Opt-in consistency lints for the already-required
+`visibility` field, built on the 1.8 config `rules` toggle. Additive and opt-in;
+CLI/JSON/programmatic-API/frontmatter contracts unchanged; no runtime dependency
+added.
+
+### Added
+
+- Two opt-in, off-by-default, warning-level, read-only lints that reuse the
+  sensitive-info scan:
+  - `visibility.public_sensitive` — a `visibility: public` document whose content
+    matches the sensitive-info scan (a public doc must not carry sensitive-looking
+    values).
+  - `visibility.declared_mismatch` — a `contains_sensitive_info: false` document
+    whose content matches the scan (the declaration contradicts the content).
+  Enable either per project via the `rules` map (e.g.
+  `"visibility.public_sensitive": "warning"`). The raw sensitive value is never
+  included in the finding — only a redacted count. Source: `src/commands.js`.
+- Policy: `docs/llm-wiki/VISIBILITY.md` documents the `internal`/`restricted`/`public`
+  levels and the value-vs-content consistency policy.
+
+### Notes
+
+- Additive/opt-in and read-only; the rules never default to `error`/`blocked`
+  (preserving the additive `1.0.0` invariant), the `sensitive.*` category stays
+  non-toggleable, and this checks value-vs-content consistency only — not access
+  control. Scope: `GATE_REVIEW.md` (Gate 14, accepted). Next planned minor: `1.10`
+  monorepo profile.
+
 ## 1.8.1 — 2026-07-15
 
 Config schema growth, part 2 — custom document sets and template overrides. These

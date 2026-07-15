@@ -5,6 +5,30 @@
 `@dowonk-7949/llm-wiki-standard`의 주요 변경 사항을 기록합니다. 이 프로젝트는
 [유의적 버전(Semantic Versioning)](https://semver.org/)을 따르며, 항목은 최신순입니다.
 
+## 1.9.0 — 2026-07-15
+
+visibility governance(Gate 14). 이미 필수인 `visibility` 필드에 대한 opt-in 일관성 린트로,
+1.8 config `rules` 토글 위에 세운다. Additive·opt-in이며 CLI·JSON·프로그래매틱 API·frontmatter
+계약 불변, 런타임 의존성 추가 없음.
+
+### 추가 (Added)
+
+- sensitive-info 스캔을 재사용하는 opt-in·기본 off·warning·read-only 린트 2개:
+  - `visibility.public_sensitive` — `visibility: public` 문서 내용이 스캔에 매치(공개 문서에
+    민감해 보이는 값이 있으면 안 됨).
+  - `visibility.declared_mismatch` — `contains_sensitive_info: false`인데 스캔에 매치(선언과
+    내용 불일치).
+  각 프로젝트가 `rules` 맵으로 켠다(예: `"visibility.public_sensitive": "warning"`). **민감값은
+  finding에 절대 포함하지 않는다**(redacted count만). 근거: `src/commands.js`.
+- 정책: `docs/llm-wiki/VISIBILITY.md`가 `internal`/`restricted`/`public` 레벨과 값-내용 일관성
+  정책을 정의한다.
+
+### 참고 (Notes)
+
+- Additive·opt-in·read-only: 규칙은 절대 기본 `error`/`blocked`가 되지 않고(additive `1.0.0`
+  불변식), `sensitive.*`는 여전히 비토글, 값-내용 일관성만 점검(접근 통제 아님). 범위:
+  `GATE_REVIEW.md`(Gate 14, accepted). 다음 예정 마이너: `1.10` monorepo profile.
+
 ## 1.8.1 — 2026-07-15
 
 config 스키마 확장 2부 — 커스텀 문서셋과 템플릿 오버라이드. 이로써 Gate 13의 config 피처
