@@ -107,6 +107,7 @@ const FINDING_EXPLANATIONS = {
   "okf.type_required": findingExplanation("okf", "error", "An OKF v0.1-profiled document is missing the required frontmatter type field.", "OKF requires explicit document type metadata and LLM-WIKI does not infer it from doc_type.", ["Add an explicit type field to the frontmatter.", "Use a reviewed OKF type such as concept, project, person, meeting_note, event, or api_reference.", "Keep doc_type when the document also needs the LLM-WIKI contract."], ["llm-wiki validate --profile okf-v0.1"], ["okf.type_shape", "okf.array_shape"]),
   "okf.type_shape": findingExplanation("okf", "error", "The OKF type field exists but is not a string.", "Tools need a stable scalar type value to classify OKF documents.", ["Change type to a single scalar string.", "Avoid list or object values for type.", "Run validate with the OKF profile again."], ["llm-wiki validate --profile okf-v0.1"], ["okf.type_required"]),
   "okf.array_shape": findingExplanation("okf", "error", "An OKF aliases or tags field is present but is not an array.", "OKF-compatible aliases and tags need stable array shapes for graph and search workflows.", ["Rewrite aliases or tags as YAML lists.", "Keep aliases reviewed and intentional.", "Run validate with the OKF profile again."], ["llm-wiki validate --profile okf-v0.1"], ["frontmatter.array"]),
+  "content.thin_body": findingExplanation("content", "warning", "A wiki content document has very little body prose. Opt-in lint: off by default, enabled per project via config rules.", "A started-but-undeveloped stub passes structural validation yet carries little knowledge; teams that want to catch these can enable the rule for their project.", ["Enrich the document with source-backed content (summary, evidence, review notes).", "Run llm-wiki handoff to get an enrichment prompt.", "This rule is off by default; enable it by setting \"content.thin_body\" in llm-wiki.config.json rules (or omit it to keep it off)."], ["llm-wiki handoff --agent codex", "llm-wiki validate"], ["content.not_enriched"]),
   "content.not_enriched": findingExplanation("content", "warning", "A generated wiki document still contains placeholder guidance and has not been enriched with source-backed content.", "Empty scaffolds pass structural validation but hold no real knowledge, so the token-saving and handoff-replacement goals are not met until an agent or human fills them in from source evidence.", ["Read the document and the files listed in source_files, then replace the placeholder bullets with source-backed content.", "Run llm-wiki handoff --agent codex or --agent claude to get an enrichment prompt.", "Keep the document as needs_review until human review is complete."], ["llm-wiki handoff --agent codex", "llm-wiki validate"], ["structure.required_doc", "source_files.missing"]),
   "adapter.missing": findingExplanation("adapter", "warning", "A selected agent adapter file is missing.", "Adapter files tell Codex or Claude Code where the wiki entrypoint is and how to follow the project contract.", ["Run init --write with the selected agent.", "Review generated adapter text before relying on it.", "Existing adapter files are never overwritten."], ["llm-wiki init --write --agent codex", "llm-wiki init --write --agent claude"], ["adapter.entrypoint"]),
   "adapter.entrypoint": findingExplanation("adapter", "warning", "An adapter exists but does not point to docs/llm-wiki/index.md.", "Agents need a reliable entrypoint to find project knowledge before editing code.", ["Open the reported adapter file.", "Add or correct the docs/llm-wiki/index.md reference.", "Run audit again with the selected agent."], ["llm-wiki audit --agent codex", "llm-wiki audit --agent claude"], ["adapter.missing"]),
@@ -240,9 +241,11 @@ export async function statusCommand(options) {
     ...wikiGraph.findings
   ];
   const adapterFindings = await scanAdapters(options.cwd, agents);
+  const thinBodyFindings = await scanThinBody(options.cwd, options);
   const findings = applyRuleConfig([
     ...detectionFindings,
     ...documentStatus.findings,
+    ...thinBodyFindings,
     ...structureFindings,
     ...sourceFileFindings,
     ...relatedFindings,
@@ -400,11 +403,13 @@ export async function audit(options) {
     ...wikiGraph.findings
   ];
   const adapterFindings = await scanAdapters(options.cwd, agents);
+  const thinBodyFindings = await scanThinBody(options.cwd, options);
 
   const findings = applyRuleConfig([
     ...detectionFindings,
     ...structureFindings,
     ...frontmatter.findings,
+    ...thinBodyFindings,
     ...encodingFindings,
     ...sensitiveFindings,
     ...sourceFileFindings,
@@ -1733,6 +1738,51 @@ async function scanEnrichment(cwd) {
     }
   }
   return findings;
+}
+
+const THIN_BODY_MIN_WORDS = 25;
+
+// Opt-in enrichment lint (content.thin_body): flags wiki content documents whose
+// body has very little prose — stubs that were started but never developed. It is
+// registered in FINDING_EXPLANATIONS but INERT by default; it only produces
+// findings when a project enables it via config `rules` (e.g.
+// "content.thin_body": "warning"). This is the canonical rule that dogfoods the
+// rule-toggle machinery. Placeholder docs are left to content.not_enriched.
+async function scanThinBody(cwd, options) {
+  const setting = options && options.rules && options.rules["content.thin_body"];
+  if (!setting || setting === "off") return [];
+  const findings = [];
+  for (const file of await listWikiContentDocs(cwd)) {
+    const rel = toPosix(path.relative(cwd, file));
+    if (isAppendOnlyLog(rel)) continue;
+    const content = await readUtf8(file);
+    const parsed = parseFrontmatter(content);
+    const body = parsed.frontmatter ? parsed.body : content;
+    if (ENRICHMENT_PLACEHOLDER_SENTINELS.some((sentinel) => body.includes(sentinel))) continue;
+    const words = bodyProseWordCount(body);
+    if (words < THIN_BODY_MIN_WORDS) {
+      findings.push({
+        severity: "warning",
+        rule: "content.thin_body",
+        path: rel,
+        message: `Document body has only ${words} word${words === 1 ? "" : "s"} of prose (min ${THIN_BODY_MIN_WORDS}); enrich it with source-backed content.`
+      });
+    }
+  }
+  return findings;
+}
+
+// Rough "is this a real document yet" word count: body prose only, ignoring
+// markdown headings, blank lines, and horizontal rules (frontmatter is already
+// stripped by the caller).
+function bodyProseWordCount(body) {
+  return String(body)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#") && line !== "---")
+    .join(" ")
+    .split(/\s+/)
+    .filter(Boolean).length;
 }
 
 async function scanEvidenceReferences(cwd, options = {}) {

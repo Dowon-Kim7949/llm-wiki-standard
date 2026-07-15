@@ -24,6 +24,21 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-15 - feat: content.thin_body opt-in lint (1.8.0 dogfood)
+
+- status: needs_review
+- actor: Claude Code (사용자 WoongHwan-Kim 지시)
+- scope: code, tests
+- changed:
+  - src/commands.js (`FINDING_EXPLANATIONS`에 `content.thin_body`[warning] 등록; `scanThinBody`+`bodyProseWordCount`; audit/status 배선)
+  - tests/verification.test.js (+1: 기본 off / opt-in 생성)
+- summary:
+  - rule-토글 기계를 dogfood하는 첫 opt-in lint. `content.thin_body`는 레지스트리에 등록되지만 기본 INERT — config `rules`에서 명시 활성화(예: `"content.thin_body":"warning"`)해야 wiki 콘텐츠 문서의 얇은 본문(prose 단어 < 25)을 표시한다. placeholder 문서는 `content.not_enriched` 담당이라 제외, append-only log 제외. severity는 config로 override 가능(warning→error 확인). 기본 off라 레포 자신의 validate 0은 유지된다.
+- evidence:
+  - src/commands.js#symbol:scanThinBody
+- caveats:
+  - 지식 문서 doc-sync는 1.8.0 release-prep에서 일괄. 191 pass, 레포 validate 0.
+
 ## 2026-07-15 - feat: per-project rule toggles (1.8.0 config schema growth)
 
 - status: needs_review

@@ -2671,6 +2671,18 @@ test("safety: sensitive-info findings are never toggleable (1.8)", async () => {
   assert.ok(off.findings.some((f) => f.rule === "sensitive.redacted"), "sensitive.redacted stays even when toggled off");
 });
 
+test("content.thin_body is off by default and opt-in via config rules (1.8)", async () => {
+  const cwd = await makeProject("thin-body-");
+  await mkdir(path.join(cwd, "docs", "llm-wiki"), { recursive: true });
+  await writeFile(path.join(cwd, "docs", "llm-wiki", "stub.md"), "---\ntitle: Stub\nstatus: needs_review\ndoc_type: reference\n---\n\n# Stub\n\nTODO.\n", { encoding: "utf8" });
+
+  const defaultRun = await audit(api.normalizeOptions({ cwd }));
+  assert.ok(!defaultRun.findings.some((f) => f.rule === "content.thin_body"), "off by default");
+
+  const optedIn = await audit({ ...api.normalizeOptions({ cwd }), rules: { "content.thin_body": "warning" } });
+  assert.ok(optedIn.findings.some((f) => f.rule === "content.thin_body"), "opt-in produces the finding");
+});
+
 test("--format json output is stamped with schemaVersion without dropping fields", async () => {
   const result = { command: "audit", result: "pass", findings: [], text: "rendered" };
   let captured = "";
