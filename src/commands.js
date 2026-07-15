@@ -50,7 +50,7 @@ import {
   renderGraphDot,
   renderGraphMermaid
 } from "./commands/wiki-graph.js";
-import { isAppendOnlyLog, listTargetMarkdown, listWikiContentDocs } from "./commands/wiki-files.js";
+import { isAppendOnlyLog, listTargetMarkdown } from "./commands/wiki-files.js";
 import {
   ADAPTER_TARGETS,
   planAdapterSuggestions,
