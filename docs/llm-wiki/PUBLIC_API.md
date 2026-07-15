@@ -2,13 +2,15 @@
 title: Public Api
 tags:
   - llm-wiki
-  - needs-review
-status: needs_review
+  - verified
+status: verified
 doc_type: public_api
 project: llm-wiki-standard
 last_updated: 2026-07-15
 author: cli-generated
 last_edited_by: Claude Code
+reviewed_by: WoongHwan-Kim
+reviewed_at: 2026-07-15
 wiki_block_version: v1
 source_files:
   - src/cli.js
@@ -208,4 +210,4 @@ MCP 클라이언트 등록 예시:
 - 2026-07-14에 1.6 에이전트 네이티브(MCP 서버 `llm-wiki mcp`) 계약을 추가했다: stdio JSON-RPC 2.0 직접 구현(무의존성), 읽기 전용 툴 10개(쓰기 미노출), 결과는 `structuredContent`(schemaVersion 포함)+텍스트. 적대적 다차원 리뷰(프로토콜/정확성/안전/통합/테스트)로 확정 결함(버전 협상·알림 무응답·배치 처리·graph 설명)을 수정했다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-15에 1.7 계약을 반영했다: `release-notes`에 `--body-only`(변경 섹션 본문만; frontmatter/H1/스캐폴드 제외, 본문 민감정보 스캔·매치 시 차단 exit 2)를 추가하고 Key Options에 등재했다. `src/release-notes.js`를 source_files에 추가했다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-15에 1.7.2(enabling-prep) 계약을 반영했다: `resolveOptions`(config 인식 async 옵션 해석)를 프로그래매틱 API에 추가하고, MCP 툴 호출이 `llm-wiki.config.json`을 병합하도록 갱신하면서 1.6의 "MCP는 config 미병합" 서술을 정정했다. `init`/`quickstart`의 starter config scaffold와 `doctor`의 effective-config echo도 명시했다. 모두 additive(동기 `normalizeOptions`·동결 `commands` 맵 불변). 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
-- 2026-07-15에 1.8.0 config schema growth(Gate 13)를 반영했다: `llm-wiki.config.json`의 `rules` 맵으로 finding rule을 끄거나 severity를 재정의하는 per-project 토글(중앙 `applyRuleConfig`, `sensitive.*`는 안전상 비토글)과 opt-in lint `content.thin_body`(기본 off)를 추가하고, `doctor`가 토글 수를 echo함을 명시했다. Configuration/Stability에 `rules`를 등재했다. additive·opt-in. LLM 편집이므로 `needs_review`로 내리고 사람 재검토를 기다린다.
+- 2026-07-15에 1.8.0 config schema growth(Gate 13)를 반영했다: `llm-wiki.config.json`의 `rules` 맵으로 finding rule을 끄거나 severity를 재정의하는 per-project 토글(중앙 `applyRuleConfig`, `sensitive.*`는 안전상 비토글)과 opt-in lint `content.thin_body`(기본 off)를 추가하고, `doctor`가 토글 수를 echo함을 명시했다. Configuration/Stability에 `rules`를 등재했다. additive·opt-in. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.

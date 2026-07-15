@@ -2,13 +2,15 @@
 title: Architecture Conventions
 tags:
   - llm-wiki
-  - needs-review
-status: needs_review
+  - verified
+status: verified
 doc_type: architecture_conventions
 project: llm-wiki-standard
 last_updated: 2026-07-15
 author: cli-generated
 last_edited_by: Claude Code
+reviewed_by: WoongHwan-Kim
+reviewed_at: 2026-07-15
 wiki_block_version: v1
 source_files:
   - src/cli.js
@@ -94,4 +96,4 @@ contains_sensitive_info: false
 - 2026-07-14에 1.6 MCP 서버 모듈군(`src/mcp/{tools,dispatch,server}.js`, `llm-wiki mcp` 명령)을 반영했다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-15에 1.7 CI/CD 도입을 반영했다: Module Layout에 `src/release-notes.js`(`buildReleaseNotesBody`의 `--body-only` 본문 추출)를 추가하고, `.github/actions/validate/action.yml`·`publish.yml`의 GitHub Release 잡을 src 밖 CI 표면으로 언급했다(Gate 12). 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-15에 1.7.2 enabling-prep(config 로딩 일원화)을 반영했다: `src/cli.js`의 공유 `applyProjectConfig`와 `src/index.js`의 config 인식 `resolveOptions`, MCP `tools/call`의 config 병합을 Module Layout·Evidence에 추가했다(Gate 13). 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
-- 2026-07-15에 1.8.0 config schema growth(Gate 13, accepted)를 반영했다: 중앙 `applyRuleConfig`(config `rules` 토글)와 `NON_TOGGLEABLE_CATEGORIES` 안전 가드, opt-in lint 패턴(`content.thin_body`)을 Conventions·Evidence에 추가했다. LLM 편집이므로 `needs_review`로 내리고 사람 재검토를 기다린다.
+- 2026-07-15에 1.8.0 config schema growth(Gate 13, accepted)를 반영했다: 중앙 `applyRuleConfig`(config `rules` 토글)와 `NON_TOGGLEABLE_CATEGORIES` 안전 가드, opt-in lint 패턴(`content.thin_body`)을 Conventions·Evidence에 추가했다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 `verified`로 재승인했다.
