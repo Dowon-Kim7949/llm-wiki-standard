@@ -24,6 +24,18 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-15 - docs: Gate 16 accepted_for_1.11.0 (cross-repo links)
+
+- status: needs_review
+- actor: Claude Code (사용자 WoongHwan-Kim 검토·수락)
+- scope: docs
+- changed:
+  - GATE_REVIEW.md (Gate 16 `proposed_for_1.11.0` → `accepted_for_1.11.0`)
+- summary:
+  - 마지막 마이너 1.11 cross-repo links의 Gate 16을 사람 검토로 `accepted_for_1.11.0`으로 승격했다. 스코프: 예약 cross-repo 참조 스킴(`repo:<name>/<path>`+http(s))을 wiki 링크·source_files/evidence/related에서 인식, missing-target 규칙 제외, 절대 fetch/verify 안 함(zero-dep), `isExternalSourceReference` 확장. 이로써 1.11 피처 코드 착수 가능.
+- caveats:
+  - validate 0, validate-frontmatter --strict clean.
+
 ## 2026-07-15 - docs: 1.11 준비 — Gate 16 (cross-repo links) proposed 초안
 
 - status: needs_review
