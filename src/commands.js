@@ -2078,7 +2078,7 @@ async function collectWikiGraph(cwd) {
   const edgeSeen = new Set();
   const addEdge = (source, target, kind) => {
     if (!target || source === target) return;
-    const key = `${source} ${target}`;
+    const key = `${source}\u0000${target}`;
     if (edgeSeen.has(key)) return;
     edgeSeen.add(key);
     edges.push({ source, target, kind });

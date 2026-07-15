@@ -5,6 +5,25 @@
 `@dowonk-7949/llm-wiki-standard`의 주요 변경 사항을 기록합니다. 이 프로젝트는
 [유의적 버전(Semantic Versioning)](https://semver.org/)을 따르며, 항목은 최신순입니다.
 
+## 1.7.1 — 2026-07-15
+
+패치. 저장소 위생만 정리 — CLI·JSON·프로그래매틱 API·frontmatter 계약 변경 없음,
+런타임 동작 변경 없음.
+
+### 수정 (Fixed)
+
+- `src/commands.js`가 `wikiGraph` 엣지 중복제거 키(`collectWikiGraph` → `addEdge`)의
+  구분자로 날것의 `U+0000`(NUL) 제어 바이트를 소스에 박아 두고 있었다. git `text=auto`가
+  이 파일을 바이너리로 분류해, 저장소 `.gitattributes`의 `eol=lf` 정규화에서 유일하게
+  제외되어 CRLF로 저장됐다. 날것 바이트를 `\\u0000` 이스케이프로 교체하고 파일을 LF로
+  재정규화해, 이제 다른 모든 소스 파일과 동일하게 줄바꿈 정책을 따른다.
+
+### 참고 (Notes)
+
+- 기능 변경 없음: 템플릿 리터럴의 `\\u0000`은 런타임에서 동일한 NUL 코드포인트를
+  만들므로 엣지 중복제거는 바이트 단위로 동일하다. 커밋 diff 대부분은 `src/commands.js`의
+  일회성 CRLF→LF 재정규화다.
+
 ## 1.7.0 — 2026-07-15
 
 CI/CD 도입. 위키를 GitHub Actions·릴리스 자동화에 쉽게 연결한다. 분할된 "팀 & 조직

@@ -24,6 +24,26 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-15 - release: 1.7.1 준비 (commands.js NUL 바이트 제거 + LF 재정규화)
+
+- status: needs_review
+- actor: Claude Code (사용자 WoongHwan-Kim 지시)
+- scope: code, docs
+- changed:
+  - src/commands.js (wikiGraph 엣지 키의 날것 U+0000 → `\\u0000` 이스케이프; 파일 CRLF→LF 재정규화)
+  - package.json (1.7.0 → 1.7.1)
+  - tests/verification.test.js (버전 assertion 1.7.0 → 1.7.1)
+  - CHANGELOG.md, CHANGELOG.ko.md (1.7.1 항목)
+  - docs/llm-wiki/releases/v1.7.1.md (신규 릴리스 노트)
+- summary:
+  - `src/commands.js`가 `wikiGraph` 엣지 중복제거 키(`collectWikiGraph` → `addEdge`)의 구분자로 날것의 NUL(U+0000) 제어 바이트를 소스에 담고 있어, git `text=auto`가 파일을 바이너리로 분류했다. 그 결과 `.gitattributes`의 `eol=lf` 정규화에서 이 파일 하나만 제외되어 CRLF로 저장돼 있었다. 날것 바이트를 `\\u0000` 이스케이프로 교체(런타임 문자열 불변)하고 `git add --renormalize`로 LF로 정규화해, 다른 모든 소스 파일과 동일한 줄바꿈 정책에 편입시켰다. 순수 저장소 위생 패치로 CLI·JSON·프로그래매틱 API·frontmatter·런타임 동작 변경은 없다.
+- evidence:
+  - src/commands.js#symbol:collectWikiGraph
+  - .gitattributes
+- caveats:
+  - 커밋 diff 대부분은 commands.js의 일회성 CRLF→LF 재정규화다(실제 내용 변경은 1줄).
+  - 릴리스 노트/로그는 관례상 needs_review로 유지한다. 태그·push는 별도 승인 후 진행한다.
+
 ## 2026-07-15 - docs: 1.7 doc-sync 문서 6개 verified 재승인
 
 - status: verified

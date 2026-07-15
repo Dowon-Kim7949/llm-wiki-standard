@@ -5,6 +5,26 @@
 All notable changes to `@dowonk-7949/llm-wiki-standard` are documented here. This
 project follows [Semantic Versioning](https://semver.org/). Entries are newest-first.
 
+## 1.7.1 — 2026-07-15
+
+Patch. Repository hygiene only — no CLI, JSON, programmatic-API, or frontmatter
+contract change, and no runtime behavior change.
+
+### Fixed
+
+- `src/commands.js` embedded a raw `U+0000` (NUL) control byte as the delimiter in
+  the `wikiGraph` edge-dedup key (`collectWikiGraph` → `addEdge`). Git's
+  `text=auto` classified the file as binary, so it was the one source file exempt
+  from the repo's `.gitattributes` `eol=lf` normalization and was stored with CRLF.
+  Replaced the raw byte with the `\u0000` escape and renormalized the file to LF, so
+  it now conforms to the line-ending policy like every other source file.
+
+### Notes
+
+- No functional change: `\u0000` in the template literal produces the same NUL code
+  point at runtime, so edge deduplication is byte-identical. The bulk of the commit
+  diff is the one-time CRLF→LF renormalization of `src/commands.js`.
+
 ## 1.7.0 — 2026-07-15
 
 CI/CD adoption. Make the wiki easy to wire into GitHub Actions and release
