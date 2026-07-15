@@ -24,6 +24,19 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-15 - docs: 1.11 준비 — Gate 16 (cross-repo links) proposed 초안
+
+- status: needs_review
+- actor: Claude Code (사용자 WoongHwan-Kim 지시)
+- scope: docs
+- changed:
+  - GATE_REVIEW.md (Gate 16 표 행 + "Cross-Repository Links Scope Decision (proposed for 1.11.0)" 섹션)
+- summary:
+  - 마지막 마이너 1.11 cross-repo knowledge links의 스코프를 코드 전에 Gate 16으로 초안화했다(`proposed_for_1.11.0`, 아직 accepted 아님). 스코프: 예약 cross-repo 참조 스킴(`repo:<name>/<path>` + 기존 http(s))을 wiki 링크(이중 대괄호 표기)와 source_files/evidence/related에서 인식. 인식된 참조는 external로 처리해 missing-target 규칙(wiki_link.missing/related.missing/source_files.missing/evidence.missing/markdown_link.missing)에서 제외하되 **절대 fetch/verify하지 않음**(network/git 없음, zero-dep). ready-now slice: 분류기를 강화해 cross-repo wiki 링크가 false wiki_link.missing을 안 내게. additive(로컬 해석 불변).
+- caveats:
+  - Gate 16은 proposed 단계다. 사람 검토·수락(accepted_for_1.11.0) 전까지 1.11 코드 착수하지 않는다.
+  - validate 0, validate-frontmatter --strict clean.
+
 ## 2026-07-15 - docs: 1.10.0 monorepo 문서 3개 verified 재승인
 
 - status: verified
