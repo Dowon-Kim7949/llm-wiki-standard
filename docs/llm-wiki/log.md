@@ -24,6 +24,19 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-15 - docs: Gate 14 accepted_for_1.9.0 + VISIBILITY.md verified
+
+- status: verified
+- actor: Claude Code (사용자 WoongHwan-Kim 검토·수락)
+- scope: docs
+- changed:
+  - GATE_REVIEW.md (Gate 14 `proposed_for_1.9.0` → `accepted_for_1.9.0`)
+  - docs/llm-wiki/VISIBILITY.md (needs_review → verified)
+- summary:
+  - 1.9 visibility governance의 Gate 14를 사람 검토로 `accepted_for_1.9.0`으로 승격하고, 정책 문서 `VISIBILITY.md`를 `verified`로 승인했다(reviewed_by: WoongHwan-Kim, reviewed_at: 2026-07-15). 스코프: opt-in 일관성 rule 2개(`visibility.public_sensitive`, `visibility.declared_mismatch`) — 기본 off·warning·read-only, 1.8 config `rules`로 활성화, 절대 default error/blocked 금지, sensitive-info 스캔 재사용, `sensitive.*` 비토글, 접근 통제 아님.
+- caveats:
+  - 이로써 1.9 피처 코드 착수 가능. validate 0, validate-frontmatter --strict clean.
+
 ## 2026-07-15 - docs: 1.9 준비 — visibility 정책 문서 + Gate 14 proposed 초안
 
 - status: needs_review

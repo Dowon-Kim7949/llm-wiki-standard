@@ -2,13 +2,15 @@
 title: Visibility Governance Policy
 tags:
   - llm-wiki
-  - needs-review
-status: needs_review
+  - verified
+status: verified
 doc_type: policy
 project: llm-wiki-standard
 last_updated: 2026-07-15
 author: ai-generated
 last_edited_by: Claude Code
+reviewed_by: WoongHwan-Kim
+reviewed_at: 2026-07-15
 wiki_block_version: v1
 source_files:
   - src/frontmatter-schema.js
@@ -76,4 +78,4 @@ Question("팀/조직 도입 시 visibility 경계 정책 문서가 필요하다"
 
 ## Review Notes
 
-- 2026-07-15에 `1.9` 준비(Gate 14 초안)의 설계 입력으로 생성했다. 사람 검토 전까지 `needs_review`.
+- 2026-07-15에 `1.9` 준비(Gate 14 초안)의 설계 입력으로 생성했다. 사람 검토(reviewed_by: WoongHwan-Kim)를 거쳐 Gate 14 수락과 함께 `verified`로 승인했다.
