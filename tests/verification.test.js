@@ -973,6 +973,57 @@ test("init write on a Flutter project anchors source_files to pubspec.yaml and v
   assert.equal(auditResult.findings.some((finding) => finding.rule === "source_files.missing"), false);
 });
 
+test("detects infrastructure projects (Terraform / Dockerfile / Helm / Kubernetes) as infra", async () => {
+  const tfCwd = await makeProject("infra-tf-");
+  await writeFile(path.join(tfCwd, "main.tf"), "terraform {\n  required_version = \">= 1.5\"\n}\nprovider \"aws\" {\n  region = \"us-east-1\"\n}\n", { encoding: "utf8" });
+  const dockerCwd = await makeProject("infra-docker-");
+  await writeFile(path.join(dockerCwd, "Dockerfile"), "FROM alpine:3.19\nCMD [\"sh\"]\n", { encoding: "utf8" });
+  const helmCwd = await makeProject("infra-helm-");
+  await writeFile(path.join(helmCwd, "Chart.yaml"), "apiVersion: v2\nname: my-chart\nversion: 0.1.0\n", { encoding: "utf8" });
+  const k8sCwd = await makeProject("infra-k8s-");
+  await writeFile(path.join(k8sCwd, "deployment.yaml"), "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n", { encoding: "utf8" });
+
+  const tf = await initCommand({ cwd: tfCwd, dryRun: true, minimal: false, withAdapters: false, type: null, profiles: [], agents: [] });
+  const docker = await initCommand({ cwd: dockerCwd, dryRun: true, minimal: false, withAdapters: false, type: null, profiles: [], agents: [] });
+  const helm = await initCommand({ cwd: helmCwd, dryRun: true, minimal: false, withAdapters: false, type: null, profiles: [], agents: [] });
+  const k8s = await initCommand({ cwd: k8sCwd, dryRun: true, minimal: false, withAdapters: false, type: null, profiles: [], agents: [] });
+
+  assert.equal(tf.detection.projectType, "infra");
+  assert.equal(docker.detection.projectType, "infra");
+  assert.equal(helm.detection.projectType, "infra");
+  assert.equal(k8s.detection.projectType, "infra");
+  assert.ok(tf.planned.some((line) => line.includes("docs/llm-wiki/DEPLOYMENT.md")));
+  assert.ok(tf.planned.some((line) => line.includes("docs/llm-wiki/SERVICE_TOPOLOGY.md")));
+});
+
+test("does not classify a containerized app repo as infra (infra is a fallback)", async () => {
+  const backendCwd = await makeProject("app-docker-");
+  await writeJson(path.join(backendCwd, "package.json"), { dependencies: { express: "^4.18.0" } });
+  await writeFile(path.join(backendCwd, "Dockerfile"), "FROM node:20\n", { encoding: "utf8" });
+  const libCwd = await makeProject("lib-docker-");
+  await writeFile(path.join(libCwd, "pyproject.toml"), "[project]\nname = \"widget\"\nversion = \"1.0.0\"\n", { encoding: "utf8" });
+  await writeFile(path.join(libCwd, "Dockerfile"), "FROM python:3.12\n", { encoding: "utf8" });
+
+  const backend = await initCommand({ cwd: backendCwd, dryRun: true, minimal: false, withAdapters: false, type: null, profiles: [], agents: [] });
+  const lib = await initCommand({ cwd: libCwd, dryRun: true, minimal: false, withAdapters: false, type: null, profiles: [], agents: [] });
+
+  assert.equal(backend.detection.projectType, "backend");
+  assert.equal(lib.detection.projectType, "library");
+});
+
+test("init write on a Terraform project anchors source_files to a .tf file and validates clean", async () => {
+  const cwd = await makeProject("infra-init-");
+  await writeFile(path.join(cwd, "main.tf"), "terraform {\n  required_version = \">= 1.5\"\n}\n", { encoding: "utf8" });
+
+  await initCommand({ cwd, dryRun: false, write: true, minimal: true, withAdapters: false, type: null, profiles: [], agents: [], existing: "skip" });
+  const index = await readFile(path.join(cwd, "docs", "llm-wiki", "index.md"), { encoding: "utf8" });
+  const auditResult = await audit({ cwd, type: null, profiles: [], agents: [], format: "text", strict: false });
+
+  assert.ok(index.includes("- main.tf"));
+  assert.equal(index.includes("- package.json"), false);
+  assert.equal(auditResult.findings.some((finding) => finding.rule === "source_files.missing"), false);
+});
+
 test("init write on a Python project anchors source_files to its manifest", async () => {
   const cwd = await makeProject("python-init-");
   await writeFile(path.join(cwd, "pyproject.toml"), "[project]\nname = \"svc\"\nversion = \"0.1.0\"\ndependencies = [\"fastapi\"]\n", { encoding: "utf8" });

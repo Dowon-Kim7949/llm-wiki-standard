@@ -89,6 +89,12 @@ export const PROFILE_DOCS = {
     "docs/llm-wiki/SCREENS.md",
     "docs/llm-wiki/BUILD_RELEASE.md"
   ],
+  infra: [
+    "docs/llm-wiki/profiles/infra.md",
+    "docs/llm-wiki/DEPLOYMENT.md",
+    "docs/llm-wiki/RUNBOOK.md",
+    "docs/llm-wiki/SERVICE_TOPOLOGY.md"
+  ],
   "okf-v0.1": [
     "docs/llm-wiki/profiles/okf-v0.1.md",
     "docs/llm-wiki/templates/OKF_CONCEPT.template.md",

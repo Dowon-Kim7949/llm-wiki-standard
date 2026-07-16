@@ -3,7 +3,7 @@ import { readdir } from "node:fs/promises";
 import { pathExists } from "./files.js";
 import { readUtf8 } from "./encoding.js";
 
-const KNOWN_PROFILES = new Set(["frontend", "backend", "fullstack", "library", "mobile", "mixed", "unknown", "okf-v0.1"]);
+const KNOWN_PROFILES = new Set(["frontend", "backend", "fullstack", "library", "mobile", "infra", "mixed", "unknown", "okf-v0.1"]);
 
 // Detects npm/yarn workspace packages from the root package.json `workspaces`
 // field (an array, or { packages: [] }). Expands a trailing `/*` glob to the
@@ -119,7 +119,17 @@ export async function detectProject(cwd, explicitType, explicitProfiles = []) {
     if (!primaryManifest && mobile.manifest) primaryManifest = mobile.manifest;
   }
 
-  const detectedType = decideType(frontendSignals, backendSignals, librarySignals, signals, Boolean(mobile));
+  // Infra is a FALLBACK type: it wins only when no app signal (frontend/backend/
+  // library/mobile) is present, so a containerized app repo keeps its app type.
+  // Its signals are surfaced only when `infra` is actually chosen, so app repos
+  // (which merely happen to have a Dockerfile) stay byte-identical.
+  const infra = await detectInfra(cwd);
+
+  const detectedType = decideType(frontendSignals, backendSignals, librarySignals, signals, Boolean(mobile), Boolean(infra));
+  if (detectedType.projectType === "infra" && infra) {
+    for (const infraSignal of infra.signals) signals.push(infraSignal);
+    if (!primaryManifest && infra.manifest) primaryManifest = infra.manifest;
+  }
   const projectType = explicitType ?? detectedType.projectType;
   const baseProfiles = projectType === "fullstack"
     ? ["core", "frontend", "backend", "fullstack"]
@@ -284,6 +294,98 @@ async function detectMobile(cwd, deps) {
   return { platforms, signals, manifest };
 }
 
+const K8S_DIRS = ["k8s", "kubernetes", "manifests", "deploy", "deployment"];
+
+// Bounded, best-effort scan for a Kubernetes manifest: a top-level (or
+// conventional-directory) `*.yaml`/`*.yml` whose content carries both
+// `apiVersion:` and `kind:`. Returns a repo-relative path or null. Read-only,
+// zero-dep. Docker Compose (no apiVersion/kind) and Helm `Chart.yaml` (no kind)
+// do not match, so they are not mistaken for raw manifests.
+async function findKubernetesManifest(cwd) {
+  const looksK8s = (text) => /(^|\n)apiVersion\s*:/.test(text) && /(^|\n)kind\s*:/.test(text);
+  const scanDir = async (relDir) => {
+    const absDir = relDir ? path.join(cwd, relDir) : cwd;
+    let entries;
+    try {
+      entries = await readdir(absDir, { withFileTypes: true });
+    } catch {
+      return null;
+    }
+    const sorted = [...entries].sort((left, right) => left.name.localeCompare(right.name));
+    for (const entry of sorted) {
+      if (!entry.isFile() || !/\.ya?ml$/i.test(entry.name)) continue;
+      try {
+        if (looksK8s(await readUtf8(path.join(absDir, entry.name)))) {
+          return relDir ? `${relDir}/${entry.name}` : entry.name;
+        }
+      } catch {
+        // unreadable — skip
+      }
+    }
+    return null;
+  };
+  const top = await scanDir("");
+  if (top) return top;
+  for (const dir of K8S_DIRS) {
+    const hit = await scanDir(dir);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+// Detects an infrastructure/DevOps project from IaC signal files: Docker, Docker
+// Compose, Helm, Kubernetes, Terraform. Recognition only — nothing is deployed,
+// fetched, or contacted (no cluster/registry access, zero-dep). Returns
+// { kinds, signals, manifest } or null. `infra` is a FALLBACK type (see
+// decideType), so these signals affect typing only when no app signal is present;
+// `manifest` is a real existing file used as a source_files anchor for an
+// infra-only repo.
+async function detectInfra(cwd) {
+  const kinds = [];
+  const signals = [];
+  let manifest = null;
+  const setManifest = (candidate) => {
+    if (!manifest && candidate) manifest = candidate;
+  };
+
+  if (await pathExists(path.join(cwd, "Dockerfile"))) {
+    kinds.push("docker");
+    signals.push({ path: "Dockerfile", reason: "Docker image build detected (Dockerfile)" });
+    setManifest("Dockerfile");
+  }
+
+  const compose = await readFirstManifest(cwd, ["docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"]);
+  if (compose) {
+    kinds.push("compose");
+    signals.push({ path: compose.name, reason: `Docker Compose detected (${compose.name})` });
+    setManifest(compose.name);
+  }
+
+  const helm = await readFirstManifest(cwd, ["Chart.yaml", "Chart.yml"]);
+  if (helm && /(^|\n)apiVersion\s*:/.test(helm.content) && /(^|\n)name\s*:/.test(helm.content)) {
+    kinds.push("helm");
+    signals.push({ path: helm.name, reason: "Helm chart detected (Chart.yaml)" });
+    setManifest(helm.name);
+  }
+
+  const k8s = await findKubernetesManifest(cwd);
+  if (k8s) {
+    kinds.push("kubernetes");
+    signals.push({ path: k8s, reason: `Kubernetes manifest detected (${k8s})` });
+    setManifest(k8s);
+  }
+
+  const terraform = await findProjectByExtension(cwd, [".tf"]);
+  if (terraform) {
+    kinds.push("terraform");
+    signals.push({ path: terraform.name, reason: `Terraform configuration detected (${terraform.name})` });
+    setManifest(terraform.name);
+  }
+
+  if (!kinds.length) return null;
+  return { kinds, signals, manifest };
+}
+
 // Find the first *.csproj / *.fsproj since .NET project files carry arbitrary
 // names and commonly sit under src/<Name>/. Bounded, deterministic (files
 // before subdirs, each sorted), depth-limited DFS skipping heavy dirs.
@@ -345,7 +447,7 @@ function normalizeProjectName(name, cwd) {
   return path.basename(cwd) || "project";
 }
 
-function decideType(frontendSignals, backendSignals, librarySignals, signals, hasMobile = false) {
+function decideType(frontendSignals, backendSignals, librarySignals, signals, hasMobile = false, hasInfra = false) {
   const hasFrontend = frontendSignals.length > 0 || signals.some((signal) => signal.path === "src/components");
   const hasBackend = backendSignals.length > 0;
   const hasLibrary = librarySignals.length > 0;
@@ -358,5 +460,9 @@ function decideType(frontendSignals, backendSignals, librarySignals, signals, ha
   if (hasFrontend) return { projectType: "frontend", confidence: "high" };
   if (hasBackend) return { projectType: "backend", confidence: "medium" };
   if (hasLibrary) return { projectType: "library", confidence: "medium" };
+  // Infra is a FALLBACK: chosen only when there is no app signal above, so a
+  // containerized app repo (a backend with a Dockerfile) stays its app type and
+  // only genuine IaC-first repos (previously `unknown`) become `infra`.
+  if (hasInfra) return { projectType: "infra", confidence: "medium" };
   return { projectType: "unknown", confidence: "low" };
 }
