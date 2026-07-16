@@ -2,13 +2,15 @@
 title: Domain Features
 tags:
   - llm-wiki
-  - needs-review
-status: needs_review
+  - verified
+status: verified
 doc_type: domain_overview
 project: llm-wiki-standard
 last_updated: 2026-07-16
 author: cli-generated
 last_edited_by: Claude Code
+reviewed_by: Dowon-Kim
+reviewed_at: 2026-07-16
 wiki_block_version: v1
 source_files:
   - src/commands.js
@@ -117,4 +119,4 @@ contains_sensitive_info: false
 - 2026-07-15에 1.11.0 cross-repo knowledge links(Gate 16, accepted)를 반영했다: 예약 cross-repo 참조 스킴(`repo:<name>/<path>`+http(s))을 external로 인식해 missing-target 규칙에서 제외하되 fetch/verify하지 않는 기능을 추가했다. 사람 검토(reviewed_by: Dowon-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-16에 1.11.1 commands.js 모듈 분리(동작 보존 내부 리팩터)를 반영했다: 기능은 불변이며, Evidence와 근거 심볼 포인터를 이동한 모듈로 갱신했다(`scanEnrichment`/`scanRelatedReferences`/`scanThinBody`/`scanVisibilityConsistency`→scans, `applyRuleConfig`→findings, `fixCommand`→fix-migrate, `planDomainDocs`→domains, `isCrossRepoReference`→references). 코드에 맞춰 문서를 수정한 뒤 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-16)를 거쳐 `verified`로 재승인했다.
 - 2026-07-16에 1.12.0 mobile profile(Gate 17, accepted)을 반영했다: 부가적 `mobile` 유형(`detectMobile`의 Android/Flutter/iOS/React Native 감지 + Android `build.gradle` 오분류 교정 + mobile 문서셋)을 기능·Evidence로 추가했다. 코드에 맞춰 문서를 수정한 뒤 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-16)를 거쳐 `verified`로 재승인했다.
-- 2026-07-16에 1.13.0 infra/DevOps profile(Gate 18, accepted)을 반영했다: 부가적 `infra` 유형(`detectInfra`의 Docker/Compose/Kubernetes/Helm/Terraform 감지 + fallback 우선순위 + infra 문서셋)을 기능·Evidence로 추가했다. 코드에 맞춰 문서를 수정했으므로 `needs_review`로 강등했다(사람 재검토 대기).
+- 2026-07-16에 1.13.0 infra/DevOps profile(Gate 18, accepted)을 반영했다: 부가적 `infra` 유형(`detectInfra`의 Docker/Compose/Kubernetes/Helm/Terraform 감지 + fallback 우선순위 + infra 문서셋)을 기능·Evidence로 추가했다. 코드에 맞춰 문서를 수정한 뒤 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-16)를 거쳐 `verified`로 재승인했다.
