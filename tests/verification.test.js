@@ -3659,6 +3659,8 @@ test("skill generation: --skills emits Claude/Cursor/neutral artifacts with an i
   assert.ok(skill.includes("needs_review"), "needs_review discipline embedded");
   // Portability/privacy: the generating machine's absolute path (and username) is not baked in.
   assert.ok(!skill.includes(cwd) && !/[A-Za-z]:\\Users\\/.test(skill), "no absolute machine path leaked into the artifact");
+  // Terminal-only bits of the reused prompt are trimmed from the committed artifact.
+  assert.ok(!skill.includes("Workspace:") && !skill.includes("Target agent context"), "ephemeral Workspace/agent-context lines are trimmed");
 });
 
 test("skill generation: off unless requested, and never overwrites (1.15.0)", async () => {

@@ -90,7 +90,17 @@ async function artifactBody(cwd, task, detection) {
     profiles: detection?.activeProfiles ?? [],
     agents: []
   });
-  return `${domainMapSection(domains)}\n\n${built.prompt}\n`;
+  return `${domainMapSection(domains)}\n\n${forArtifact(built.prompt)}\n`;
+}
+
+// task-prompts.js is written for one-shot terminal output; strip the two bits that
+// don't belong in a committed, agent-invoked artifact: the ephemeral "Workspace:"
+// block (the agent already runs in the repo) and the generic "Target agent context:"
+// clause (the artifact IS the agent's). The task workflow itself is unchanged.
+function forArtifact(prompt) {
+  return prompt
+    .replace(/\n\nWorkspace:\n[^\n]*\n/, "\n")
+    .replace(/ Target agent context: [^.\n]*\./, "");
 }
 
 function renderClaudeSkill(entry, body) {
