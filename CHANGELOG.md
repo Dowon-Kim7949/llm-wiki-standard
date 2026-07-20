@@ -5,6 +5,26 @@
 All notable changes to `@dowonk-7949/llm-wiki-standard` are documented here. This
 project follows [Semantic Versioning](https://semver.org/). Entries are newest-first.
 
+## 1.14.3 — 2026-07-20
+
+Onboarding orientation, from a second exposure report. A first-time user could not tell
+what the tool does from the bare command, and a Korean tester asked for Korean output.
+No command, option, `--format json`, or frontmatter contract change; zero runtime
+dependency added.
+
+### Added
+
+- **A bilingual (KO+EN) orientation header on `llm-wiki` / `--help`.** The bare command
+  now leads with what LLM-WIKI is, why it helps (the agent grounds on a verified wiki
+  instead of re-deriving from code), and the 3-step flow (scaffold → paste the handoff
+  prompt into your coding agent → human review & verify) — instead of opening straight
+  into the Usage list.
+- **The package version and an `@latest` tip in `--help`.** Help now shows `llm-wiki
+  vX.Y.Z` and recommends `npx …@latest`, so a stale npx cache (which silently reuses an
+  old version) is noticeable.
+- **A bilingual `About · 소개` line on `quickstart` output**, so a user who runs
+  `quickstart` directly (without reading `--help`) still gets oriented.
+
 ## 1.14.2 — 2026-07-20
 
 Usability polish following the first successful external end-to-end run (a backend

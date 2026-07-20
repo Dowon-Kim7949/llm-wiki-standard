@@ -24,6 +24,30 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-20 - release: prepare 1.14.3 (온보딩 오리엔테이션 + 이중언어) + doc-sync
+
+- status: needs_review
+- actor: Claude Code (사용자 Dowon-Kim 지시 — 두 번째 노출 보고서 반영, 한글 출력 범위 "사용자-대면 이중언어" 선택)
+- scope: src, tests, docs
+- changed:
+  - src/cli.js (`helpText()`+`packageVersion()` 추가, `printHelp` 리팩터 — 이중언어 KO+EN 오리엔테이션[무엇/왜/3단계] + 버전 + `@latest` 팁), src/commands.js (`quickstartCommand`에 `About · 소개` 이중언어 섹션)
+  - tests/verification.test.js (+2 테스트; 버전 assertion 1.14.2→1.14.3)
+  - package.json (1.14.2→1.14.3), CHANGELOG.md/CHANGELOG.ko.md, docs/llm-wiki/releases/v1.14.3.md(신규)
+  - doc-sync + re-verify: ARCHITECTURE_CONVENTIONS·DOMAIN_FEATURES (reviewed_at 2026-07-20 유지)
+- summary:
+  - 두 번째 노출 보고서(백엔드 개발자): (a) `npx …@1.14.0`(npx 캐시)로 실행 → 1.14.1 `Ready` 리네임 못 받고 옛 `Blocked`를 봄, (b) bare 명령/`--help`에 "무슨 도구인지" 설명이 없어 의도 파악 실패(#2·#9·#10), (c) 한글 출력 희망(#7), (d) 아직 실제로 써보질 않아 가치 판단 불가(#8).
+  - 진단: (a)는 캐시 문제(1.14.1/1.14.2 이미 fix, 전달만 안 됨) → `@latest` 재실행 relay. (b)(c)가 코드로 해결 대상.
+  - 1.14.3: `--help`/bare 명령이 Usage 나열 전에 이중언어(KO+EN) 오리엔테이션(무엇/왜/3단계 흐름) + 버전 + `@latest` 팁을 보여줌. `quickstart` 출력에 이중언어 `About · 소개` 라인(help 안 보고 quickstart 직행한 사용자용). finding ID·정밀 리포트는 영문 유지. 전면 i18n(`--lang`)은 별도 결정.
+  - 검증: node --test 228 통과(신규 2), validate result:pass 0 findings, strict pass. bare 명령 오리엔테이션 실제 CLI 확인.
+- evidence:
+  - src/cli.js
+  - src/commands.js
+  - package.json
+- caveats:
+  - 배포(태그 push→npm)는 사용자의 명시적 "배포" 지시 대기.
+  - 캐시 이슈: 두 번째 테스터에게 `npx @dowonk-7949/llm-wiki-standard@latest`로 재실행 요청 필요(relay).
+  - 도메인 감지(app/api/v2/*.py, endpoints/ 없는 경우)·가치 실현(#8, 실제 사용/ROI 실험)은 여전히 대기.
+
 ## 2026-07-20 - release: prepare 1.14.2 (usability 다듬기) + Gate 20 draft
 
 - status: needs_review

@@ -713,6 +713,10 @@ export async function quickstartCommand(options) {
     handoff,
     findings
   }, "LLM-WIKI Quickstart", [
+    { title: "About · 소개", body: [
+      "LLM-WIKI: AI 에이전트가 읽는 코드-근거 지식베이스입니다. 문서 뼈대 생성 → 아래 handoff 프롬프트를 코딩 에이전트에 붙여넣어 실제 코드로 채움 → 사람이 검토해 verified 승인.",
+      "A code-grounded knowledge base your AI agent reads: scaffold docs → paste the handoff prompt below into your coding agent to fill them from real code → a human reviews and marks them verified."
+    ] },
     { title: "Completed Steps", body: completedSteps },
     { title: "Init Summary", body: quickstartInitSummary(initResult) },
     { title: "Frontmatter Summary", body: frontmatterResult?.summary ?? ["not run"] },

@@ -1,4 +1,6 @@
 import path from "node:path";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { audit, doctor, driftCommand, explainCommand, fixCommand, graphCommand, handoffCommand, initCommand, migrateCommand, monorepoCommand, nextCommand, promptCommand, quickstartCommand, releaseNotesCommand, statsCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "./commands.js";
 import { printResult } from "./report.js";
 import { loadProjectConfig, mergeConfigIntoOptions } from "./config-file.js";
@@ -361,8 +363,47 @@ function exitCodeFor(result, options) {
   return 0;
 }
 
-function printHelp() {
-  console.log(`llm-wiki
+// Read this package's version so `--help` / the bare invocation can show it —
+// this also lets a user notice when npx served a stale cached version (a recurring
+// support confusion). Best-effort: falls back to "unknown" if package.json is
+// unreadable. Sync is fine for a one-shot help print.
+export function packageVersion() {
+  try {
+    const pkgPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "package.json");
+    return JSON.parse(readFileSync(pkgPath, "utf8")).version || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+// The help text shown on `llm-wiki`, `llm-wiki --help`, and `-h`. Leads with a
+// bilingual (KO+EN) orientation — what the tool is, why, and the 3-step flow —
+// because exposure tests showed first-time users could not tell what the tool does
+// from the bare Usage list, and a Korean tester asked for Korean. Returned as a
+// string (not logged directly) so it is unit-testable.
+export function helpText() {
+  return `llm-wiki v${packageVersion()}
+
+LLM-WIKI — AI 에이전트가 읽는, 코드 근거로 검증되는 프로젝트 지식베이스.
+A governed, code-grounded knowledge base your AI coding agent reads.
+
+무엇을 하나 / What it does:
+  1) init/quickstart --write 로 문서 뼈대를 만들고 · scaffold the wiki docs
+  2) 출력되는 handoff 프롬프트를 Claude Code/Codex에 붙여넣어 실제 코드로 채우고
+     · paste the printed handoff prompt into your coding agent to fill them from real code
+  3) 사람이 검토해 verified로 승인합니다 · a human reviews and marks them verified
+
+왜 / Why:
+  에이전트가 매번 코드를 다시 읽는 대신 '검증된 위키'를 근거로 삼아 토큰·오류를 줄입니다.
+  Your agent grounds on a verified wiki instead of re-deriving from the code each time.
+  이후 기능 추가/수정 시 에이전트에게 docs/llm-wiki를 먼저 읽히세요.
+  Point your agent at docs/llm-wiki first when adding or changing features.
+
+빠른 시작 / Quick start:
+  npx @dowonk-7949/llm-wiki-standard@latest quickstart --dry-run   # 미리보기 · preview
+  npx @dowonk-7949/llm-wiki-standard@latest quickstart --write     # 생성 · create
+  항상 @latest 권장 — npx가 옛 버전을 캐시할 수 있습니다.
+  Always use @latest; npx may reuse an old cached version.
 
 Usage:
   llm-wiki doctor [--cwd <path>] [--format text|json|markdown|html]
@@ -404,7 +445,11 @@ Safety:
   explain is advisory: it explains a finding rule and suggests safe remediation steps.
 
 Use llm-wiki help <command> for command-specific guidance.
-`);
+`;
+}
+
+function printHelp() {
+  console.log(helpText());
 }
 
 function printCommandHelp(command) {

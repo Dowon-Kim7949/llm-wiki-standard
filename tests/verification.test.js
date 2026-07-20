@@ -2533,7 +2533,7 @@ test("package metadata targets npmjs public publish without committed tokens", a
   const packageJson = JSON.parse(await readFile(path.join(process.cwd(), "package.json"), { encoding: "utf8" }));
 
   assert.equal(packageJson.name, "@dowonk-7949/llm-wiki-standard");
-  assert.equal(packageJson.version, "1.14.2");
+  assert.equal(packageJson.version, "1.14.3");
   assert.equal(packageJson.private, false);
   assert.equal(packageJson.publishConfig, undefined);
   assert.equal(packageJson.repository.url, "git+https://github.com/Dowon-Kim7949/llm-wiki-standard.git");
@@ -3599,5 +3599,25 @@ test("init --write prints a reassurance summary line (1.14.2)", async () => {
   const cwd = await makeProject("reassure-");
   const result = await initCommand({ cwd, write: true, minimal: true, withAdapters: false, type: "library", profiles: [], agents: [], existing: "skip" });
   assert.match(result.text, /\d+ created, \d+ overwritten, \d+ kept \(existing files preserved/, "summary reassures what was and wasn't touched");
+});
+
+test("help leads with a bilingual what/why/how orientation + version and @latest tip (1.14.3)", async () => {
+  const { helpText, packageVersion } = await import("../src/cli.js");
+  const text = helpText();
+  assert.match(text, /llm-wiki v\d+\.\d+\.\d+/, "shows the package version so a stale npx cache is noticeable");
+  assert.ok(text.includes("무엇을 하나 / What it does"), "bilingual what-it-does heading");
+  assert.ok(text.includes("AI 에이전트가 읽는") && text.includes("your AI coding agent reads"), "KO+EN one-liner");
+  assert.ok(text.includes("@latest"), "recommends @latest (the npx-cache caveat)");
+  assert.ok(text.includes("Usage:"), "still lists usage below the orientation");
+  const pkgVersion = JSON.parse(await readFile(path.join(process.cwd(), "package.json"), "utf8")).version;
+  assert.equal(packageVersion(), pkgVersion, "version matches package.json");
+});
+
+test("quickstart output opens with a bilingual About orientation (1.14.3)", async () => {
+  const cwd = await makeProject("quickstart-about-");
+  await writeJson(path.join(cwd, "package.json"), { dependencies: { fastify: "^4.0.0" } });
+  const result = await quickstartCommand({ cwd, dryRun: true, write: false, minimal: true, withAdapters: false, type: "backend", profiles: [], agents: [], existing: "skip" });
+  assert.ok(result.text.includes("About · 소개"), "About section present for the quickstart-direct path");
+  assert.ok(result.text.includes("코드-근거 지식베이스") && result.text.includes("code-grounded knowledge base"), "bilingual orientation");
 });
 
