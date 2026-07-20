@@ -714,7 +714,7 @@ export async function quickstartCommand(options) {
     { title: "Completed Steps", body: completedSteps },
     { title: "Init Summary", body: quickstartInitSummary(initResult) },
     { title: "Frontmatter Summary", body: frontmatterResult?.summary ?? ["not run"] },
-    { title: "Next Step", body: [handoff.message] },
+    { title: "Next Step", body: handoffNextStep(handoff) },
     { title: "Handoff Prompt", body: `\`\`\`text\n${handoff.prompt}\n\`\`\`` },
     { title: "Caveats", body: ["CLI-created or CLI-edited wiki documents remain needs_review until human review. Run llm-wiki validate separately for structure or CI validation."] }
   ]);
@@ -732,7 +732,7 @@ export async function handoffCommand(options) {
     handoff,
     findings: handoff.findings
   }, "LLM-WIKI Handoff", [
-    { title: "Next Step", body: [handoff.message] },
+    { title: "Next Step", body: handoffNextStep(handoff) },
     { title: "Handoff Prompt", body: `\`\`\`text\n${handoff.prompt}\n\`\`\`` },
     { title: "Caveats", body: ["Run this prompt in the selected agent after CLI setup. Keep generated or edited documents as needs_review until human review."] }
   ]);
@@ -1507,9 +1507,38 @@ function quickstartInitSummary(initResult) {
   if (initResult.created?.length) lines.push(`created: ${initResult.created.length}`);
   if (initResult.overwritten?.length) lines.push(`overwritten: ${initResult.overwritten.length}`);
   if (initResult.planned?.length) lines.push(`planned: ${initResult.planned.length}`);
-  if (initResult.skipped?.length) lines.push(`skipped: ${initResult.skipped.length}`);
+  // Annotate the skipped count with the dominant reason ("already exist") so a
+  // brownfield run that skips everything doesn't read as "the tool did nothing".
+  if (initResult.skipped?.length) {
+    const existing = initResult.skipped.filter((line) => /\bexists\b/i.test(line)).length;
+    lines.push(`skipped: ${initResult.skipped.length}${existing ? ` (${existing} already exist, kept)` : ""}`);
+  }
   if (initResult.blocked?.length) lines.push(`blocked: ${initResult.blocked.length}`);
+  // Brownfield hint: when nothing new is created or planned but docs already exist,
+  // the value comes from enriching the existing docs (handoff prompt), not re-running init.
+  const newDocs = (initResult.created?.length ?? 0)
+    + (initResult.planned?.filter((line) => line.includes("would be created")).length ?? 0);
+  const existingSkips = initResult.skipped?.filter((line) => /\bexists\b/i.test(line)).length ?? 0;
+  if (newDocs === 0 && existingSkips > 0) {
+    lines.push("note: LLM-WIKI가 이미 있어 새로 만들 문서가 없습니다 — 아래 handoff 프롬프트로 기존 문서를 코드 근거로 보강하세요(스캐폴드를 다시 만들려면 --existing overwrite).");
+  }
   return lines;
+}
+
+// The "Next Step" body: the short handoff message plus a concrete, self-contained
+// run guide. The exposure test showed users don't realize the "Handoff Prompt" is
+// meant to be pasted into their coding agent (not "run" by the CLI) — this spells
+// that out. Only added when a real prompt exists (a supported agent); the
+// unsupported-agent case keeps just the message.
+function handoffNextStep(handoff) {
+  if (!handoff.supportedAgents?.length) return [handoff.message];
+  return [
+    handoff.message,
+    "실행 방법 — 아래 'Handoff Prompt'는 CLI가 실행하는 게 아니라 코딩 에이전트에게 넘기는 지시문입니다:",
+    "1) 이 저장소를 연 Claude Code 또는 Codex 세션에 아래 프롬프트를 그대로 붙여넣으세요. 이미 이 저장소의 Claude Code 안이라면 여기에 바로 붙여넣으면 됩니다.",
+    "2) 에이전트가 실제 코드를 읽고 docs/llm-wiki 문서를 근거와 함께 채웁니다. backend/fullstack은 도메인별 domains/*.md도 함께 보강됩니다.",
+    "3) 결과를 사람이 검토해 정확하면 status를 verified로 올리세요(구조 점검은 llm-wiki validate)."
+  ];
 }
 
 function buildHandoff(options, detection = null) {

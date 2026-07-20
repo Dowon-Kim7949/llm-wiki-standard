@@ -28,6 +28,13 @@
   없이 실행하면 이전에는 `Blocked` 리포트(exit 2)를 출력해 실패처럼 보였다. 이제 `Ready (needs
   --write)`와 `Next Step`을 렌더하고 exit 0으로 끝난다(`next` 명령의 `ready` 결과와 동일). `--dry-run`과
   `--write`를 동시에 주는 것은 여전히 거부된다.
+- **handoff `Next Step`이 워크플로를 설명한다.** `Handoff Prompt`는 CLI가 실행하는 게 아니라 저장소에서
+  연 코딩 에이전트(Claude Code/Codex)에 붙여넣는 지시문이며, 에이전트가 코드를 읽어 문서(도메인별
+  `domains/*.md` 포함)를 채우고 사람이 검토해 `verified`로 올린다는 3단계를 명시한다.
+- **`quickstart` 출력이 브라운필드를 인식한다.** skip 개수에 사유를 주석으로 단다(예:
+  `skipped: 18 (18 already exist, kept)`). 위키가 이미 있어 새로 만들 문서가 없으면 "도구가 아무것도 안
+  한 것"처럼 보이지 않도록, 기존 문서를 handoff 프롬프트로 보강하라(또는 `--existing overwrite`로
+  재생성)는 안내를 덧붙인다.
 
 ## 1.14.0 — 2026-07-16
 

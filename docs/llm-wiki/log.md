@@ -24,6 +24,26 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-20 - feat: handoff Next Step 명료화 + skipped/브라운필드 안내 (1.14.1에 fold-in)
+
+- status: needs_review
+- actor: Claude Code (사용자 Dowon-Kim 지시 — BE 개발자 추가 보고서 반영, "1.14.1에 접어넣기")
+- scope: src, tests, docs
+- changed:
+  - src/commands.js (`handoffNextStep` 헬퍼 + quickstart/handoff `Next Step`에 적용; `quickstartInitSummary` skip 사유 주석·브라운필드 안내)
+  - tests/verification.test.js (+1 UX 테스트)
+  - CHANGELOG.md/CHANGELOG.ko.md·releases/v1.14.1.md(1.14.1 항목에 UX 2건 추가), doc-sync: ARCHITECTURE_CONVENTIONS·DOMAIN_FEATURES(1.14.1 review note + handoff 기능 서술 확장, reviewed_at 2026-07-20 유지)
+- summary:
+  - BE 개발자 노출 보고서: 도구가 원하는 도메인 문서(hazard/customer/road_scan)를 이미 스캐폴드하고 handoff 프롬프트가 이미 그 보강을 지시하는데도, 출력이 그 가치를 전달하지 못해 "프롬프트를 실행하는 게 목적인가?"라는 워크플로 혼란이 발생. 기능이 아니라 **출력 명료화** 문제로 진단.
+  - (가) handoff `Next Step`이 "Handoff Prompt는 CLI가 실행하는 게 아니라 코딩 에이전트에 붙여넣는 지시문"임을 3단계(붙여넣기→코드 근거 보강[도메인별 domains/*.md 포함]→사람 검토·verified)로 설명. `handoff.message`(프로그래매틱 필드)는 불변으로 첫 줄 보존(계약 안정).
+  - (나) `quickstart` 출력이 브라운필드 인식: skip 개수에 `(N already exist, kept)` 주석, 새로 만들 문서가 없으면 기존 문서를 handoff로 보강하라는 안내(“도구가 아무것도 안 한 것”처럼 보이지 않게).
+  - 검증: node --test 221 통과(신규 1), validate result:pass 0 findings, strict pass. 실제 CLI로 fresh/브라운필드 출력 확인.
+- evidence:
+  - src/commands.js
+- caveats:
+  - 도메인 감지 (다)[버전 디렉터리 `app/api/v2/*.py`가 `endpoints/` 없이 직접 놓인 경우]는 BE 개발자에게 실제 레이아웃 확인 후 결정하기로 보류.
+  - 배포(태그 push→npm)는 사용자의 명시적 "배포" 지시 대기. 이 UX 2건은 미배포 1.14.1에 fold-in.
+
 ## 2026-07-20 - release: prepare 1.14.1 (exposure-test fix batch) + doc-sync
 
 - status: needs_review

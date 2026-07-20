@@ -3528,3 +3528,23 @@ test("init and quickstart with no mode flag read as Ready, not Blocked (P1 renam
   assert.equal(conflict.result, "blocked");
 });
 
+test("quickstart Next Step explains the prompt is for the agent, and brownfield reads clearly (1.14.1 UX)", async () => {
+  const cwd = await makeProject("quickstart-ux-");
+  await writeJson(path.join(cwd, "package.json"), { dependencies: { fastify: "^4.0.0" } });
+
+  // First write scaffolds the wiki.
+  const first = await quickstartCommand({ cwd, dryRun: false, write: true, minimal: true, withAdapters: false, type: "backend", profiles: [], agents: [], existing: "skip" });
+  assert.equal(first.result, "pass");
+  // (가) The Next Step spells out that the Handoff Prompt goes to a coding agent, not the CLI.
+  assert.ok(first.text.includes("실행 방법"), "Next Step carries a concrete run guide");
+  assert.ok(first.text.includes("CLI가 실행하는 게 아니라"), "clarifies the CLI does not run the prompt");
+  assert.ok(first.text.includes("붙여넣"), "tells the user to paste the prompt into their agent");
+  // The short programmatic handoff.message is preserved (contract stable).
+  assert.ok(first.handoff.message.includes("넘어가서 아래 프롬프트를 실행하세요"));
+
+  // (나) A second run over the now-existing wiki: skipped is annotated and a brownfield note appears.
+  const second = await quickstartCommand({ cwd, dryRun: true, write: false, minimal: true, withAdapters: false, type: "backend", profiles: [], agents: [], existing: "skip" });
+  assert.match(second.text, /skipped: \d+ \(\d+ already exist, kept\)/, "skipped count is annotated with the reason");
+  assert.ok(second.text.includes("LLM-WIKI가 이미 있어"), "brownfield note points to enrichment, not re-creation");
+});
+

@@ -32,6 +32,15 @@ dependency added.
   (exit 2), which read as a failure. It now renders `Ready (needs --write)` with a
   `Next Step` and exits 0 (matching the `next` command's `ready` result). Requesting
   both `--dry-run` and `--write` at once is still rejected.
+- **The handoff `Next Step` now explains the workflow.** It spells out that the
+  `Handoff Prompt` is not run by the CLI but pasted into a coding agent (Claude Code /
+  Codex) opened in the repo — which then reads the code and fills in the docs
+  (including per-domain `domains/*.md`) for a human to review and mark `verified`.
+- **`quickstart` output is brownfield-aware.** The skipped count is annotated with its
+  reason (e.g. `skipped: 18 (18 already exist, kept)`), and when a wiki already exists
+  so nothing new is created, a note points to enriching the existing docs via the
+  handoff prompt (or re-scaffolding with `--existing overwrite`) instead of reading as
+  "the tool did nothing".
 
 ## 1.14.0 — 2026-07-16
 
