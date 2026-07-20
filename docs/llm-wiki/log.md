@@ -24,6 +24,44 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-21 - release: prepare 1.15.1 (스킬 생성 재시작 안내, dogfood) + doc-sync
+
+- status: needs_review
+- actor: Claude Code (사용자 Dowon-Kim 지시 — "스킬 아티팩트 유지한 채 릴리스, 문서 검토 완료")
+- scope: src, tests, docs, dogfood-artifacts
+- changed:
+  - (직전 feat 항목의 `src/commands.js`·tests·DOMAIN_FEATURES 변경 포함)
+  - package.json (1.15.0→1.15.1), tests/verification.test.js(버전 assertion), CHANGELOG.md/CHANGELOG.ko.md(1.15.1), docs/llm-wiki/releases/v1.15.1.md(신규)
+  - docs/llm-wiki/DOMAIN_FEATURES.md: 사람 검토 완료 → `needs_review`에서 `verified`로 재승인(reviewed_at 2026-07-21)
+  - dogfood: `.claude/skills/`·`.cursor/rules/`·`.llm-wiki/prompts/`(llm-wiki-feature/fix/docs-sync 9개)를 저장소에 커밋해 추적 — 이 패키지가 자기 스킬을 dogfood. npm `files` allowlist 밖이라 패키지엔 미포함.
+- summary:
+  - 1.15.0 스킬 생성의 온보딩 마찰(생성 직후 `/llm-wiki-*`가 "unknown" — Claude Code는 세션 시작 시 스킬 로드)을 도구 자신의 `/llm-wiki-feature` 스킬로 고쳐 1.15.1로 릴리스. `init`/`quickstart --write`가 스킬 생성 시에만 이중언어 재시작 안내를 출력.
+  - 사용자 결정: 스킬 아티팩트는 "패키지 성능·개편"을 위해 유지(dogfood 커밋).
+- evidence:
+  - src/commands.js
+  - package.json
+- caveats:
+  - 배포 후 package.json/commands.js를 인용하는 verified 문서의 per-release evidence.stale는 baseline-refresh로 해소(관례).
+
+## 2026-07-21 - feat: 스킬 생성 후 "에이전트 재시작 필요" 안내 (/llm-wiki-feature 스킬로 실행)
+
+- status: needs_review
+- actor: Claude Code (사용자 Dowon-Kim이 `/llm-wiki-feature` 스킬로 실행 — 1.15.0 스킬 dogfood)
+- scope: src, tests, docs
+- changed:
+  - src/commands.js (`SKILL_RELOAD_NOTE` 상수 + `initWrite`의 Summary에 조건부 안내[스킬 실제 생성 시만] + payload `skillsCreated` + `quickstartInitSummary` 동일 반영)
+  - tests/verification.test.js (재시작 안내 표시/미표시 테스트 추가)
+  - docs/llm-wiki/DOMAIN_FEATURES.md ("스킬 생성" 기능에 재시작 요건 반영 + 에이전트 편집이라 `verified`→`needs_review` 강등)
+- summary:
+  - Claude Code는 스킬을 세션 시작 시점에만 로드(hot-reload 아님)하므로, `--skills`로 갓 생성한 스킬은 에이전트 재시작 전까지 `/llm-wiki-*`가 "unknown"으로 보인다. 이를 도구가 스스로 안내하도록, `init`/`quickstart --write`가 스킬을 실제로 생성했을 때만 이중언어(KO+EN) 재시작 안내 한 줄을 출력에 추가했다.
+  - 실사용 마찰(사용자가 직접 겪음) 기반 개선. 스킬을 요청하지 않은 실행은 출력 불변.
+- evidence:
+  - src/commands.js
+- caveats:
+  - `/llm-wiki-feature` 스킬(에이전트)로 수행한 작업 — DOMAIN_FEATURES는 `needs_review`로 남으며 사람 재검토 대기. verified 승격은 하지 않았다.
+  - 아직 릴리스 아님(버전 미변경). 유지관리자가 검토 후 패치(예: 1.15.1)로 낼지 결정.
+  - node --test / validate 결과는 아래 워크플로 마지막 단계에서 기록.
+
 ## 2026-07-20 - release: prepare 1.15.0 (스킬 생성, Gate 21) + doc-sync
 
 - status: needs_review

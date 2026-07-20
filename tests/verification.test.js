@@ -2533,7 +2533,7 @@ test("package metadata targets npmjs public publish without committed tokens", a
   const packageJson = JSON.parse(await readFile(path.join(process.cwd(), "package.json"), { encoding: "utf8" }));
 
   assert.equal(packageJson.name, "@dowonk-7949/llm-wiki-standard");
-  assert.equal(packageJson.version, "1.15.0");
+  assert.equal(packageJson.version, "1.15.1");
   assert.equal(packageJson.private, false);
   assert.equal(packageJson.publishConfig, undefined);
   assert.equal(packageJson.repository.url, "git+https://github.com/Dowon-Kim7949/llm-wiki-standard.git");
@@ -3678,3 +3678,26 @@ test("skill generation: off unless requested, and never overwrites (1.15.0)", as
   assert.ok(result.skipped.some((l) => l.includes("llm-wiki-feature/SKILL.md") && l.includes("kept existing")), "skip is noted");
 });
 
+
+test("skill generation surfaces a restart-required note only when skills are created (1.15.x)", async () => {
+  // With skills: the bilingual restart note appears and skillsCreated is set.
+  const on = await makeProject("skill-note-on-");
+  await writeJson(path.join(on, "package.json"), { dependencies: { fastify: "^4.0.0" } });
+  const withSkills = await initCommand({ cwd: on, write: true, minimal: true, withAdapters: false, skills: true, type: "backend", profiles: [], agents: [], existing: "skip" });
+  assert.ok(withSkills.skillsCreated > 0, "skillsCreated reflects generated skills");
+  assert.ok(withSkills.text.includes("재시작") && withSkills.text.includes("restart your coding agent"), "bilingual restart note shown");
+  assert.ok(withSkills.text.includes("session start"), "explains skills load at session start, not hot-reload");
+
+  // Without skills: no note, skillsCreated falsy.
+  const off = await makeProject("skill-note-off2-");
+  await writeJson(path.join(off, "package.json"), { dependencies: { fastify: "^4.0.0" } });
+  const noSkills = await initCommand({ cwd: off, write: true, minimal: true, withAdapters: false, type: "backend", profiles: [], agents: ["codex"], existing: "skip" });
+  assert.ok(!(noSkills.skillsCreated > 0), "no skills created without --skills / claude|cursor");
+  assert.ok(!noSkills.text.includes("restart your coding agent"), "no restart note when no skills were created");
+
+  // quickstart surfaces it too (it runs init).
+  const qs = await makeProject("skill-note-qs-");
+  await writeJson(path.join(qs, "package.json"), { dependencies: { fastify: "^4.0.0" } });
+  const quick = await quickstartCommand({ cwd: qs, dryRun: false, write: true, minimal: true, withAdapters: false, skills: true, type: "backend", profiles: [], agents: [], existing: "skip" });
+  assert.ok(quick.text.includes("재시작") && quick.text.includes("session start"), "quickstart shows the restart note");
+});

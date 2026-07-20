@@ -6,11 +6,11 @@ tags:
 status: verified
 doc_type: domain_overview
 project: llm-wiki-standard
-last_updated: 2026-07-20
+last_updated: 2026-07-21
 author: cli-generated
 last_edited_by: Claude Code
 reviewed_by: Dowon-Kim
-reviewed_at: 2026-07-20
+reviewed_at: 2026-07-21
 wiki_block_version: v1
 source_files:
   - src/commands.js
@@ -62,7 +62,7 @@ contains_sensitive_info: false
 - **enrichment 신호** — placeholder만 남은 미보강 문서를 `content.not_enriched`로 표시해 "빈 스캐폴드가 통과"하는 것을 막는다.
 - **지식 그래프** — `wikiGraph`가 문서→문서 엣지(wiki/related/markdown 링크)·미해결 개념·별칭·고아 문서를 집계한다. `llm-wiki graph`가 이를 text/JSON/Mermaid/DOT로 내보내고, `llm-wiki stats`가 헬스 스코어(verified%/enrichment%/evidence coverage/staleness)를 보고한다. `--format html` 대시보드에는 탐색용 Document Index가 있다.
 - **에이전트 인수인계** — `handoff`/`prompt`가 코드 근거로 문서를 보강하도록 유도하는 반복 프롬프트를 출력한다. 1.14.1부터 `handoff` 진입점은 명시적으로 선택된 에이전트의 어댑터 파일만 나열하고, 미선택 시 `docs/llm-wiki/index.md`만 가리켜 setup이 생성하지 않은 `AGENTS.md`/`CLAUDE.md`를 먼저 읽으라고 하지 않는다. 같은 1.14.1에서 `Next Step`이 "이 프롬프트는 CLI가 실행하는 게 아니라 코딩 에이전트(Claude Code/Codex)에 붙여넣는 지시문"임을 3단계(붙여넣기→코드 근거 보강→사람 검토·verified)로 설명하도록 명료화했다.
-- **스킬 생성(자동화 프롬프트)** — 1.15부터 `init`/`quickstart`이 `feature`/`fix`/`docs-sync` 위키-그라운디드 워크플로를 각 에이전트 네이티브 형식의 **호출 가능한 아티팩트**로 생성한다: Claude 스킬(`.claude/skills/llm-wiki-<task>/SKILL.md`, `/llm-wiki-feature`로 호출)·Cursor 룰(`.cursor/rules/llm-wiki-<task>.mdc`)·에이전트-중립 프롬프트(`.llm-wiki/prompts/llm-wiki-<task>.md`, Codex 등). 각 본문은 `src/task-prompts.js` 워크플로를 재사용하고 프로젝트 **도메인 맵**(`docs/llm-wiki/domains/` 스냅샷)을 주입해 에이전트가 어떤 문서를 먼저 읽을지 즉시 알게 한다. `--skills` 또는 `--agent claude|cursor`로 opt-in, preview-first, 기존 파일 미덮어씀, **recognize-don't-run**(도구는 생성만, 실행은 에이전트), needs_review 규율 본문 내장. 생성한 위키가 실제 기능 작업에 쓰이도록 하는 진입점이다. 근거: `src/commands/skills.js#symbol:writeSkillArtifacts`, 범위는 `GATE_REVIEW.md`(Gate 21, accepted).
+- **스킬 생성(자동화 프롬프트)** — 1.15부터 `init`/`quickstart`이 `feature`/`fix`/`docs-sync` 위키-그라운디드 워크플로를 각 에이전트 네이티브 형식의 **호출 가능한 아티팩트**로 생성한다: Claude 스킬(`.claude/skills/llm-wiki-<task>/SKILL.md`, `/llm-wiki-feature`로 호출)·Cursor 룰(`.cursor/rules/llm-wiki-<task>.mdc`)·에이전트-중립 프롬프트(`.llm-wiki/prompts/llm-wiki-<task>.md`, Codex 등). 각 본문은 `src/task-prompts.js` 워크플로를 재사용하고 프로젝트 **도메인 맵**(`docs/llm-wiki/domains/` 스냅샷)을 주입해 에이전트가 어떤 문서를 먼저 읽을지 즉시 알게 한다. `--skills` 또는 `--agent claude|cursor`로 opt-in, preview-first, 기존 파일 미덮어씀, **recognize-don't-run**(도구는 생성만, 실행은 에이전트), needs_review 규율 본문 내장. 생성한 위키가 실제 기능 작업에 쓰이도록 하는 진입점이다. **재시작 요건**: Claude Code는 스킬을 세션 시작 시점에 로드(hot-reload 아님)하므로, 갓 생성한 스킬은 에이전트를 재시작해야 `/llm-wiki-*`로 나타난다 — 이 때문에 생성 직후 명령이 "unknown"으로 보일 수 있어, `init`/`quickstart` 출력이 스킬을 실제로 만들었을 때만 재시작 안내 한 줄을 표시한다. 근거: `src/commands/skills.js#symbol:writeSkillArtifacts`(생성), `src/commands.js#symbol:quickstartInitSummary`(재시작 안내), 범위는 `GATE_REVIEW.md`(Gate 21, accepted).
 - **범위 한정 자동수정(`fix`)** — `fix`가 승인된 좁은 범위의 안전한 수정만 적용한다: 누락 Tier A frontmatter 필드 삽입, frontmatter `evidence` 기준 본문 `## Evidence` 섹션 보완, 깨진 related/markdown 링크에 대한 `needs_review` 스텁 생성, 수정 문서의 `last_updated` 갱신. 기본은 미리보기이고 `--write` 시에만 쓴다. `verified` 문서 내용·`docs/llm-wiki/` 밖 파일·`source_files`/`evidence` 값·Tier B 필드(title/doc_type/project/author)·미보강 내용은 건드리지 않는다. 근거: `src/commands/fix-migrate.js#symbol:fixCommand`, 범위 결정은 `GATE_REVIEW.md`.
 - **OKF v0.1 호환** — `--profile okf-v0.1`로 `type`/`aliases`/`tags`와 wiki 링크를 검증한다. 코어 검증도 OKF `type`를 필수 `doc_type`의 부가적 alias로 수용한다(1.3).
 - **프로그래매틱 API** — CLI를 spawn하지 않고 패키지를 import해 명령을 in-process로 실행한다. `package.json` `exports`(`src/index.js`)가 동결된 `commands` 맵(CLI 표면과 1:1)·개별 함수 export·`normalizeOptions`(옵션 정규화)·`parseArgs`/`run`·`SCHEMA_VERSION`을 공개한다. `--format json` 출력에는 계약 pin용 `schemaVersion` 부가 필드가 붙는다(단일 소스 `src/config.js#JSON_SCHEMA_VERSION`, 기존 필드 불변). 근거: `src/index.js#symbol:commands`, 계약은 `docs/llm-wiki/PUBLIC_API.md`(Programmatic API).
@@ -133,3 +133,4 @@ contains_sensitive_info: false
 - 2026-07-20에 1.14.3 온보딩 오리엔테이션(두 번째 노출 보고서)을 반영했다: `llm-wiki`/`--help`에 이중언어(KO+EN) "무엇/왜/3단계 흐름" 헤더 + 버전·`@latest` 팁, `quickstart` 출력의 `About · 소개` 라인을 추가했다(사용자-대면 텍스트 이중언어화; finding ID는 영문 유지). 프레젠테이션 변경이라 기능 목록은 불변으로 두고 이 노트로 갈음한다. 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-20)를 거쳐 `verified`로 재승인했다.
 - 2026-07-20에 1.14.4 도메인 감지 수정을 반영했다: virtualenv/site-packages를 도메인 스캔에서 확실히 배제(`pyvenv.cfg` 마커 디렉터리 통째 스킵 + `site-packages`/`dist-packages` + 버전형 `venv*`/`env<N>` 이름)한 것을 "초기 문서 생성" 기능에 기술했다 — 설치 의존성(passlib `handlers/`, boto3 `resources/`)이 도메인으로 오탐되어 빈 문서를 대량 생성하던 버그 교정. 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-20)를 거쳐 `verified`로 재승인했다.
 - 2026-07-20에 1.15.0 스킬 생성(Gate 21, accepted)을 반영했다: `init`/`quickstart`이 feature/fix/docs-sync 위키-그라운디드 자동화 프롬프트를 Claude 스킬·Cursor 룰·중립 프롬프트로 생성하고 도메인 맵을 주입하는 \"스킬 생성\" 기능과 Evidence(`writeSkillArtifacts`)를 추가했다. 코드에 맞춰 문서를 수정한 뒤 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-20)를 거쳐 `verified`로 재승인했다.
+- 2026-07-21에 `/llm-wiki-feature` 스킬(에이전트 실행)로 "스킬 생성 후 재시작 요건 안내" 기능 작업을 하며 이 "스킬 생성" 설명을 갱신했다(재시작 요건 추가). 에이전트가 편집한 직후엔 `status`를 `needs_review`로 강등했으나(에이전트는 verified 승격 불가), 이후 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-21)를 거쳐 `verified`로 재승인했다 — 이 재검토·재승인은 1.15.1 릴리스의 일부다.

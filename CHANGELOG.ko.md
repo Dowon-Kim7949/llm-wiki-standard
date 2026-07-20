@@ -5,6 +5,18 @@
 `@dowonk-7949/llm-wiki-standard`의 주요 변경 사항을 기록합니다. 이 프로젝트는
 [유의적 버전(Semantic Versioning)](https://semver.org/)을 따르며, 항목은 최신순입니다.
 
+## 1.15.1 — 2026-07-21
+
+스킬 생성 온보딩 수정 — dogfood: 이 변경은 도구 자신의 `/llm-wiki-feature` 스킬을 자기 자신에게
+실행해서 만들었다. 명령·옵션·`--format json`·frontmatter 계약 불변, 런타임 의존성 추가 없음.
+
+### Changed
+
+- **`init`/`quickstart --write`가 스킬을 생성하면 재시작 안내를 출력한다.** Claude Code는 스킬을
+  세션 시작 시점에 로드(hot-reload 아님)하므로, 갓 생성한 스킬의 `/llm-wiki-*` 명령은 에이전트를
+  재시작하기 전까지 "unknown"으로 보인다. 이 이중언어 한 줄 안내는 스킬을 실제로 만들었을 때만
+  표시되어, 사용자가 새 명령이 왜 안 보이는지 헤매지 않게 한다.
+
 ## 1.15.0 — 2026-07-20
 
 스킬 생성(Gate 21) — feature/fix/docs-sync 작업용 위키-그라운디드 자동화 프롬프트. 생성한 위키가

@@ -1053,6 +1053,10 @@ async function initWrite(options, detection, agents, candidates, domainContext =
       : "pass";
   const reassurance = [
     `${created.length} created, ${overwritten.length} overwritten, ${skipped.length} kept (existing files preserved${options.existing === "overwrite" ? "" : "; --existing skip"}).`,
+    // Claude Code discovers skills at session start (not hot-reload), so a freshly
+    // generated skill is invisible until the agent restarts — surface that only when
+    // a skill was actually created, or users hit an "unknown command" surprise.
+    ...(skillWrites.created.length > 0 ? [SKILL_RELOAD_NOTE] : []),
     ...(outputIgnored ? ["WARNING: docs/llm-wiki is gitignored — created docs will not be tracked by git (git add -f docs/llm-wiki or edit .gitignore)."] : [])
   ];
 
@@ -1067,6 +1071,7 @@ async function initWrite(options, detection, agents, candidates, domainContext =
     created,
     overwritten,
     skipped,
+    skillsCreated: skillWrites.created.length,
     findings
   }, "LLM-WIKI Init Write", [
     { title: "Detected Project", body: [`type: ${detection.projectType}`, `confidence: ${detection.confidence}`] },
@@ -1532,6 +1537,11 @@ function statusNextSteps(initialized, counts, findings, agents) {
   return steps;
 }
 
+// Shown after skill artifacts are generated. Claude Code discovers skills at session
+// start (not hot-reload), so a freshly written skill stays invisible — and its
+// /llm-wiki-* command reads as "unknown" — until the agent is restarted.
+const SKILL_RELOAD_NOTE = "새 스킬은 코딩 에이전트를 재시작해야 나타납니다 — Claude Code는 세션 시작 시 .claude/skills/를 로드합니다(hot-reload 아님). · New skills appear only after you restart your coding agent — Claude Code loads .claude/skills/ at session start (not hot-reload).";
+
 function quickstartInitSummary(initResult) {
   const lines = [];
   if (initResult.result) lines.push(`result: ${initResult.result}`);
@@ -1559,6 +1569,9 @@ function quickstartInitSummary(initResult) {
   }
   if (initResult.findings?.some((finding) => finding.rule === "structure.output_gitignored")) {
     lines.push("WARNING: docs/llm-wiki가 gitignore되어 생성 문서가 git에 추적되지 않습니다 — git add -f docs/llm-wiki 또는 .gitignore 수정.");
+  }
+  if (initResult.skillsCreated > 0) {
+    lines.push(SKILL_RELOAD_NOTE);
   }
   return lines;
 }

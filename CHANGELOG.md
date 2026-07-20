@@ -5,6 +5,20 @@
 All notable changes to `@dowonk-7949/llm-wiki-standard` are documented here. This
 project follows [Semantic Versioning](https://semver.org/). Entries are newest-first.
 
+## 1.15.1 — 2026-07-21
+
+Skill-generation onboarding fix — dogfooded: this change was made by running the tool's
+own `/llm-wiki-feature` skill on itself. No command, option, `--format json`, or
+frontmatter contract change; no runtime dependency added.
+
+### Changed
+
+- **`init`/`quickstart --write` now prints a restart-required note when it generates
+  skills.** Claude Code discovers skills at session start (not hot-reload), so a freshly
+  generated skill's `/llm-wiki-*` command reads as "unknown" until the agent is
+  restarted. The note (bilingual, one line) is shown only when a skill was actually
+  created, so users are not left guessing why the new command is missing.
+
 ## 1.15.0 — 2026-07-20
 
 Skill generation (Gate 21) — wiki-grounded automation prompts for feature/fix/docs-sync
