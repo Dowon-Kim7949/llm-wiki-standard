@@ -3456,3 +3456,75 @@ ${evidence.map((item) => `- ${item}`).join("\n")}
 `;
 }
 
+// ---- P0/P1 exposure-test fixes ----------------------------------------
+
+test("detects UTF-16/UTF-8-BOM manifests as backend, not mis-typed as library (P0 bug A)", async () => {
+  // A framework manifest saved with a byte-order mark. Read as plain UTF-8 the
+  // bytes become mojibake, the framework keyword is missed, and Python falls back
+  // to `library`. The BOM-aware manifest reader decodes it correctly -> `backend`.
+  const text = "fastapi==0.110.0\nuvicorn==0.29.0\n";
+
+  // UTF-16LE + BOM (FF FE) — how Windows tools (e.g. PowerShell `>` redirection) save text.
+  const leCwd = await makeProject("utf16le-manifest-");
+  await writeFile(path.join(leCwd, "requirements.txt"), Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(text, "utf16le")]));
+
+  // UTF-16BE + BOM (FE FF) — exercises the byte-swap decode path (swap16 turns the
+  // LE bytes, BOM included, into their BE order).
+  const beBuffer = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(text, "utf16le")]);
+  beBuffer.swap16();
+  const beCwd = await makeProject("utf16be-manifest-");
+  await writeFile(path.join(beCwd, "requirements.txt"), beBuffer);
+
+  // UTF-8 + BOM (EF BB BF).
+  const utf8BomCwd = await makeProject("utf8bom-manifest-");
+  await writeFile(path.join(utf8BomCwd, "requirements.txt"), Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(text, "utf8")]));
+
+  for (const cwd of [leCwd, beCwd, utf8BomCwd]) {
+    const result = await initCommand({ cwd, dryRun: true, minimal: false, withAdapters: false, type: null, profiles: [], agents: [] });
+    assert.equal(result.detection.projectType, "backend");
+    assert.deepEqual(result.detection.ecosystems, ["python"]);
+    assert.equal(result.detection.primaryManifest, "requirements.txt");
+  }
+});
+
+test("quickstart handoff prompt never points at adapter files it did not create (P0 bug B)", async () => {
+  // No --agent: quickstart --write creates no adapter files, so the handoff prompt
+  // must not open by telling the receiving agent to read a non-existent AGENTS.md.
+  const noAgentCwd = await makeProject("handoff-noagent-");
+  await writeJson(path.join(noAgentCwd, "package.json"), { dependencies: { fastify: "^4.0.0" } });
+  const noAgent = await quickstartCommand({ cwd: noAgentCwd, dryRun: false, write: true, minimal: true, withAdapters: false, type: "backend", profiles: [], agents: [], existing: "skip" });
+
+  assert.equal(noAgent.result, "pass");
+  assert.ok(noAgent.handoff.prompt.includes("docs/llm-wiki/index.md"), "the wiki index stays the reliable entrypoint");
+  assert.ok(!noAgent.handoff.prompt.includes("AGENTS.md"), "does not reference an uncreated AGENTS.md");
+  assert.ok(!noAgent.handoff.prompt.includes("CLAUDE.md"), "does not reference an uncreated CLAUDE.md");
+  assert.equal(await fileExists(path.join(noAgentCwd, "AGENTS.md")), false, "AGENTS.md was indeed never created");
+
+  // With an explicit --agent codex, init creates AGENTS.md, so naming it is correct.
+  const codexCwd = await makeProject("handoff-codex-");
+  await writeJson(path.join(codexCwd, "package.json"), { dependencies: { fastify: "^4.0.0" } });
+  const codex = await quickstartCommand({ cwd: codexCwd, dryRun: false, write: true, minimal: true, withAdapters: false, type: "backend", profiles: [], agents: ["codex"], existing: "skip" });
+  assert.ok(codex.handoff.prompt.includes("AGENTS.md"), "explicit --agent codex still names AGENTS.md");
+  assert.equal(await fileExists(path.join(codexCwd, "AGENTS.md")), true, "and the file it names exists");
+});
+
+test("init and quickstart with no mode flag read as Ready, not Blocked (P1 rename)", async () => {
+  const cwd = await makeProject("no-mode-flag-");
+
+  const init = await initCommand({ cwd, minimal: false, withAdapters: false, type: null, profiles: [], agents: [] });
+  assert.equal(init.result, "ready");
+  assert.ok(!init.findings?.some((finding) => finding.severity === "blocked"), "no blocked finding");
+  assert.ok(init.text.includes("Ready (needs --write)"), "title reframed as Ready");
+  assert.ok(!/^#.*Blocked\s*$/m.test(init.text), "no 'Blocked' banner");
+  assert.ok(init.text.includes("init --write"), "still tells the user how to proceed");
+
+  const quickstart = await quickstartCommand({ cwd, minimal: false, withAdapters: false, type: null, profiles: [], agents: [] });
+  assert.equal(quickstart.result, "ready");
+  assert.ok(quickstart.text.includes("Ready (needs --write)"));
+  assert.ok(quickstart.text.includes("quickstart --write"));
+
+  // The genuine misuse (both modes requested at once) stays a hard Blocked error.
+  const conflict = await quickstartCommand({ cwd, dryRun: true, write: true, minimal: false, withAdapters: false, type: null, profiles: [], agents: [] });
+  assert.equal(conflict.result, "blocked");
+});
+

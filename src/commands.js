@@ -78,6 +78,7 @@ import {
   blockVersionGapDocs,
   blockedApply,
   buildUpgradeReport,
+  needsWriteFlag,
   runMechanicalRemediation
 } from "./commands/fix-migrate.js";
 export { detectDomainDirectories, domainDisplayName, normalizeDomainSlug, planDomainDocs } from "./commands/domains.js";
@@ -667,7 +668,7 @@ export async function quickstartCommand(options) {
   }
 
   if (!options.dryRun && !options.write) {
-    return blockedApply("quickstart", "Use quickstart --dry-run to preview setup or quickstart --write to create missing LLM-WIKI files and print the Codex/Claude Code handoff prompt.");
+    return needsWriteFlag("quickstart", "Preview the setup with quickstart --dry-run, or run quickstart --write to create the missing LLM-WIKI files and print the Codex/Claude Code handoff prompt.");
   }
 
   const doctorResult = await doctor(options);
@@ -880,7 +881,7 @@ export async function initCommand(options) {
     return initWrite(options, detection, agents, candidates, domainContext);
   }
 
-  return blockedApply("init", "Use init --dry-run to preview changes or init --write to create missing LLM-WIKI files. Existing wiki docs default to --existing skip.");
+  return needsWriteFlag("init", "Preview the changes with init --dry-run, or run init --write to create the missing LLM-WIKI files. Existing wiki docs are kept (--existing skip by default).");
 }
 
 async function initDryRun(options, detection, agents, candidates) {
@@ -1529,7 +1530,14 @@ function buildHandoff(options, detection = null) {
     message: `${agent} handoff is not available because the adapter contract is unconfirmed.`
   }));
   const label = handoffLabel(supportedAgents);
-  const entrypoints = handoffEntrypoints(supportedAgents);
+  // Only name adapter files for agents the caller explicitly selected. Without an
+  // explicit --agent, init/quickstart create no adapter files, so defaulting the
+  // entrypoint to codex+claude would tell the receiving agent to first read an
+  // AGENTS.md/CLAUDE.md that was never created. The wiki index always exists after
+  // setup, so it stays the reliable anchor. An explicit --agent still names that
+  // agent's adapter file (the caller committed to that tool's convention).
+  const entrypointAgents = agents.length > 0 ? supportedAgents : [];
+  const entrypoints = handoffEntrypoints(entrypointAgents);
   const unsupportedNote = unsupportedAgents.length > 0
     ? ` ${unsupportedAgents.join(", ")} handoff는 adapter contract가 확정되지 않아 아직 지원하지 않습니다.`
     : "";

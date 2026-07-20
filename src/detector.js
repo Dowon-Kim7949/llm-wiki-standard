@@ -1,7 +1,7 @@
 import path from "node:path";
 import { readdir } from "node:fs/promises";
 import { pathExists } from "./files.js";
-import { readUtf8 } from "./encoding.js";
+import { readTextAuto } from "./encoding.js";
 
 const KNOWN_PROFILES = new Set(["frontend", "backend", "fullstack", "library", "mobile", "infra", "mixed", "unknown", "okf-v0.1"]);
 
@@ -17,7 +17,7 @@ export async function detectWorkspaces(cwd) {
   let patterns = null;
   if (await pathExists(packagePath)) {
     try {
-      const pkg = JSON.parse(await readUtf8(packagePath));
+      const pkg = JSON.parse(await readTextAuto(packagePath));
       if (Array.isArray(pkg.workspaces)) patterns = pkg.workspaces;
       else if (pkg.workspaces && Array.isArray(pkg.workspaces.packages)) patterns = pkg.workspaces.packages;
     } catch {
@@ -67,7 +67,7 @@ export async function detectProject(cwd, explicitType, explicitProfiles = []) {
 
   if (await pathExists(packagePath)) {
     try {
-      packageJson = JSON.parse(await readUtf8(packagePath));
+      packageJson = JSON.parse(await readTextAuto(packagePath));
       signals.push({ path: "package.json", reason: "package manifest detected" });
     } catch {
       signals.push({ path: "package.json", reason: "package manifest exists but could not be parsed" });
@@ -325,7 +325,7 @@ async function findKubernetesManifest(cwd) {
     for (const entry of sorted) {
       if (!entry.isFile() || !/\.ya?ml$/i.test(entry.name)) continue;
       try {
-        if (looksK8s(await readUtf8(path.join(absDir, entry.name)))) {
+        if (looksK8s(await readTextAuto(path.join(absDir, entry.name)))) {
           return relDir ? `${relDir}/${entry.name}` : entry.name;
         }
       } catch {
@@ -421,7 +421,7 @@ async function anySourceMatches(cwd, extMatch, contentTest, { maxDepth = 4, maxF
       if (filesRead >= maxFiles) return false;
       filesRead += 1;
       try {
-        if (contentTest(await readUtf8(path.join(dir, entry.name)))) return true;
+        if (contentTest(await readTextAuto(path.join(dir, entry.name)))) return true;
       } catch {
         // unreadable — skip
       }
@@ -496,7 +496,7 @@ async function findProjectByExtension(cwd, extensions, maxDepth = 3) {
   if (!absHit) return null;
   const relName = path.relative(cwd, absHit).split(path.sep).join("/");
   try {
-    return { name: relName, content: await readUtf8(absHit) };
+    return { name: relName, content: await readTextAuto(absHit) };
   } catch {
     return { name: relName, content: "" };
   }
@@ -507,7 +507,7 @@ async function readFirstManifest(cwd, names) {
     const filePath = path.join(cwd, name);
     if (await pathExists(filePath)) {
       try {
-        return { name, content: await readUtf8(filePath) };
+        return { name, content: await readTextAuto(filePath) };
       } catch {
         return { name, content: "" };
       }

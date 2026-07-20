@@ -41,6 +41,19 @@ export function blockedApply(command, message) {
   }, `LLM-WIKI ${command} Blocked`, [{ title: "Blocked", body: [message] }]);
 }
 
+// Presented when init/quickstart runs with neither --dry-run nor --write. This is
+// not a failure — the tool is simply waiting for a mode — so it reads as guidance
+// ("Ready (needs --write)") with no blocked finding, rather than a "Blocked"
+// banner that first-time users mistake for an error. result:"ready" → exit 0
+// (see cli.js exitCodeFor), matching the established `next` command convention.
+export function needsWriteFlag(command, message) {
+  return withText({
+    command,
+    result: "ready",
+    findings: []
+  }, `LLM-WIKI ${command} — Ready (needs --write)`, [{ title: "Next Step", body: [message] }]);
+}
+
 // ---- wiki_block_version upgrade analysis --------------------------------
 // The migration engine compares each document's recorded wiki_block_version
 // against CURRENT_WIKI_BLOCK_VERSION to report the contract gap (read-only) and,
