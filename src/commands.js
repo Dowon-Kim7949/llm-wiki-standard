@@ -81,6 +81,7 @@ import {
   needsWriteFlag,
   runMechanicalRemediation
 } from "./commands/fix-migrate.js";
+import { planSkillArtifacts, writeSkillArtifacts } from "./commands/skills.js";
 export { detectDomainDirectories, domainDisplayName, normalizeDomainSlug, planDomainDocs } from "./commands/domains.js";
 export { driftTargets } from "./commands/scans.js";
 export { driftCommand, fixCommand } from "./commands/fix-migrate.js";
@@ -907,6 +908,10 @@ async function initDryRun(options, detection, agents, candidates) {
   planned.push(...adapterPlan.planned);
   skipped.push(...adapterPlan.skipped);
 
+  const skillPlan = await planSkillArtifacts(options.cwd, agents, detection, options);
+  planned.push(...skillPlan.planned);
+  skipped.push(...skillPlan.skipped);
+
   const configScaffold = await scaffoldProjectConfig(options.cwd, detection, agents, { write: false });
   planned.push(...configScaffold.planned);
   skipped.push(...configScaffold.skipped);
@@ -1011,6 +1016,10 @@ async function initWrite(options, detection, agents, candidates, domainContext =
   created.push(...adapterWrites.created);
   skipped.push(...adapterWrites.skipped);
   blocked.push(...adapterWrites.blocked);
+
+  const skillWrites = await writeSkillArtifacts(options.cwd, agents, detection, options);
+  created.push(...skillWrites.created);
+  skipped.push(...skillWrites.skipped);
 
   const configScaffold = await scaffoldProjectConfig(options.cwd, detection, agents, { write: true });
   created.push(...configScaffold.created);

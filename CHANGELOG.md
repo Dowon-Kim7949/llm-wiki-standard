@@ -5,6 +5,30 @@
 All notable changes to `@dowonk-7949/llm-wiki-standard` are documented here. This
 project follows [Semantic Versioning](https://semver.org/). Entries are newest-first.
 
+## 1.15.0 — 2026-07-20
+
+Skill generation (Gate 21) — wiki-grounded automation prompts for feature/fix/docs-sync
+work, so a generated wiki actually gets USED. Additive and opt-in; existing commands,
+`--format json`, and the frontmatter contract are unchanged, and no runtime dependency
+is added.
+
+### Added
+
+- **`init`/`quickstart` can generate invocable, wiki-grounded automation prompts** for
+  the `feature`, `fix`, and `docs-sync` workflows, in each agent's native shape:
+  - Claude Code skill — `.claude/skills/llm-wiki-<task>/SKILL.md` (invoke as `/llm-wiki-feature`),
+  - Cursor rule — `.cursor/rules/llm-wiki-<task>.mdc`,
+  - agent-neutral prompt — `.llm-wiki/prompts/llm-wiki-<task>.md` (for Codex and any other agent).
+  Each body reuses the existing wiki-grounded workflow (read the wiki → ground the change
+  → update docs `needs_review` → append `log.md` → never auto-`verified`) and embeds a
+  generation-time snapshot of the project's **domain map** (from `docs/llm-wiki/domains/`),
+  so the agent immediately knows which docs to read for a change.
+- **A `--skills` flag** on `init`/`quickstart` requests the artifacts; they are also
+  emitted when the `claude` or `cursor` agent is selected. Opt-in and preview-first
+  (`--dry-run` lists what would be created); existing skill/rule/prompt files are never
+  overwritten. The tool only WRITES the artifacts — the agent runs them
+  (recognize-don't-run). A repository that does not request skills is byte-identical.
+
 ## 1.14.4 — 2026-07-20
 
 Domain-detection fix, from a maintainer review of a tester's output. No command,

@@ -70,7 +70,7 @@ contains_sensitive_info: false
 | `quickstart --dry-run\|--write` | doctor+init+frontmatter+handoff 프롬프트 | `--write` 시 |
 | `handoff` | Codex/Claude Code 인수인계 프롬프트 출력 | `--out` 시 |
 | `prompt --task <name>` | 반복 작업 프롬프트(feature/fix/refactor/docs-sync/okf-extract) | `--out` 시 |
-| `init --dry-run\|--write` | 누락 wiki 문서·선택 adapter 생성. backend/fullstack은 도메인별 문서(`domains/NN_<name>.md`)도 생성 | `--write` 시 |
+| `init --dry-run\|--write` | 누락 wiki 문서·선택 adapter 생성. backend/fullstack은 도메인별 문서(`domains/NN_<name>.md`)도 생성. 1.15부터 `--skills`(또는 `--agent claude\|cursor`)로 위키-그라운디드 자동화 프롬프트 아티팩트(Claude 스킬·Cursor 룰·중립 프롬프트, 도메인 맵 주입; opt-in·미덮어씀) 생성 | `--write` 시 |
 | `migrate [--apply]` | `wiki_block_version` 업그레이드 리포트 + 계획. `--apply`로 `fix` 범위 재사용해 문서를 현재 계약으로 올림(preview-first, `verified` 보존; GATE_REVIEW Gate 8) | `--apply` 시 |
 | `fix [--write]` | 승인된 범위의 안전한 자동수정(누락 Tier A frontmatter 필드, `## Evidence` 섹션 보완, 깨진 related/링크 `needs_review` 스텁, 수정 문서 `last_updated` 갱신). 기본은 미리보기 | `--write` 시 |
 | `drift [--downgrade]` | `verified` 문서의 `evidence.stale` 드리프트 리포트. `--downgrade`로 드리프트 문서를 `needs_review`로 강등(GATE_REVIEW Gate 9) | `--downgrade` 시 |
@@ -225,3 +225,4 @@ MCP 클라이언트 등록 예시:
 - 2026-07-15에 1.10.0 monorepo profile(Gate 14→15)을 반영했다: 명령 표면에 opt-in `monorepo` 명령(npm/yarn workspaces 감지 후 패키지별 validate 집계, additive `packages[]`, 단일 레포 출력 byte-identical)을 등재하고 Evidence에 `monorepoCommand`·`detectWorkspaces`를 추가했다. additive·opt-in. 사람 검토(reviewed_by: Dowon-Kim)를 거쳐 `verified`로 재승인했다.
 - 2026-07-16에 1.11.1 commands.js 모듈 분리(동작 보존 내부 리팩터)를 반영했다: 공개 CLI/프로그래매틱 API 표면은 byte-identical(동결 `commands` 맵·re-export 불변)이며, Evidence의 구현 심볼 포인터만 이동 모듈로 갱신했다(`fixCommand`→fix-migrate, `applyRuleConfig`/`withText`→findings, `scanThinBody`→scans). 코드에 맞춰 문서를 수정한 뒤 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-16)를 거쳐 `verified`로 재승인했다.
 - 2026-07-20에 1.14.1 노출-테스트 fix 배치를 검토했다: 공개 CLI/프로그래매틱 API 표면은 불변이다 — exit code 의미(`0`/`1`/`2`/`3`)와 `result` 필드 열거(개방형)가 그대로라 no-flag `init`/`quickstart`의 `ready`(exit 0) 리네임과 모순되지 않는다. 내용 불변으로 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-20) 후 review baseline을 갱신해 `evidence.stale`을 해소했다.
+- 2026-07-20에 1.15.0 스킬 생성(Gate 21)을 반영했다: `init`/`quickstart`에 부가 옵션 `--skills`를 추가하고(위키-그라운디드 자동화 프롬프트 아티팩트 생성; `--agent claude\|cursor`로도 트리거) command 표에 기술했다. additive(옵션 미사용 시 표면·출력 불변), 동결 프로그래매틱 API 맵·`--format json` 형태 불변. 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-20)를 거쳐 `verified`로 재승인했다.

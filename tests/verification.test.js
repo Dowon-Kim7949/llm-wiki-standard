@@ -2533,7 +2533,7 @@ test("package metadata targets npmjs public publish without committed tokens", a
   const packageJson = JSON.parse(await readFile(path.join(process.cwd(), "package.json"), { encoding: "utf8" }));
 
   assert.equal(packageJson.name, "@dowonk-7949/llm-wiki-standard");
-  assert.equal(packageJson.version, "1.14.4");
+  assert.equal(packageJson.version, "1.15.0");
   assert.equal(packageJson.private, false);
   assert.equal(packageJson.publishConfig, undefined);
   assert.equal(packageJson.repository.url, "git+https://github.com/Dowon-Kim7949/llm-wiki-standard.git");
@@ -3639,5 +3639,40 @@ test("domain detection skips virtualenvs and site-packages, not the project's ow
   const sources = detected.map((d) => d.sourceFile);
   assert.ok(!sources.some((s) => s.includes("site-packages") || s.includes("venv3.10")), "no venv/site-packages domains leak in");
   assert.ok(sources.some((s) => s.endsWith("app/handlers/orders.py")), "the project's own handler is still detected");
+});
+
+test("skill generation: --skills emits Claude/Cursor/neutral artifacts with an injected domain map (1.15.0)", async () => {
+  const cwd = await makeProject("skills-");
+  await writeFile(path.join(cwd, "requirements.txt"), "fastapi==0.110.0\n", { encoding: "utf8" });
+  await mkdir(path.join(cwd, "app", "api", "v2", "endpoints"), { recursive: true });
+  await writeFile(path.join(cwd, "app", "api", "v2", "endpoints", "hazard.py"), "from fastapi import APIRouter\nrouter = APIRouter()\n", { encoding: "utf8" });
+
+  const result = await initCommand({ cwd, write: true, minimal: false, withAdapters: false, skills: true, type: "backend", profiles: [], agents: [], existing: "skip" });
+  assert.equal(result.result, "pass");
+  // Three tasks x three formats.
+  for (const rel of [".claude/skills/llm-wiki-feature/SKILL.md", ".cursor/rules/llm-wiki-fix.mdc", ".llm-wiki/prompts/llm-wiki-docs-sync.md"]) {
+    assert.ok(await fileExists(path.join(cwd, rel)), `${rel} created`);
+  }
+  const skill = await readFile(path.join(cwd, ".claude", "skills", "llm-wiki-feature", "SKILL.md"), "utf8");
+  assert.ok(skill.includes("name: llm-wiki-feature"), "skill frontmatter name");
+  assert.match(skill, /docs\/llm-wiki\/domains\/\d+_hazard\.md/, "injected domain map from the generated wiki");
+  assert.ok(skill.includes("needs_review"), "needs_review discipline embedded");
+  // Portability/privacy: the generating machine's absolute path (and username) is not baked in.
+  assert.ok(!skill.includes(cwd) && !/[A-Za-z]:\\Users\\/.test(skill), "no absolute machine path leaked into the artifact");
+});
+
+test("skill generation: off unless requested, and never overwrites (1.15.0)", async () => {
+  const cwd = await makeProject("skills-off-");
+  await writeFile(path.join(cwd, "requirements.txt"), "fastapi==0.110.0\n", { encoding: "utf8" });
+  // No --skills and no claude/cursor agent -> nothing emitted.
+  await initCommand({ cwd, write: true, minimal: true, withAdapters: false, type: "backend", profiles: [], agents: ["codex"], existing: "skip" });
+  assert.equal(await fileExists(path.join(cwd, ".claude", "skills", "llm-wiki-feature", "SKILL.md")), false, "no skills when not requested");
+
+  // A pre-existing skill file is never overwritten.
+  await mkdir(path.join(cwd, ".claude", "skills", "llm-wiki-feature"), { recursive: true });
+  await writeFile(path.join(cwd, ".claude", "skills", "llm-wiki-feature", "SKILL.md"), "CUSTOM\n", { encoding: "utf8" });
+  const result = await initCommand({ cwd, write: true, minimal: true, withAdapters: false, skills: true, type: "backend", profiles: [], agents: [], existing: "skip" });
+  assert.equal(await readFile(path.join(cwd, ".claude", "skills", "llm-wiki-feature", "SKILL.md"), "utf8"), "CUSTOM\n", "existing skill preserved");
+  assert.ok(result.skipped.some((l) => l.includes("llm-wiki-feature/SKILL.md") && l.includes("kept existing")), "skip is noted");
 });
 

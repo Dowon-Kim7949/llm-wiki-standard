@@ -30,6 +30,8 @@ npx llm-wiki quickstart --write --type frontend --agent claude   # 또는 --agen
 
 `quickstart --write`는 프로젝트를 감지하고 wiki·adapter 파일을 만든 뒤 handoff 프롬프트를 출력합니다. 그 프롬프트를 에이전트에 붙여넣으면 `docs/llm-wiki/index.md`를 읽고 실제 소스 근거로 문서를 보강하며, 모든 문서를 `needs_review`로 남겨 검토를 기다립니다. 먼저 보려면 `quickstart --dry-run`.
 
+`--skills`(또는 `--agent claude|cursor`)를 더하면, 이후 feature/fix/docs-sync 작업용 위키-그라운디드 자동화 프롬프트도 생성합니다 — Claude 스킬(`/llm-wiki-feature`)·Cursor 룰·에이전트-중립 프롬프트. 각 본문에 프로젝트 도메인 맵 스냅샷이 들어갑니다.
+
 ## 권장 에이전트 & 모델
 
 CLI 자체는 모델이 필요 없습니다. 오직 **보강(enrichment)** 단계 — 에이전트가 코드를 읽고 정확한 근거 기반 문서를 쓰는 단계 — 에서만 모델을 쓰며, 품질이 가장 크게 갈리는 지점입니다.

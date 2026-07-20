@@ -24,6 +24,30 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-20 - release: prepare 1.15.0 (스킬 생성, Gate 21) + doc-sync
+
+- status: needs_review
+- actor: Claude Code (사용자 Dowon-Kim 지시 — "스킬 활용 자동화-프롬프트 기능 추가", Gate 21 스코프 조정 후 수락)
+- scope: src, tests, docs
+- changed:
+  - src/commands/skills.js(신규 — `SKILL_TASKS`/`selectedSkillFormats`/`planSkillArtifacts`/`writeSkillArtifacts`; Claude 스킬·Cursor 룰·중립 프롬프트 생성 + 도메인 맵 주입), src/commands.js(initDryRun/initWrite에 skill plan/write 배선), src/cli.js(`--skills` 플래그 + init/quickstart 허용 옵션 + help usage)
+  - tests/verification.test.js (+2 스킬 테스트; 버전 assertion 1.14.4→1.15.0)
+  - package.json (1.14.4→1.15.0), CHANGELOG.md/CHANGELOG.ko.md, docs/llm-wiki/releases/v1.15.0.md(신규)
+  - doc-sync + re-verify: ARCHITECTURE_CONVENTIONS(skills.js Module Layout·Evidence)·DOMAIN_FEATURES(스킬 생성 기능·Evidence)·PUBLIC_API(`--skills` 옵션) (reviewed_at 2026-07-20 유지)
+  - GATE_REVIEW.md: Gate 21 accepted_for_1.15.0(도메인 맵 주입 + 다중 에이전트 포맷 2가지 추가)
+- summary:
+  - Gate 21(스킬 생성). `init`/`quickstart`이 feature/fix/docs-sync 위키-그라운디드 워크플로를 각 에이전트 네이티브 아티팩트로 생성: Claude 스킬(`.claude/skills/llm-wiki-<task>/SKILL.md`)·Cursor 룰(`.cursor/rules/llm-wiki-<task>.mdc`)·중립 프롬프트(`.llm-wiki/prompts/llm-wiki-<task>.md`).
+  - 본문은 `task-prompts.js` 재사용 + 프로젝트 도메인 맵(`docs/llm-wiki/domains/` 스냅샷) 주입. `--skills` 또는 `--agent claude|cursor` opt-in, preview-first, 미덮어씀, recognize-don't-run(도구는 생성만). 생성 머신 절대경로(사용자명) 미유출(workspace=`.`). 중립 프롬프트는 검증 트리 밖(`.llm-wiki/prompts/`)에 둠.
+  - 생성한 위키가 실제 기능 작업에 쓰이도록 하는 진입점 → 가치 루프(#8) 해소.
+  - 검증: node --test 231 통과(신규 2), validate result:pass 0 findings, strict pass. `init --write --agent claude --skills`로 9개 아티팩트 + 도메인 맵 주입 + 절대경로 미유출 CLI 확인.
+- evidence:
+  - src/commands/skills.js
+  - src/cli.js
+  - package.json
+- caveats:
+  - 배포(태그 push→npm)는 사용자의 명시적 "배포" 지시 대기.
+  - 게이트 초안의 중립 프롬프트 경로(`docs/llm-wiki/prompts/`)를 `.llm-wiki/prompts/`로 조정(검증 트리 밖, 어댑터와 동일 취급) — 릴리스 노트에 명시.
+
 ## 2026-07-20 - release: prepare 1.14.4 (도메인 감지 venv 스캔 버그 수정) + doc-sync
 
 - status: needs_review

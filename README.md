@@ -30,6 +30,8 @@ npx llm-wiki quickstart --write --type frontend --agent claude   # or --agent co
 
 `quickstart --write` detects the project, creates the wiki + adapter files, and prints a handoff prompt. Paste that prompt into your agent: it reads `docs/llm-wiki/index.md`, enriches the docs from real source files, and leaves everything `needs_review` for you to approve. Preview first with `quickstart --dry-run`.
 
+Add `--skills` (or `--agent claude|cursor`) to also generate invocable, wiki-grounded automation prompts — a Claude skill (`/llm-wiki-feature`), a Cursor rule, and an agent-neutral prompt — for ongoing feature/fix/docs-sync work, each carrying a snapshot of your project's domain map.
+
 ## Recommended agent & model
 
 The CLI needs no model. Only the **enrichment** step — an agent reading code and writing accurate, source-backed docs — does, and that is where model quality matters most.

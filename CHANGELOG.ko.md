@@ -5,6 +5,27 @@
 `@dowonk-7949/llm-wiki-standard`의 주요 변경 사항을 기록합니다. 이 프로젝트는
 [유의적 버전(Semantic Versioning)](https://semver.org/)을 따르며, 항목은 최신순입니다.
 
+## 1.15.0 — 2026-07-20
+
+스킬 생성(Gate 21) — feature/fix/docs-sync 작업용 위키-그라운디드 자동화 프롬프트. 생성한 위키가
+실제로 쓰이도록 한다. 부가적·opt-in이며 기존 명령·`--format json`·frontmatter 계약 불변, 런타임
+의존성 추가 없음.
+
+### Added
+
+- **`init`/`quickstart`이 위키-그라운디드 자동화 프롬프트를 생성**한다 — `feature`/`fix`/`docs-sync`
+  워크플로를 각 에이전트의 네이티브 형식으로:
+  - Claude Code 스킬 — `.claude/skills/llm-wiki-<task>/SKILL.md` (`/llm-wiki-feature`로 호출),
+  - Cursor 룰 — `.cursor/rules/llm-wiki-<task>.mdc`,
+  - 에이전트-중립 프롬프트 — `.llm-wiki/prompts/llm-wiki-<task>.md` (Codex 등 임의 에이전트용).
+  각 본문은 기존 위키-그라운디드 워크플로(위키 읽기 → 근거로 변경 → 문서 `needs_review` 갱신 →
+  `log.md` append → 자동 `verified` 금지)를 재사용하고, 프로젝트 **도메인 맵**(`docs/llm-wiki/domains/`)
+  스냅샷을 본문에 주입해 에이전트가 어떤 문서를 읽을지 즉시 알게 한다.
+- **`--skills` 플래그**(init/quickstart)가 아티팩트 생성을 요청한다. `claude`/`cursor` 에이전트 선택
+  시에도 생성된다. opt-in·preview-first(`--dry-run`이 생성 예정을 나열), 기존 skill/rule/prompt 파일은
+  절대 덮어쓰지 않음. 도구는 아티팩트를 **생성만** 하고 실행은 에이전트가 함(recognize-don't-run).
+  스킬을 요청하지 않은 레포는 byte-identical.
+
 ## 1.14.4 — 2026-07-20
 
 테스터 산출물을 유지관리자가 검토하다 발견한 도메인 감지 수정. 명령·옵션·`--format json`·
