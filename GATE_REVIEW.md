@@ -62,6 +62,7 @@ This document records the default decisions for the `0.1.0` stable release line 
 | Gate 21 Skill Generation Scope Approval | `accepted_for_1.15.0` | Generate invocable, wiki-grounded automation prompts for the feature/fix/docs-sync workflows already encoded in `src/task-prompts.js`, in each agent's native shape — Claude skill (`.claude/skills/llm-wiki-<task>/SKILL.md`), Cursor rule (`.cursor/rules/llm-wiki-<task>.mdc`), and an agent-neutral prompt doc (`docs/llm-wiki/prompts/llm-wiki-<task>.prompt.md`, for Codex/others) — so a user can invoke `/llm-wiki-feature "…"` to run "read the wiki → ground the change → update docs (needs_review) → log", closing the value loop (#8). Each body embeds a generation-time snapshot of the project's domain map so the agent knows which docs to read. Opt-in (per `--agent`/`--skills`), preview-first, existing files never overwritten, recognize-don't-run, needs_review discipline embedded. Additive, zero-dep; `1.0.0` contracts unchanged. Accepted by Dowon-Kim on 2026-07-20 with two additions over the draft (domain-map injection + multi-agent formats). MINOR (`1.15.0`). See "Skill Generation Scope Decision" below. |
 | Gate 22 Impact Measurement Scope Approval | `accepted` | Pull impact measurement to the FRONT of the post-1.16 line (before the feature gates). A reproducible, opt-in, zero-dep benchmark harness (repo-internal, e.g. `bench/`) runs a representative task with vs. without the governed wiki and records input tokens, source files opened, task success/quality, and wall-clock, plus an honest methodology that counts wiki read + maintenance cost (not just repo-scan tokens) and a recorded baseline. Primarily a VALIDATION track — no `1.0.0` contract change; any shipped `bench` helper is a later minor; zero-dep preserved. Results reported honestly INCLUDING unfavorable ones (an "overhead > benefit" result reshapes the roadmap, it is not hidden); no token/speed/productivity claim ships in README/launch until a measured result supports it. Re-run at each later gate for its delta. Motivated by the product-identity audit (`outputs/audits/product-identity-audit.md`): the governance core is real but the value chain is unproven. Accepted by Dowon-Kim on 2026-07-21. See "Impact Measurement Scope Decision" below. |
 | Gate 23 Reverse-Impact (Changed-Source → Wiki) Scope Approval | `accepted_for_1.17.0` | Add a read-only reverse-impact check that builds a git-diff reverse index from every `verified` doc's `source_files`/`evidence` and flags a `verified` doc when its referenced code is in the current change set (working tree, or a `--since <ref>` PR/CI baseline) while the doc itself is NOT changed — the pre-merge, diff-anchored complement to the existing date-anchored `evidence.stale`. Defaults to warning (NEVER default error/blocked, preserving the additive `1.0.0` invariant); an opt-in `--strict` (for CI) escalates it to a failing error so a PR that changes governed code without updating its doc fails. Read-only, additive/opt-in, zero-dep — reuses `changedFiles` (`src/git.js`), `driftTargets`, and the reference parsers. Motivated by the product-identity audit's biggest vision-vs-reality gap: today drift is date-based and misses code + its doc changing in separate PRs, and cannot answer the pre-merge CI question. Accepted by Dowon-Kim on 2026-07-21 with: a standalone `impact` command, rule `impact.source_changed` (new toggleable `impact` category), `--strict` escalating impact findings ONLY (`evidence.stale` stays escalatable via config `rules`), and an empty change set treated as a no-op. See "Reverse-Impact (Changed-Source → Wiki) Scope Decision" below. |
+| Gate 26 Agent Update Runner + Completion Contract Scope Approval | `proposed_for_next` (DRAFT — not yet accepted) | Make the wiki-grounded skill workflow (Gate 21) auditable end-to-end. When an agent runs a `/llm-wiki-<task>` skill to change code, have it emit a small structured **run manifest** (task, changed source files, touched wiki docs, whether the log was appended, whether `validate` ran + its result), and add a read-only **check** that verifies the claimed pipeline actually happened — so CI can catch a code change whose wiki update was skipped. The agent still writes the prose; only the PIPELINE becomes checkable. Proposed: a plain-JSON manifest under `.llm-wiki/runs/` (never carries sensitive values), a `manifest`-emitting seam in the generated skill bodies, and `llm-wiki check-run` (read-only: manifest's changed source ⊆ touched docs' `source_files`/`evidence` + log appended + validate pass) — or fold the check into `impact`/`validate` (open question). Complements Gate 23 `impact` (diff-anchored reverse index) with an INTENT-anchored record of what a run claims it did. Additive/opt-in/zero-dep; `1.0.0` contracts unchanged; never default error/blocked (opt-in `--strict` fails CI). Out of scope v1: enforcing prose correctness, auto-writing docs, non-skill/manual edits, a hosted run store. The larger, fuzzier gate — DRAFTED for human acceptance. See "Agent Update Runner + Completion Contract Scope Decision" below. |
 | Gate 25 Evidence Semantic Tiers Scope Approval | `accepted` | Deepen evidence verification from FORMAT-only to MEANING — the product-identity audit's #1 remaining vision-vs-reality gap. Today `scanEvidenceReferences` checks a reference's shape + that the source FILE exists + (for `#L` line locators) the line range, but a `#symbol:`/`#section:`/`#route:` locator's TARGET existence is NEVER checked, and the frontmatter schema lets a `verified` doc carry `source_files: []` with no `evidence` at all (grounding-free "verified"). Gate 25 adds, all additive/opt-in/zero-dep/read-only and NEVER default error/blocked: (1) a conservative, language-agnostic EXISTENCE check for `symbol`/`section` locators that flags ONLY when the target token/heading does not appear in the referenced file (no false "missing" for a real target) — new toggleable `evidence.symbol_unverified`/`evidence.section_unverified` (default warning, `--strict` escalates); (2) an opt-in `evidence.ungrounded` rule for a `verified` doc with empty `source_files` AND no `evidence`; (3) a COMPUTED evidence tier (`reference_checked` vs `human_verified`) surfaced as ADDITIVE JSON only — never a new required frontmatter field or `status` enum value (both frozen at `1.0.0`). `route` existence and true AST/language-server symbol resolution stay OUT of scope v1 (framework/parser-specific, would break zero-dep). Accepted by Dowon-Kim (delegated) on 2026-07-21 with the recommended open-question answers (ungrounded default warning; section check `.md`-only; tier computed-only; `--strict` escalates `*_unverified` only); BUILT — ships in the next minor. See "Evidence Semantic Tiers Scope Decision" below. |
 | Gate 24 Read-Only Retrieval (Search/Get) Scope Approval | `accepted_for_1.18.0` | Add read-only retrieval over the programmatic API + MCP (and CLI) that returns document CONTENT, not just governance reports: `list_docs` (enumerate with status/visibility/type filters), `search_docs` (zero-dep keyword/substring over titles + bodies + frontmatter — NOT semantic/vector search), `get_doc` (a doc's frontmatter + body by path), and `get_related` (a doc's resolved graph neighbors). Reuses `listWikiContentDocs`, the frontmatter parser, and `collectWikiGraph`; today every MCP/API tool returns governance REPORTS only, so this is the "the agent queries the wiki instead of re-deriving from the code" story that was walked back at launch. **The Gate 22 harness is RE-MEASURED here** — this is where the rediscovery/token delta should show (the headline is the before/after-retrieval delta). Read-only, additive/opt-in, zero-dep; honors `visibility` + reuses the sensitive-info scan so raw sensitive values are NEVER returned. No write/mutating surface (mirrors the MCP read-only ethos). `1.0.0` command/`--format json`/frontmatter contracts unchanged (new commands + new MCP tools + additive JSON only); likely a MINOR (`1.18.0`). Accepted by Dowon-Kim on 2026-07-21 (resolutions in the scope decision below). See "Read-Only Retrieval (Search/Get) Scope Decision" below. |
 
@@ -1261,6 +1262,83 @@ Delivered, additive/read-only/zero-dep, `1.0.0` contracts unchanged:
   (warning / not `--strict`-escalated / config off+escalate), `evidenceTier` axes, and the
   `stats` tier surface. 251 tests pass; `validate --strict` 0 findings (clean dogfood).
   Dogfood tier read: 50/50 `reference_checked`, 14/50 `human_verified`.
+
+## Agent Update Runner + Completion Contract Scope Decision (proposed — NOT yet accepted)
+
+### Why
+
+Gate 21 ships invocable, wiki-grounded skills (`/llm-wiki-feature`, `-fix`, `-docs-sync`)
+that instruct an agent to "read the wiki → ground the change → update docs (`needs_review`)
+→ append the log." But nothing checks that the agent actually DID the doc/log step: the
+skill is *recognize-don't-run*, and a hurried run can change code and skip the wiki update.
+Gate 23 `impact` catches this from the DIFF side (a `verified` doc whose cited source moved),
+but only for already-`verified` docs and only against a git diff. Gate 26 adds the missing
+INTENT side: a run records what it claims it did, and a read-only check verifies the claim —
+closing the "self-evolving workflow" loop the product story promises, without ever letting
+the tool write the prose itself.
+
+### Proposed shape (minimal v1; additive, opt-in, read-only, zero-dep)
+
+1. **Run manifest.** A skill run writes a small JSON artifact under `.llm-wiki/runs/`
+   (e.g. `run-<task>-<stamp>.json`) recording: `task`, `changedSource` (files the run
+   edited), `touchedDocs` (wiki docs it updated), `logAppended` (bool), `validated`
+   (bool + result). Plain data, no sensitive values (reuse the sensitive-info scan as a
+   safety net on any free-text field). The stamp is passed in (no `Date.now()` in library
+   code); the agent or CI supplies it.
+2. **Manifest-emitting seam in the generated skills.** The Gate 21 skill/rule/prompt bodies
+   gain a final step instructing the agent to write the manifest (a documented shape), so the
+   contract travels with the skill. Existing skills are regenerated only on the next
+   `init`/`quickstart --skills` (never silently overwritten).
+3. **Read-only check.** `llm-wiki check-run [--strict]`: given the newest (or a named)
+   manifest, verify the claimed pipeline — every `changedSource` entry is referenced by some
+   `touchedDocs` doc's `source_files`/`evidence` (reusing the existing reference parsers +
+   `verifiedSourceAnchors`), `logAppended` is true, and `validated` passed. Default warning;
+   `--strict` fails CI. Emits new toggleable `run.*` findings (e.g. `run.doc_gap`,
+   `run.log_missing`, `run.unvalidated`, `run.manifest_missing`).
+
+### Open questions for acceptance
+
+- **Command shape:** a standalone `check-run` (recommended) vs a `--run` mode on
+  `validate`/`impact`. A standalone command keeps the manifest concern isolated.
+- **Who writes the manifest:** the agent (guided by the skill body) vs an `llm-wiki
+  manifest --emit` helper the agent calls. Recommendation: document the shape and let the
+  agent write it (zero new write surface); optionally add a validator-only helper later.
+- **Manifest location & git:** `.llm-wiki/runs/` committed vs git-ignored. Recommendation:
+  git-ignored by default (ephemeral run records), with the check reading the working tree —
+  CI produces + checks the manifest within one job.
+- **Match strictness:** exact `changedSource ⊆ union(touchedDocs.source_files/evidence)` vs a
+  looser "each changed source is mentioned somewhere in a touched doc." Recommendation: reuse
+  the anchor extractor (file-level), matching Gate 23's granularity.
+- **Relation to `impact`:** keep them separate (intent-anchored vs diff-anchored) — confirmed
+  useful as complements, not a merge.
+
+### Out of scope (v1)
+
+- Enforcing that the prose is CORRECT (that stays human review → `verified`).
+- Auto-writing docs or the manifest for the agent (no new mutating surface beyond the run
+  artifact the agent itself writes).
+- Non-skill / manual edits (v1 covers skill-driven runs; manual work still relies on
+  `impact`/`drift`).
+- A hosted/shared run store, run history, or metrics — a plain local artifact only.
+
+### Invariants
+
+- Additive/opt-in; `1.0.0` command / `--format json` / frontmatter contracts unchanged;
+  zero-runtime-dependency preserved (JSON + existing parsers, no network).
+- Read-only check; the only new write is the manifest the agent authors during its own run.
+- Never default error/blocked; CI failure is opt-in via `--strict` (mirrors Gate 23).
+- Honest scope: the contract proves the PIPELINE ran, not that the knowledge is right.
+
+### Evidence (current code the gate builds on)
+
+- `src/commands/skills.js#symbol:writeSkillArtifacts` — where the manifest-emitting step is
+  added to the generated skill/rule/prompt bodies.
+- `src/task-prompts.js` — the workflow text the skills reuse; the manifest step is appended
+  to the same workflow.
+- `src/commands/scans.js#symbol:verifiedSourceAnchors` + `src/commands/references.js#symbol:parseEvidenceReference`
+  — reused to match a manifest's `changedSource` against `touchedDocs` anchors.
+- `src/git.js#symbol:changedFiles` — optional cross-check of the manifest's `changedSource`
+  against the actual diff.
 
 ## Release Caveats
 
