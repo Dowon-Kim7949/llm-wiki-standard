@@ -62,6 +62,7 @@ This document records the default decisions for the `0.1.0` stable release line 
 | Gate 21 Skill Generation Scope Approval | `accepted_for_1.15.0` | Generate invocable, wiki-grounded automation prompts for the feature/fix/docs-sync workflows already encoded in `src/task-prompts.js`, in each agent's native shape — Claude skill (`.claude/skills/llm-wiki-<task>/SKILL.md`), Cursor rule (`.cursor/rules/llm-wiki-<task>.mdc`), and an agent-neutral prompt doc (`docs/llm-wiki/prompts/llm-wiki-<task>.prompt.md`, for Codex/others) — so a user can invoke `/llm-wiki-feature "…"` to run "read the wiki → ground the change → update docs (needs_review) → log", closing the value loop (#8). Each body embeds a generation-time snapshot of the project's domain map so the agent knows which docs to read. Opt-in (per `--agent`/`--skills`), preview-first, existing files never overwritten, recognize-don't-run, needs_review discipline embedded. Additive, zero-dep; `1.0.0` contracts unchanged. Accepted by Dowon-Kim on 2026-07-20 with two additions over the draft (domain-map injection + multi-agent formats). MINOR (`1.15.0`). See "Skill Generation Scope Decision" below. |
 | Gate 22 Impact Measurement Scope Approval | `accepted` | Pull impact measurement to the FRONT of the post-1.16 line (before the feature gates). A reproducible, opt-in, zero-dep benchmark harness (repo-internal, e.g. `bench/`) runs a representative task with vs. without the governed wiki and records input tokens, source files opened, task success/quality, and wall-clock, plus an honest methodology that counts wiki read + maintenance cost (not just repo-scan tokens) and a recorded baseline. Primarily a VALIDATION track — no `1.0.0` contract change; any shipped `bench` helper is a later minor; zero-dep preserved. Results reported honestly INCLUDING unfavorable ones (an "overhead > benefit" result reshapes the roadmap, it is not hidden); no token/speed/productivity claim ships in README/launch until a measured result supports it. Re-run at each later gate for its delta. Motivated by the product-identity audit (`outputs/audits/product-identity-audit.md`): the governance core is real but the value chain is unproven. Accepted by Dowon-Kim on 2026-07-21. See "Impact Measurement Scope Decision" below. |
 | Gate 23 Reverse-Impact (Changed-Source → Wiki) Scope Approval | `accepted_for_1.17.0` | Add a read-only reverse-impact check that builds a git-diff reverse index from every `verified` doc's `source_files`/`evidence` and flags a `verified` doc when its referenced code is in the current change set (working tree, or a `--since <ref>` PR/CI baseline) while the doc itself is NOT changed — the pre-merge, diff-anchored complement to the existing date-anchored `evidence.stale`. Defaults to warning (NEVER default error/blocked, preserving the additive `1.0.0` invariant); an opt-in `--strict` (for CI) escalates it to a failing error so a PR that changes governed code without updating its doc fails. Read-only, additive/opt-in, zero-dep — reuses `changedFiles` (`src/git.js`), `driftTargets`, and the reference parsers. Motivated by the product-identity audit's biggest vision-vs-reality gap: today drift is date-based and misses code + its doc changing in separate PRs, and cannot answer the pre-merge CI question. Accepted by Dowon-Kim on 2026-07-21 with: a standalone `impact` command, rule `impact.source_changed` (new toggleable `impact` category), `--strict` escalating impact findings ONLY (`evidence.stale` stays escalatable via config `rules`), and an empty change set treated as a no-op. See "Reverse-Impact (Changed-Source → Wiki) Scope Decision" below. |
+| Gate 25 Evidence Semantic Tiers Scope Approval | `proposed_for_next` (DRAFT — not yet accepted) | Deepen evidence verification from FORMAT-only to MEANING — the product-identity audit's #1 remaining vision-vs-reality gap. Today `scanEvidenceReferences` checks a reference's shape + that the source FILE exists + (for `#L` line locators) the line range, but a `#symbol:`/`#section:`/`#route:` locator's TARGET existence is NEVER checked, and the frontmatter schema lets a `verified` doc carry `source_files: []` with no `evidence` at all (grounding-free "verified"). Gate 25 adds, all additive/opt-in/zero-dep/read-only and NEVER default error/blocked: (1) a conservative, language-agnostic EXISTENCE check for `symbol`/`section` locators that flags ONLY when the target token/heading does not appear in the referenced file (no false "missing" for a real target) — new toggleable `evidence.symbol_unverified`/`evidence.section_unverified` (default warning, `--strict` escalates); (2) an opt-in `evidence.ungrounded` rule for a `verified` doc with empty `source_files` AND no `evidence`; (3) a COMPUTED evidence tier (`reference_checked` vs `human_verified`) surfaced as ADDITIVE JSON only — never a new required frontmatter field or `status` enum value (both frozen at `1.0.0`). `route` existence and true AST/language-server symbol resolution stay OUT of scope v1 (framework/parser-specific, would break zero-dep). DRAFTED for human acceptance. See "Evidence Semantic Tiers Scope Decision" below. |
 | Gate 24 Read-Only Retrieval (Search/Get) Scope Approval | `accepted_for_1.18.0` | Add read-only retrieval over the programmatic API + MCP (and CLI) that returns document CONTENT, not just governance reports: `list_docs` (enumerate with status/visibility/type filters), `search_docs` (zero-dep keyword/substring over titles + bodies + frontmatter — NOT semantic/vector search), `get_doc` (a doc's frontmatter + body by path), and `get_related` (a doc's resolved graph neighbors). Reuses `listWikiContentDocs`, the frontmatter parser, and `collectWikiGraph`; today every MCP/API tool returns governance REPORTS only, so this is the "the agent queries the wiki instead of re-deriving from the code" story that was walked back at launch. **The Gate 22 harness is RE-MEASURED here** — this is where the rediscovery/token delta should show (the headline is the before/after-retrieval delta). Read-only, additive/opt-in, zero-dep; honors `visibility` + reuses the sensitive-info scan so raw sensitive values are NEVER returned. No write/mutating surface (mirrors the MCP read-only ethos). `1.0.0` command/`--format json`/frontmatter contracts unchanged (new commands + new MCP tools + additive JSON only); likely a MINOR (`1.18.0`). Accepted by Dowon-Kim on 2026-07-21 (resolutions in the scope decision below). See "Read-Only Retrieval (Search/Get) Scope Decision" below. |
 
 ## 1.0.0 Stability Milestone
@@ -1129,6 +1130,108 @@ Delivered in `src/commands/retrieval.js` (four handlers `listDocsCommand`/`searc
 - `src/sensitive-info.js#symbol:scanSensitiveInfo` — reused so retrieved bodies/snippets never leak raw sensitive values, and to gate restricted/sensitive docs.
 - `src/mcp/tools.js#symbol:TOOL_DEFS` — the read-only retrieval tools plug in here (snake_case names).
 - `src/index.js#symbol:commands` — the frozen programmatic API map the new commands extend additively.
+
+## Evidence Semantic Tiers Scope Decision (proposed — NOT yet accepted)
+
+### Why (the gap, confirmed in current code)
+
+The product-identity audit's sharpest finding is that the tool's "code-grounded, verified"
+promise is enforced only at the FORMAT level:
+
+- `src/commands/scans.js#symbol:scanEvidenceReferences` parses each `evidence` string, then
+  checks (a) the reference SHAPE (`evidence.shape`), (b) that the source FILE exists
+  (`evidence.missing`), and (c) for a `#L`/`:line` **line** locator, that the range fits the
+  file (`evidence.line_range`). A `#symbol:`/`#section:`/`#route:` locator is validated for
+  SHAPE by `parseEvidenceReference` (`src/commands/references.js`) but its TARGET is **never
+  checked to exist** — `foo.js#symbol:DefinitelyMissing` passes as long as `foo.js` exists.
+- The frontmatter schema (`src/frontmatter-schema.js`) requires the `source_files` KEY but
+  allows `source_files: []`, and `evidence` is not required at all. Combined with the
+  `verified`→`reviewed_by`/`reviewed_at` conditional, a document can be **`verified` with
+  zero grounding** (empty `source_files`, no `evidence`).
+
+So "verified" today can mean "a human set the status and the referenced files exist," not
+"the cited symbols/sections actually exist and the doc is grounded." Gate 25 closes the
+distance between the promise and the check — **the highest-leverage governance completion
+after retrieval** (Gate 24), and the natural next step in the measure-first line.
+
+### Proposed shape (all additive, opt-in, read-only, zero-dep; never default error/blocked)
+
+1. **Target-existence check for `symbol` and `section` locators.** Extend
+   `scanEvidenceReferences`: when a non-external evidence (or `source_files`) reference
+   carries a `#symbol:<name>` or `#section:<name>` locator and the source file exists, do a
+   **bounded textual-presence** check on the file:
+   - `symbol`: flag `evidence.symbol_unverified` ONLY when `<name>` does not appear anywhere
+     in the file as a word-boundary token. If the file mentions the name at all (even in a
+     comment), do NOT flag — this is a deliberately conservative "the file does not even
+     mention this symbol" floor, chosen to avoid false positives on real symbols.
+   - `section`: flag `evidence.section_unverified` ONLY when no Markdown heading / obvious
+     anchor matching `<name>` is found (v1 restricts this to `.md` sources, where "section"
+     is well-defined).
+   - Both are new toggleable rules under the existing `evidence` category, **default
+     warning**, escalated to error by `--strict` (same mechanism as `evidence.missing`).
+2. **Ungrounded-verified rule.** New opt-in `evidence.ungrounded`: a `status: verified`
+   document whose `source_files` is empty/absent AND whose `evidence` is empty/absent is
+   flagged (the "verified with no grounding" hole). Default OFF or warning (open question),
+   never default error — this repo and others have `verified` docs (e.g. release notes/log)
+   that may be intentionally ungrounded, so it must not break existing `validate`.
+3. **Computed evidence tier.** Surface, as ADDITIVE JSON/report output only, a per-doc tier:
+   - `reference_checked` — every evidence/source reference resolves (file exists, line range
+     fits, symbol/section token present).
+   - `human_verified` — `status: verified` with `reviewed_by`/`reviewed_at` present.
+   These are orthogonal (a doc can be human-verified but reference-stale, or reference-checked
+   but not yet human-reviewed). The tier is **computed and reported**, NOT stored as a new
+   required frontmatter field or a new `status` enum value (both are frozen at `1.0.0`).
+
+### Out of scope (v1)
+
+- **True symbol resolution** (AST / language server / scope-aware): distinguishing a
+  definition from a mention, overloads, renames, or a symbol defined in another file. The
+  textual-presence check is an honest FLOOR, not a resolver — full resolution is
+  language/parser-specific and would break zero-dependency.
+- **`route` existence.** Route locators (`#route:/x`) stay format-only in v1 — resolving a
+  route needs framework-specific knowledge (Express/FastAPI/etc.).
+- **Auto-downgrade / auto-fix.** Gate 25 only REPORTS; flipping a drifted/ungrounded doc to
+  `needs_review` stays with the human or the existing `drift --downgrade` (Gate 9).
+- **A new required frontmatter field or status value** — would break the `1.0.0` frozen
+  contract; tiers are computed only.
+
+### Open questions for acceptance
+
+- **Default severity of `evidence.ungrounded`:** OFF-by-default (config `rules` opt-in, like
+  `content.thin_body`) vs default warning. Recommendation: **default warning** (visible but
+  non-breaking), since an ungrounded `verified` doc is a genuine governance smell.
+- **`section` check breadth:** `.md`-only in v1 (recommended) vs also matching a symbol-ish
+  heading in source comments.
+- **Tier exposure:** computed JSON/report field only (recommended) vs also an OPTIONAL,
+  never-required `evidence_tier` frontmatter field a project may write.
+- **Where the tier shows:** `audit`/`validate` JSON + `stats` health only, vs also a column
+  in a future `review` surface (Gate 20, still drafted).
+- **`--strict` interaction:** should `--strict` escalate the new `evidence.*_unverified`
+  rules only (recommended, mirroring Gate 23's `impact` decision), leaving `evidence.stale`
+  and `evidence.ungrounded` escalatable via config `rules`.
+
+### Invariants (unchanged)
+
+- Additive/opt-in; the `1.0.0` command surface, `--format json` shape (new fields only), and
+  required frontmatter contract stay unchanged; zero-runtime-dependency preserved (bounded
+  text scans on Node built-ins, no parser/AST library, no network).
+- Read-only: Gate 25 reports; it never writes, promotes, or downgrades.
+- Conservative-by-design: the existence checks flag only unambiguous absences, so turning
+  them on does not retroactively break correctly-grounded `verified` docs.
+- Honest framing: "reference_checked" is a textual/structural resolution, never a claim that
+  the prose is correct — that remains `human_verified`.
+
+### Evidence (current code the gate extends)
+
+- `src/commands/scans.js#symbol:scanEvidenceReferences` — today's format + file + line-range
+  check; Gate 25 adds the symbol/section target-existence branch here.
+- `src/commands/references.js#symbol:parseEvidenceReference` — already yields
+  `locator.kind` ∈ `line|symbol|section|route`; Gate 25 consumes the `symbol`/`section` kinds
+  it currently only shape-validates.
+- `src/frontmatter-schema.js` — `source_files` key required but `[]` allowed and `evidence`
+  optional → the ungrounded-`verified` hole `evidence.ungrounded` targets.
+- `src/commands/findings.js#symbol:FINDING_EXPLANATIONS` — where the new `evidence.*` rules
+  register (so `explain` documents them and config `rules` can toggle them).
 
 ## Release Caveats
 
