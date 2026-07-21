@@ -24,6 +24,18 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-21 - gate: Gate 22 (Impact Measurement) 수락
+
+- status: needs_review
+- actor: Dowon-Kim (게이트 수락) · 기록 Claude Code
+- scope: docs (gate-review)
+- changed:
+  - GATE_REVIEW.md: Gate 22 표 행 + Scope Decision을 `proposed`→`accepted`(Accepted by Dowon-Kim 2026-07-21)로 갱신.
+- summary:
+  - 제품 정체성 감사(Conditional Go)의 measurement-first 판단에 따라, 벤치마크 하니스 + baseline 구축을 다음 작업으로 수락. 검증 트랙(shipped 계약 변경 없음·zero-dep). 실제 빌드는 사용자 요청대로 context /clear 후 착수 예정.
+- caveats:
+  - 불리한 결과도 정직 보고. 헤드라인 숫자는 retrieval(Gate 24) 전후 delta. README token/속도 주장은 측정 뒷받침 전까지 금지.
+
 ## 2026-07-21 - roadmap: post-1.16 계획(측정 우선) + Gate 22 초안 + 제목 정리
 
 - status: needs_review
