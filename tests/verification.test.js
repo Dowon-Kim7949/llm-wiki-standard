@@ -10,6 +10,7 @@ import * as api from "../src/index.js";
 import { loadProjectConfig, mergeConfigIntoOptions } from "../src/config-file.js";
 import { buildReleaseNotes, buildReleaseNotesBody, parseCommit } from "../src/release-notes.js";
 import { fileChangedSince, lineRangeChangedSince } from "../src/git.js";
+import { FINDING_EXPLANATIONS } from "../src/commands/findings.js";
 import { execFileSync } from "node:child_process";
 
 test("init dry-run works for an empty zero-base project", async () => {
@@ -1762,6 +1763,84 @@ test("Gate 26: check-run flags a malformed manifest as an error", async () => {
   const result = await checkRunCommand({ cwd, format: "text", strict: false });
   assert.equal(result.result, "fail");
   assert.ok(result.findings.some((finding) => finding.rule === "run.manifest_invalid" && finding.severity === "error"));
+});
+
+test("finding registry: every rule has a well-formed explanation (guards new rules)", () => {
+  const severities = new Set(["blocked", "error", "warning", "info"]);
+  for (const [rule, explanation] of Object.entries(FINDING_EXPLANATIONS)) {
+    const category = rule.split(".")[0];
+    assert.equal(explanation.category, category, `${rule}: category matches key prefix`);
+    assert.ok(severities.has(explanation.defaultSeverity), `${rule}: valid default severity`);
+    assert.ok(typeof explanation.meaning === "string" && explanation.meaning.trim(), `${rule}: non-empty meaning`);
+    assert.ok(typeof explanation.whyItMatters === "string" && explanation.whyItMatters.trim(), `${rule}: non-empty whyItMatters`);
+    assert.ok(Array.isArray(explanation.remediation) && explanation.remediation.length > 0, `${rule}: non-empty remediation`);
+    assert.ok(Array.isArray(explanation.commands), `${rule}: commands array`);
+    assert.ok(Array.isArray(explanation.relatedRules), `${rule}: relatedRules array`);
+  }
+  for (const rule of [
+    "evidence.symbol_unverified", "evidence.section_unverified", "evidence.ungrounded",
+    "run.doc_gap", "run.log_missing", "run.unvalidated", "run.manifest_missing", "run.manifest_invalid"
+  ]) {
+    assert.ok(FINDING_EXPLANATIONS[rule], `${rule} is registered`);
+  }
+});
+
+test("Gate 26: check-run skips external changedSource and strips locators when matching", async () => {
+  const cwd = await makeProject("checkrun-edge-");
+  await writeJson(path.join(cwd, "package.json"), { name: "cr" });
+  await mkdir(path.join(cwd, "src"), { recursive: true });
+  await writeFile(path.join(cwd, "src", "foo.js"), "export const foo = 1;\n", { encoding: "utf8" });
+  await writeWikiDocWithEvidence(cwd, "domains/00_overview.md", "Overview", evidenceBody(["src/foo.js"]), ["src/foo.js"], ["src/foo.js"]);
+  const runsDir = path.join(cwd, ".llm-wiki", "runs");
+  await mkdir(runsDir, { recursive: true });
+  await writeFile(path.join(runsDir, "run.json"), JSON.stringify({
+    task: "feature",
+    changedSource: ["src/foo.js#symbol:foo", "https://example.com/x"],
+    touchedDocs: ["docs/llm-wiki/domains/00_overview.md"],
+    logAppended: true,
+    validated: true
+  }), { encoding: "utf8" });
+  const result = await checkRunCommand({ cwd, format: "text", strict: false });
+  // foo.js covered after stripping the #symbol locator; the external ref is skipped → no gap
+  assert.equal(result.findings.some((finding) => finding.rule === "run.doc_gap"), false);
+  assert.equal(result.result, "pass");
+});
+
+test("Gate 25: evidence.ungrounded is not flagged when evidence alone grounds a verified doc", async () => {
+  const cwd = await makeProject("ungrounded-ev-");
+  await writeJson(path.join(cwd, "package.json"), { name: "u" });
+  const wikiRoot = path.join(cwd, "docs", "llm-wiki");
+  await mkdir(wikiRoot, { recursive: true });
+  await writeFile(path.join(wikiRoot, "index.md"), `---
+title: Doc
+tags:
+  - llm-wiki
+status: verified
+doc_type: reference
+project: fixture
+last_updated: 2026-07-02
+author: test
+last_edited_by: node-test
+wiki_block_version: v1
+reviewed_by: Tester
+reviewed_at: 2026-07-02
+source_files: []
+evidence:
+  - package.json
+related:
+  - docs/llm-wiki/log.md
+visibility: internal
+contains_sensitive_info: false
+---
+
+# Doc
+
+## Evidence
+
+- package.json
+`, { encoding: "utf8" });
+  const result = await audit({ cwd, type: "unknown", profiles: [], agents: [], format: "text", strict: false });
+  assert.equal(result.findings.some((finding) => finding.rule === "evidence.ungrounded"), false);
 });
 
 test("driftTargets selects files and baseline only for verified documents", () => {
