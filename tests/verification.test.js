@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { cp, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { audit, detectDomainDirectories, doctor, domainDisplayName, driftCommand, driftTargets, explainCommand, fixCommand, graphCommand, handoffCommand, impactCommand, initCommand, migrateCommand, nextCommand, normalizeDomainSlug, planDomainDocs, promptCommand, quickstartCommand, releaseNotesCommand, statsCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "../src/commands.js";
+import { audit, detectDomainDirectories, doctor, domainDisplayName, driftCommand, driftTargets, explainCommand, fixCommand, getDocCommand, getRelatedCommand, graphCommand, handoffCommand, impactCommand, initCommand, listDocsCommand, migrateCommand, nextCommand, normalizeDomainSlug, planDomainDocs, promptCommand, quickstartCommand, releaseNotesCommand, searchDocsCommand, statsCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "../src/commands.js";
 import { parseArgs } from "../src/cli.js";
 import { writeReport, renderHtmlDashboard, renderOutputFile, printResult } from "../src/report.js";
 import * as api from "../src/index.js";
@@ -1899,6 +1899,133 @@ test("parseArgs accepts impact options and rejects unsupported ones", () => {
   assert.ok(bad.errors.some((error) => error.includes("--downgrade")));
 });
 
+// ---- retrieval commands (Gate 24 read-only search/get) -----------------
+const RETR_BASE = { status: null, visibility: null, docType: null, includeSensitive: false, query: null, docPath: null, limit: null, format: "text" };
+
+async function makeRetrievalWiki(prefix) {
+  const cwd = await makeProject(prefix);
+  await writeFile(path.join(cwd, "package.json"), `${JSON.stringify({ name: "retr" }, null, 2)}\n`, { encoding: "utf8" });
+  await writeVerifiedSourceDoc(cwd, "index.md", "package.json", "2026-07-11");
+  await writeWikiDocWithRelated(cwd, "guide.md", "Guide", "The widget subsystem overview.", ["docs/llm-wiki/index.md"]);
+  await writeWikiDoc(cwd, "notes.md", "Notes", "Some notes about gadgets.");
+  await writeWikiDocAt(cwd, "secret.md", "Secret", "api_key = supersecretvalue12345\nwidget details here.", (base) =>
+    base.replace("visibility: internal", "visibility: restricted").replace("contains_sensitive_info: false", "contains_sensitive_info: true"));
+  return cwd;
+}
+
+test("retrieval: list-docs returns metadata and excludes restricted/sensitive docs unless included", async () => {
+  const cwd = await makeRetrievalWiki("retr-list-");
+  const base = await listDocsCommand({ ...RETR_BASE, cwd });
+  assert.equal(base.command, "list-docs");
+  assert.equal(base.result, "pass");
+  const paths = base.documents.map((doc) => doc.path);
+  assert.ok(paths.includes("docs/llm-wiki/guide.md"));
+  assert.equal(paths.includes("docs/llm-wiki/secret.md"), false, "restricted+sensitive doc excluded by default");
+  assert.ok(base.excludedSensitive >= 1);
+  const guide = base.documents.find((doc) => doc.path === "docs/llm-wiki/guide.md");
+  assert.equal(guide.title, "Guide");
+  assert.equal(guide.body, undefined, "list returns metadata only, no bodies");
+
+  const withSensitive = await listDocsCommand({ ...RETR_BASE, cwd, includeSensitive: true });
+  assert.ok(withSensitive.documents.map((doc) => doc.path).includes("docs/llm-wiki/secret.md"));
+  assert.equal(withSensitive.excludedSensitive, 0);
+});
+
+test("retrieval: list-docs filters by status", async () => {
+  const cwd = await makeRetrievalWiki("retr-filter-");
+  const verified = await listDocsCommand({ ...RETR_BASE, cwd, status: "verified" });
+  assert.ok(verified.documents.length >= 1);
+  assert.ok(verified.documents.every((doc) => doc.status === "verified"));
+  assert.ok(verified.documents.map((doc) => doc.path).includes("docs/llm-wiki/index.md"));
+});
+
+test("retrieval: search-docs ranks keyword matches, excludes sensitive, and redacts snippets", async () => {
+  const cwd = await makeRetrievalWiki("retr-search-");
+  const res = await searchDocsCommand({ ...RETR_BASE, cwd, query: "widget" });
+  assert.equal(res.command, "search-docs");
+  const paths = res.matches.map((match) => match.path);
+  assert.ok(paths.includes("docs/llm-wiki/guide.md"), "guide (contains widget) matched");
+  assert.equal(paths.includes("docs/llm-wiki/secret.md"), false, "sensitive doc excluded from search by default");
+  assert.ok(res.matches.every((match) => match.score > 0));
+  // Ranking is deterministic: sorted by score desc then path asc.
+  for (let i = 1; i < res.matches.length; i += 1) {
+    const prev = res.matches[i - 1];
+    const cur = res.matches[i];
+    assert.ok(prev.score > cur.score || (prev.score === cur.score && prev.path <= cur.path));
+  }
+
+  const incl = await searchDocsCommand({ ...RETR_BASE, cwd, query: "widget", includeSensitive: true });
+  const secret = incl.matches.find((match) => match.path === "docs/llm-wiki/secret.md");
+  assert.ok(secret, "secret matched when included");
+  assert.equal(secret.snippet.includes("supersecretvalue"), false, "snippet redacts the sensitive token");
+
+  // AND semantics: a term absent from every doc yields no match.
+  const none = await searchDocsCommand({ ...RETR_BASE, cwd, query: "widget nonexistentterm" });
+  assert.equal(none.matchCount, 0);
+});
+
+test("retrieval: get-doc returns content, redacts sensitive lines, and reports not_found", async () => {
+  const cwd = await makeRetrievalWiki("retr-getdoc-");
+  const doc = await getDocCommand({ ...RETR_BASE, cwd, docPath: "guide.md" });
+  assert.equal(doc.result, "pass");
+  assert.equal(doc.document.path, "docs/llm-wiki/guide.md");
+  assert.ok(doc.document.body.includes("widget"));
+  assert.equal(doc.document.redacted, false);
+
+  // get-doc returns even restricted docs, but redacts raw sensitive values.
+  const secret = await getDocCommand({ ...RETR_BASE, cwd, docPath: "secret.md" });
+  assert.equal(secret.result, "pass");
+  assert.equal(secret.document.redacted, true);
+  assert.equal(secret.document.body.includes("supersecretvalue"), false, "raw sensitive value redacted");
+
+  // Bare name resolves too.
+  const byName = await getDocCommand({ ...RETR_BASE, cwd, docPath: "guide" });
+  assert.equal(byName.result, "pass");
+
+  const missing = await getDocCommand({ ...RETR_BASE, cwd, docPath: "nope.md" });
+  assert.equal(missing.result, "fail");
+  assert.ok(missing.findings.some((finding) => finding.rule === "retrieval.not_found"));
+});
+
+test("retrieval: get-related returns resolved graph neighbors and reports not_found", async () => {
+  const cwd = await makeRetrievalWiki("retr-related-");
+  const rel = await getRelatedCommand({ ...RETR_BASE, cwd, docPath: "index.md" });
+  assert.equal(rel.result, "pass");
+  assert.equal(rel.document, "docs/llm-wiki/index.md");
+  assert.ok(rel.related.inbound.some((node) => node.path === "docs/llm-wiki/guide.md"), "guide links to index (inbound)");
+
+  const guide = await getRelatedCommand({ ...RETR_BASE, cwd, docPath: "guide.md" });
+  assert.ok(guide.related.outbound.some((node) => node.path === "docs/llm-wiki/index.md"), "guide -> index (outbound)");
+
+  const missing = await getRelatedCommand({ ...RETR_BASE, cwd, docPath: "nope.md" });
+  assert.equal(missing.result, "fail");
+  assert.ok(missing.findings.some((finding) => finding.rule === "retrieval.not_found"));
+});
+
+test("parseArgs supports retrieval commands: positionals, filters, and required args", () => {
+  const list = parseArgs(["list-docs", "--status", "verified", "--include-sensitive"]);
+  assert.equal(list.command, "list-docs");
+  assert.deepEqual(list.errors, []);
+  assert.equal(list.options.status, "verified");
+  assert.equal(list.options.includeSensitive, true);
+
+  const search = parseArgs(["search-docs", "hello world", "--limit", "5"]);
+  assert.equal(search.command, "search-docs");
+  assert.deepEqual(search.errors, []);
+  assert.equal(search.options.query, "hello world");
+  assert.equal(search.options.limit, 5);
+
+  const getDoc = parseArgs(["get-doc", "GLOSSARY.md"]);
+  assert.deepEqual(getDoc.errors, []);
+  assert.equal(getDoc.options.docPath, "GLOSSARY.md");
+
+  assert.ok(parseArgs(["search-docs"]).errors.some((error) => error.includes("<query>")));
+  assert.ok(parseArgs(["get-doc"]).errors.some((error) => error.includes("<path>")));
+  assert.ok(parseArgs(["get-related"]).errors.some((error) => error.includes("<path>")));
+  assert.ok(parseArgs(["get-doc", "x.md", "--status", "verified"]).errors.some((error) => error.includes("--status")));
+  assert.ok(parseArgs(["search-docs", "q", "--limit", "0"]).errors.some((error) => error.includes("--limit")));
+});
+
 test("parseArgs supports drift downgrade and rejects dry-run+downgrade", () => {
   const ok = parseArgs(["drift", "--downgrade"]);
   assert.equal(ok.command, "drift");
@@ -2812,7 +2939,8 @@ test("programmatic API exposes a frozen command map mirroring the CLI surface", 
   const expected = [
     "doctor", "validate", "validate-frontmatter", "monorepo", "status", "next", "explain",
     "audit", "quickstart", "handoff", "prompt", "init", "migrate", "fix",
-    "drift", "impact", "graph", "stats", "release-notes"
+    "drift", "impact", "graph", "stats", "list-docs", "search-docs", "get-doc",
+    "get-related", "release-notes"
   ];
 
   assert.ok(Object.isFrozen(api.commands));

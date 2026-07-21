@@ -78,7 +78,7 @@ export async function handleMessage(msg, ctx = {}) {
         capabilities: { tools: {} },
         serverInfo: { name: SERVER_NAME, version: ctx.serverVersion ?? "0.0.0" },
         instructions:
-          "Read-only LLM-WIKI tools. Use validate/audit/next/status/doctor to check the wiki, graph/stats to inspect it, explain to understand a finding rule, and handoff/prompt for agent workflows. No tool writes files."
+          "Read-only LLM-WIKI tools. Use validate/audit/next/status/doctor to check the wiki, graph/stats to inspect it, list_docs/search_docs/get_doc/get_related to read document content (search_docs is keyword-only, not semantic), explain to understand a finding rule, and handoff/prompt for agent workflows. No tool writes files."
       });
 
     case "ping":

@@ -86,6 +86,7 @@ import { planSkillArtifacts, writeSkillArtifacts } from "./commands/skills.js";
 export { detectDomainDirectories, domainDisplayName, normalizeDomainSlug, planDomainDocs } from "./commands/domains.js";
 export { driftTargets } from "./commands/scans.js";
 export { driftCommand, fixCommand } from "./commands/fix-migrate.js";
+export { getDocCommand, getRelatedCommand, listDocsCommand, searchDocsCommand } from "./commands/retrieval.js";
 
 export async function doctor(options) {
   const cwd = options.cwd;

@@ -24,6 +24,24 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-21 - feat: Gate 24 read-only retrieval (list/search/get-doc/get-related, 1.18.0) 구현
+
+- status: needs_review
+- actor: Claude Code (사용자 Dowon-Kim 지시 — "다음 작업 진행")
+- scope: src + tests + docs
+- changed:
+  - src/commands/retrieval.js(신규): read-only 4개 핸들러 `listDocsCommand`/`searchDocsCommand`/`getDocCommand`/`getRelatedCommand` + 헬퍼(loadContentDocs·isRestrictedOrSensitive·redactSensitive·필터·스니펫/스코어·경로 해석). `listWikiContentDocs`·`parseFrontmatter`·`collectWikiGraph`·`scanSensitiveInfo` 재사용.
+  - src/commands.js: 4개 배럴 re-export. src/index.js: 동결 commands 맵 4개 kebab 키 + 개별 export + Options typedef(query/docPath/status/visibility/docType/includeSensitive/limit).
+  - src/cli.js: COMMANDS 4개, defaultOptions 7개 필드, parseArgs 플래그(`--status`/`--visibility`/`--doc-type`/`--include-sensitive`/`--limit`)·positional(search `<query>`/get `<path>`)·필수 인자 검증·COMMAND_OPTION_RULES·helpText usage·COMMAND_HELP·Safety.
+  - src/mcp/tools.js: TOOL_DEFS 4개(snake_case `list_docs`/`search_docs`/`get_doc`/`get_related`) + buildToolOptions 매핑. src/mcp/dispatch.js: initialize instructions 갱신.
+  - tests: verification.test.js(+6: list 제외/포함·필터·search 랭크/제외/redact/AND·get-doc redact/not_found·get-related·parseArgs; 동결 맵 기대값 4개 추가), mcp.test.js(+2: buildToolOptions retrieval 매핑·tools/call get_doc 본문).
+  - docs: PUBLIC_API·ARCHITECTURE_CONVENTIONS·DOMAIN_FEATURES 동기화(→needs_review), GATE_REVIEW Gate 24 Evidence를 "planned"→"shipped".
+- summary:
+  - 거버넌스 리포트가 아니라 문서 **본문**을 반환하는 첫 표면(런치에서 철회한 "에이전트가 위키를 query" 스토리의 실체). `search-docs`는 zero-dep 키워드/부분문자열(AND, 점수 랭크; semantic 아님). 안전 불변식: 읽기 전용, restricted/민감 문서는 list/search 기본 제외(opt-in `--include-sensitive`), 반환 본문/스니펫은 sensitive-info 스캔으로 민감 라인 redact(raw 미반환).
+  - **239→247 tests(+8) pass, validate result:pass 0 findings, validate-frontmatter --strict pass.** 4개 명령 CLI 스모크 + 픽스처로 민감 제외/redaction end-to-end 확인. MCP tools/list 14개(10+4).
+- caveats:
+  - v1은 키워드 검색(semantic/vector·인덱스·전체본문 검색 opt-in 플래그는 범위 밖). 버전 미범프(1.17.0 유지) — 릴리스 준비(1.18.0)는 별도 단계. 에이전트 편집이라 needs_review — 사람 검토 후 verified.
+
 ## 2026-07-21 - gate: Gate 24 (읽기 전용 retrieval search/get) 수락 (accepted_for_1.18.0)
 
 - status: needs_review

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { audit, doctor, driftCommand, explainCommand, fixCommand, graphCommand, handoffCommand, impactCommand, initCommand, migrateCommand, monorepoCommand, nextCommand, promptCommand, quickstartCommand, releaseNotesCommand, statsCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "./commands.js";
+import { audit, doctor, driftCommand, explainCommand, fixCommand, getDocCommand, getRelatedCommand, graphCommand, handoffCommand, impactCommand, initCommand, listDocsCommand, migrateCommand, monorepoCommand, nextCommand, promptCommand, quickstartCommand, releaseNotesCommand, searchDocsCommand, statsCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "./commands.js";
 import { printResult } from "./report.js";
 import { loadProjectConfig, mergeConfigIntoOptions } from "./config-file.js";
 import { startMcpServer } from "./mcp/server.js";
@@ -25,6 +25,10 @@ const COMMANDS = new Map([
   ["impact", impactCommand],
   ["graph", graphCommand],
   ["stats", statsCommand],
+  ["list-docs", listDocsCommand],
+  ["search-docs", searchDocsCommand],
+  ["get-doc", getDocCommand],
+  ["get-related", getRelatedCommand],
   ["release-notes", releaseNotesCommand]
 ]);
 
@@ -129,6 +133,13 @@ export function defaultOptions() {
     cwd: process.cwd(),
     task: null,
     findingRule: null,
+    query: null,
+    docPath: null,
+    status: null,
+    visibility: null,
+    docType: null,
+    includeSensitive: false,
+    limit: null,
     version: null,
     since: null,
     bodyOnly: false,
@@ -196,6 +207,36 @@ export function parseArgs(argv) {
         options.since = value;
         index += 1;
       }
+    } else if (arg === "--status") {
+      usedOptions.add("status");
+      const value = readOptionValue(rest, index, arg, errors);
+      if (value) {
+        options.status = value;
+        index += 1;
+      }
+    } else if (arg === "--visibility") {
+      usedOptions.add("visibility");
+      const value = readOptionValue(rest, index, arg, errors);
+      if (value) {
+        options.visibility = value;
+        index += 1;
+      }
+    } else if (arg === "--doc-type") {
+      usedOptions.add("doc-type");
+      const value = readOptionValue(rest, index, arg, errors);
+      if (value) {
+        options.docType = value;
+        index += 1;
+      }
+    } else if (arg === "--limit") {
+      usedOptions.add("limit");
+      const value = readOptionValue(rest, index, arg, errors);
+      if (value) {
+        const parsed = Number.parseInt(value, 10);
+        if (Number.isInteger(parsed) && parsed > 0) options.limit = parsed;
+        else errors.push(`--limit must be a positive integer: ${value}`);
+        index += 1;
+      }
     } else if (arg === "--profile") {
       usedOptions.add("profile");
       const value = readOptionValue(rest, index, arg, errors);
@@ -249,6 +290,9 @@ export function parseArgs(argv) {
     } else if (arg === "--changed") {
       usedOptions.add("changed");
       options.changed = true;
+    } else if (arg === "--include-sensitive") {
+      usedOptions.add("include-sensitive");
+      options.includeSensitive = true;
     } else if (arg === "--body-only") {
       usedOptions.add("body-only");
       options.bodyOnly = true;
@@ -269,6 +313,10 @@ export function parseArgs(argv) {
       errors.push(`Unknown option: ${arg}`);
     } else if (command === "explain" && !options.findingRule) {
       options.findingRule = arg;
+    } else if (command === "search-docs" && options.query === null) {
+      options.query = arg;
+    } else if ((command === "get-doc" || command === "get-related") && options.docPath === null) {
+      options.docPath = arg;
     } else {
       errors.push(`Unexpected argument: ${arg}`);
     }
@@ -281,6 +329,12 @@ export function parseArgs(argv) {
   validateCommandOptions(command, usedOptions, errors);
   if (command === "explain" && !options.findingRule) {
     errors.push("Missing required argument for explain: <finding>.");
+  }
+  if (command === "search-docs" && !options.query) {
+    errors.push("Missing required argument for search-docs: <query>.");
+  }
+  if ((command === "get-doc" || command === "get-related") && !options.docPath) {
+    errors.push(`Missing required argument for ${command}: <path>.`);
   }
 
   return { command, options, errors };
@@ -304,6 +358,10 @@ const COMMAND_OPTION_RULES = {
   impact: new Set(["cwd", "since", "strict", "format", "out"]),
   graph: new Set(["cwd", "format", "out"]),
   stats: new Set(["cwd", "type", "profile", "agent", "strict", "format", "out"]),
+  "list-docs": new Set(["cwd", "status", "visibility", "doc-type", "include-sensitive", "format", "out"]),
+  "search-docs": new Set(["cwd", "status", "visibility", "doc-type", "include-sensitive", "limit", "format", "out"]),
+  "get-doc": new Set(["cwd", "format", "out"]),
+  "get-related": new Set(["cwd", "format", "out"]),
   "release-notes": new Set(["cwd", "version", "since", "body-only", "format", "out"]),
   mcp: new Set(["cwd"])
 };
@@ -433,6 +491,10 @@ Usage:
   llm-wiki impact [--since <git-ref>] [--strict] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki graph [--format text|json|mermaid|dot] [--cwd <path>] [--out <path>]
   llm-wiki stats [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--strict] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki list-docs [--status <s>] [--visibility <v>] [--doc-type <t>] [--include-sensitive] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki search-docs <query> [--status <s>] [--visibility <v>] [--doc-type <t>] [--include-sensitive] [--limit <n>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki get-doc <path> [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki get-related <path> [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki release-notes [--version <x.y.z>] [--since <git-ref>] [--body-only] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki mcp [--cwd <path>]
 
@@ -445,7 +507,8 @@ Safety:
   drift reports evidence.stale drift and, only with --downgrade, flips drifted verified documents to needs_review (status + last_updated). It never promotes to verified.
   graph is read-only: it emits the wiki knowledge graph (documents + resolved doc-to-doc links) as text, JSON, Mermaid, or Graphviz DOT.
   stats is read-only: it reports a wiki health snapshot (verified %, enrichment %, evidence coverage, staleness, orphans).
-  mcp starts a read-only Model Context Protocol server over stdio, exposing the read-only commands (validate/audit/next/status/doctor/stats/graph/explain/handoff/prompt) as MCP tools. No MCP tool writes files.
+  list-docs/search-docs/get-doc/get-related are read-only retrieval: they return document content (not governance reports). search-docs is keyword/substring only (not semantic). Restricted/sensitive docs are excluded from list/search unless --include-sensitive, and returned bodies/snippets redact sensitive-looking lines.
+  mcp starts a read-only Model Context Protocol server over stdio, exposing the read-only commands (validate/audit/next/status/doctor/stats/graph/explain/handoff/prompt/list_docs/search_docs/get_doc/get_related) as MCP tools. No MCP tool writes files.
   Adapter checks and suggestions are opt-in with --agent. ANTIGRAVITY.md remains an info-level candidate.
   prompt prints repeatable post-wiki agent workflows and does not write project files unless --out is used for the report.
   next is advisory: it reuses audit coverage and recommends follow-up actions without writing files.
@@ -696,6 +759,65 @@ Purpose:
 
 JSON (--format json):
   Top-level keys: schemaVersion, command, result, stats, findings[]. stats carries documents, healthScore, status, verified/verifiedPct, enriched/enrichedPct, evidenceBacked/evidencePct, staleVerified, orphanDocuments.
+`,
+  "list-docs": `llm-wiki list-docs
+
+Usage:
+  llm-wiki list-docs [--status <s>] [--visibility <v>] [--doc-type <t>] [--include-sensitive] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+
+Purpose:
+  Read-only retrieval. Enumerates wiki content documents with their key metadata
+  (path, title, status, doc_type, visibility, last_updated, tags) — no bodies.
+  Filter with --status, --visibility, and --doc-type. Restricted/sensitive
+  documents (visibility: restricted, contains_sensitive_info, or a sensitive-info
+  match) are EXCLUDED unless --include-sensitive.
+
+JSON (--format json):
+  Top-level keys: schemaVersion, command, result, filters, excludedSensitive, documents[], findings[]. documents[] items are { path, title, status, docType, visibility, lastUpdated, tags }.
+`,
+  "search-docs": `llm-wiki search-docs
+
+Usage:
+  llm-wiki search-docs <query> [--status <s>] [--visibility <v>] [--doc-type <t>] [--include-sensitive] [--limit <n>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+
+Purpose:
+  Read-only retrieval. Deterministic keyword/substring search over document
+  titles, bodies, and frontmatter (tags/aliases) — NOT semantic/vector search.
+  Every query term must appear in a document (AND); results are ranked (title
+  hits weighted highest) and return a short snippet per match. Use get-doc for
+  full content. Restricted/sensitive docs are excluded unless --include-sensitive;
+  snippets redact sensitive-looking lines. --limit caps results (default 20).
+
+JSON (--format json):
+  Top-level keys: schemaVersion, command, result, query, limit, filters, excludedSensitive, matchCount, matches[], findings[]. matches[] items are { path, title, status, score, snippet }.
+`,
+  "get-doc": `llm-wiki get-doc
+
+Usage:
+  llm-wiki get-doc <path> [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+
+Purpose:
+  Read-only retrieval. Returns one document's frontmatter and body. <path> may be
+  repo-relative (docs/llm-wiki/GLOSSARY.md), wiki-relative (GLOSSARY.md), or a
+  bare name (GLOSSARY). Sensitive-looking body lines are redacted; the document's
+  own visibility/contains_sensitive_info frontmatter is preserved.
+
+JSON (--format json):
+  Top-level keys: schemaVersion, command, result, document, findings[]. document carries path, title, status, docType, visibility, lastUpdated, tags, frontmatter, body, redacted. A missing path yields result: fail and a retrieval.not_found finding.
+`,
+  "get-related": `llm-wiki get-related
+
+Usage:
+  llm-wiki get-related <path> [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+
+Purpose:
+  Read-only retrieval. Returns a document's resolved graph neighbors — outbound
+  (documents it links to) and inbound (documents that link to it) — over wiki
+  [[links]], related frontmatter, and local markdown links. Use get-doc to read a
+  neighbor.
+
+JSON (--format json):
+  Top-level keys: schemaVersion, command, result, document, related, findings[]. related carries outbound[] and inbound[] ({ path, kind }). A missing path yields result: fail and a retrieval.not_found finding.
 `,
   "release-notes": `llm-wiki release-notes
 

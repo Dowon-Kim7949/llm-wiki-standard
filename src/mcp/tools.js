@@ -33,6 +33,11 @@ const agentsProp = {
   items: { type: "string", enum: ["codex", "claude", "cursor", "copilot", "windsurf", "gemini", "jetbrains", "antigravity"] },
   description: "Adapter/agent targets for the handoff or task prompt. Defaults to claude when omitted."
 };
+const statusFilterProp = { type: "string", description: "Filter by document status (for example needs_review or verified)." };
+const visibilityFilterProp = { type: "string", enum: ["internal", "public", "restricted"], description: "Filter by document visibility." };
+const docTypeFilterProp = { type: "string", description: "Filter by doc_type (or OKF type)." };
+const includeSensitiveProp = { type: "boolean", description: "Include restricted/sensitive documents (excluded from list/search by default)." };
+const docPathProp = { type: "string", description: "Document path: repo-relative (docs/llm-wiki/GLOSSARY.md), wiki-relative (GLOSSARY.md), or a bare name (GLOSSARY)." };
 
 function schema(properties, required = []) {
   return { type: "object", properties, required, additionalProperties: false };
@@ -127,6 +132,46 @@ export const TOOL_DEFS = [
       profiles: profilesProp,
       agents: agentsProp
     }, ["task"])
+  },
+  {
+    name: "list_docs",
+    title: "List wiki documents",
+    description:
+      "Read-only retrieval. Enumerate wiki documents with metadata (path, title, status, doc_type, visibility, last_updated, tags) and optional status/visibility/docType filters. Returns no bodies. Restricted/sensitive documents are excluded unless includeSensitive is set.",
+    command: "list-docs",
+    inputSchema: schema({ cwd: cwdProp, status: statusFilterProp, visibility: visibilityFilterProp, docType: docTypeFilterProp, includeSensitive: includeSensitiveProp })
+  },
+  {
+    name: "search_docs",
+    title: "Search wiki documents",
+    description:
+      "Read-only keyword/substring search (deterministic, NOT semantic/vector) over document titles, bodies, and frontmatter. Every whitespace-separated term must appear (AND); returns ranked matches with a redacted snippet. Use get_doc for full content. Restricted/sensitive documents are excluded unless includeSensitive is set.",
+    command: "search-docs",
+    inputSchema: schema({
+      query: { type: "string", description: "Keyword query. Every whitespace-separated term must appear in a document." },
+      cwd: cwdProp,
+      status: statusFilterProp,
+      visibility: visibilityFilterProp,
+      docType: docTypeFilterProp,
+      includeSensitive: includeSensitiveProp,
+      limit: { type: "integer", minimum: 1, description: "Maximum results to return (default 20)." }
+    }, ["query"])
+  },
+  {
+    name: "get_doc",
+    title: "Get a wiki document",
+    description:
+      "Read-only retrieval. Return one document's frontmatter and body by path. Sensitive-looking body lines are redacted; the document's own visibility/contains_sensitive_info frontmatter is preserved.",
+    command: "get-doc",
+    inputSchema: schema({ path: docPathProp, cwd: cwdProp }, ["path"])
+  },
+  {
+    name: "get_related",
+    title: "Get related wiki documents",
+    description:
+      "Read-only retrieval. Return a document's resolved graph neighbors — outbound (documents it links to) and inbound (documents that link to it) — over wiki [[links]], related frontmatter, and local markdown links.",
+    command: "get-related",
+    inputSchema: schema({ path: docPathProp, cwd: cwdProp }, ["path"])
   }
 ];
 
@@ -144,6 +189,13 @@ export function buildToolOptions(tool, args = {}) {
   if (typeof args.format === "string") options.format = args.format;
   if (typeof args.rule === "string") options.findingRule = args.rule;
   if (typeof args.task === "string") options.task = args.task;
+  if (typeof args.query === "string") options.query = args.query;
+  if (typeof args.path === "string") options.docPath = args.path;
+  if (typeof args.status === "string") options.status = args.status;
+  if (typeof args.visibility === "string") options.visibility = args.visibility;
+  if (typeof args.docType === "string") options.docType = args.docType;
+  if (typeof args.includeSensitive === "boolean") options.includeSensitive = args.includeSensitive;
+  if (Number.isInteger(args.limit)) options.limit = args.limit;
   if (Array.isArray(args.agents)) options.agents = args.agents;
 
   // handoff/prompt need an agent to render a prompt; default to claude so the

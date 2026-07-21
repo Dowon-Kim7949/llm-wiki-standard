@@ -153,6 +153,28 @@ test("buildToolOptions maps args and defaults handoff/prompt to a claude agent",
   assert.deepEqual(buildToolOptions(prompt, { task: "feature", agents: ["codex"] }).agents, ["codex"]);
 });
 
+test("buildToolOptions maps retrieval args (query/path/filters/includeSensitive/limit)", () => {
+  const search = TOOL_DEFS.find((t) => t.name === "search_docs");
+  assert.deepEqual(
+    buildToolOptions(search, { query: "widget", status: "verified", includeSensitive: true, limit: 5 }),
+    { query: "widget", status: "verified", includeSensitive: true, limit: 5 }
+  );
+  const getDoc = TOOL_DEFS.find((t) => t.name === "get_doc");
+  assert.deepEqual(buildToolOptions(getDoc, { path: "GLOSSARY.md" }), { docPath: "GLOSSARY.md" });
+});
+
+test("tools/call get_doc returns document content (read-only retrieval over MCP)", async () => {
+  const res = await handleMessage(
+    { jsonrpc: "2.0", id: 41, method: "tools/call", params: { name: "get_doc", arguments: { cwd: repoRoot, path: "GLOSSARY.md" } } },
+    {}
+  );
+  assert.equal(res.result.isError, false);
+  assert.equal(res.result.structuredContent.command, "get-doc");
+  assert.equal(res.result.structuredContent.result, "pass");
+  assert.equal(typeof res.result.structuredContent.document.body, "string");
+  assert.ok(res.result.structuredContent.document.body.length > 0);
+});
+
 // Spawn the MCP server, stream newline-delimited JSON-RPC, and collect messages.
 // `until(byId, nullIdReplies)` resolves the wait; the caller ends stdin after.
 async function driveMcpServer(lines, until) {

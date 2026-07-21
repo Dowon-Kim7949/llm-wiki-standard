@@ -1115,13 +1115,19 @@ equivalents. Results reuse the 1.5 result shape (`schemaVersion`) as MCP
 - **Keyword only:** deterministic keyword/substring ranking; NO semantic/vector search
   (would break zero-dep). The surface is named "keyword search," never "semantic."
 
-### Evidence (planned, not yet implemented)
+### Shipped in 1.18.0
 
-- `src/commands/wiki-files.js#symbol:listWikiContentDocs` — content-doc enumeration to back `list_docs`/`search_docs`.
-- `src/commands/wiki-graph.js#symbol:collectWikiGraph` — resolved doc→doc edges to back `get_related`.
-- `src/frontmatter.js#symbol:parseFrontmatter` — frontmatter parsing for filters (status/visibility/doc_type) and `get_doc`.
-- `src/sensitive-info.js` — reused so retrieved bodies/snippets never leak raw sensitive values.
-- `src/mcp/tools.js#symbol:TOOL_DEFS` — where the new read-only retrieval tools plug in.
+Delivered in `src/commands/retrieval.js` (four handlers `listDocsCommand`/`searchDocsCommand`/`getDocCommand`/`getRelatedCommand`), wired to the programmatic API (`src/index.js` frozen `commands` map, kebab keys `list-docs`/`search-docs`/`get-doc`/`get-related`), the CLI (`src/cli.js` COMMANDS + `--status`/`--visibility`/`--doc-type`/`--include-sensitive`/`--limit` options + `<query>`/`<path>` positionals), and MCP (`src/mcp/tools.js` TOOL_DEFS `list_docs`/`search_docs`/`get_doc`/`get_related`). All resolutions above shipped as decided: keyword-only (no semantic), restricted/sensitive excluded from list/search by default with opt-in `--include-sensitive`, `get-doc` redacts raw sensitive values, snippets by default. New `retrieval.not_found` (error) finding for a missing `get-doc`/`get-related` path. Read-only; additive; zero-dep. Re-measure Gate 22 here for the headline before/after-retrieval delta.
+
+### Evidence (shipped)
+
+- `src/commands/retrieval.js#symbol:searchDocsCommand` — keyword/substring search (AND, deterministic ranking, redacted snippets; excludes restricted/sensitive unless opted in).
+- `src/commands/retrieval.js#symbol:getDocCommand` — frontmatter + body by path (flexible path resolution; sensitive lines redacted; `retrieval.not_found` when missing).
+- `src/commands/wiki-files.js#symbol:listWikiContentDocs` — content-doc enumeration backing `list-docs`/`search-docs`.
+- `src/commands/wiki-graph.js#symbol:collectWikiGraph` — resolved doc→doc edges backing `get-related`.
+- `src/frontmatter.js#symbol:parseFrontmatter` — frontmatter parsing for filters (status/visibility/doc_type) and `get-doc`.
+- `src/sensitive-info.js#symbol:scanSensitiveInfo` — reused so retrieved bodies/snippets never leak raw sensitive values, and to gate restricted/sensitive docs.
+- `src/mcp/tools.js#symbol:TOOL_DEFS` — the read-only retrieval tools plug in here (snake_case names).
 - `src/index.js#symbol:commands` — the frozen programmatic API map the new commands extend additively.
 
 ## Release Caveats

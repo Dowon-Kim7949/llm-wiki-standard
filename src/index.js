@@ -22,16 +22,20 @@ import {
   driftCommand,
   explainCommand,
   fixCommand,
+  getDocCommand,
+  getRelatedCommand,
   graphCommand,
   handoffCommand,
   impactCommand,
   initCommand,
+  listDocsCommand,
   migrateCommand,
   monorepoCommand,
   nextCommand,
   promptCommand,
   quickstartCommand,
   releaseNotesCommand,
+  searchDocsCommand,
   statsCommand,
   statusCommand,
   validateCommand,
@@ -72,6 +76,13 @@ import { TOOL_DEFS as MCP_TOOLS } from "./mcp/tools.js";
  * @property {string|null} version   release-notes version override.
  * @property {string|null} task      prompt task name.
  * @property {string|null} findingRule explain target rule.
+ * @property {string|null} query     search-docs query.
+ * @property {string|null} docPath   get-doc/get-related target document path.
+ * @property {string|null} status    list-docs/search-docs status filter.
+ * @property {string|null} visibility list-docs/search-docs visibility filter.
+ * @property {string|null} docType   list-docs/search-docs doc_type filter.
+ * @property {boolean} includeSensitive Include restricted/sensitive docs in list/search.
+ * @property {number|null} limit     search-docs max results.
  * @property {string} existing       "skip"|"overwrite".
  * @property {string|null} out       Report output path, or null.
  */
@@ -121,6 +132,10 @@ export const commands = Object.freeze({
   impact: impactCommand,
   graph: graphCommand,
   stats: statsCommand,
+  "list-docs": listDocsCommand,
+  "search-docs": searchDocsCommand,
+  "get-doc": getDocCommand,
+  "get-related": getRelatedCommand,
   "release-notes": releaseNotesCommand
 });
 
@@ -174,16 +189,20 @@ export {
   driftCommand,
   explainCommand,
   fixCommand,
+  getDocCommand,
+  getRelatedCommand,
   graphCommand,
   handoffCommand,
   impactCommand,
   initCommand,
+  listDocsCommand,
   migrateCommand,
   monorepoCommand,
   nextCommand,
   promptCommand,
   quickstartCommand,
   releaseNotesCommand,
+  searchDocsCommand,
   statsCommand,
   statusCommand,
   validateCommand,
