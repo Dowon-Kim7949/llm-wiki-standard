@@ -6,6 +6,51 @@ All notable changes to `llm-wiki-governance` (formerly `@dowonk-7949/llm-wiki-st
 are documented here. This project follows [Semantic Versioning](https://semver.org/).
 Entries are newest-first.
 
+## 1.19.0 — 2026-07-21
+
+Evidence semantic tiers (Gate 25) + agent update runner (Gate 26). Deepens the
+"code-grounded, verified" promise from format-only checks to meaning, and makes the
+wiki-grounded skill workflow auditable end-to-end. Additive and opt-in: the existing
+`llm-wiki` command surface, `--format json`, the programmatic API, and the frontmatter
+contract are unchanged, and no runtime dependency is added.
+
+### Added
+
+- **Evidence target-existence checks (Gate 25).** `evidence`/`source_files` references
+  with a `#symbol:` or `#section:` locator are now checked for the *target's* existence,
+  not just the file's: `evidence.symbol_unverified` fires when the referenced file mentions
+  none of the symbol name(s) (a `·`/`,`/`/`-joined value is a list), and
+  `evidence.section_unverified` when a Markdown source has no heading matching the section.
+  Conservative textual-presence check (not an AST resolver — avoids false positives).
+  Default warning; `--strict` escalates. `route` locators stay format-only in v1.
+- **`evidence.ungrounded` (Gate 25).** Flags a `verified` document with no `source_files`
+  and no `evidence` — "verified" with no code grounding. Default warning; not escalated by
+  `--strict` (toggle/escalate via `llm-wiki.config.json` `rules`).
+- **Computed evidence tiers (Gate 25).** `llm-wiki stats` now reports `evidenceTiers`
+  (`reference_checked` = has grounding and every reference resolves; `human_verified` =
+  verified with reviewer metadata) — computed and report-only, **not** a new frontmatter
+  field or `status` value.
+- **`llm-wiki check-run` — agent update runner (Gate 26, read-only).** Verifies a
+  wiki-grounded skill run's manifest under `.llm-wiki/runs/` (the newest, or `--run <path>`):
+  every `changedSource` file is referenced by some `touchedDocs` document, the change log was
+  appended, and validation ran and passed. The intent-anchored complement to `impact`
+  (diff-anchored). New toggleable `run.*` findings (`run.doc_gap`/`run.log_missing`/
+  `run.unvalidated` warning, `run.manifest_missing` warning, `run.manifest_invalid` error).
+  Default warning; `--strict` fails CI.
+- **Skill completion contract (Gate 26).** The generated `/llm-wiki-<task>` skill bodies now
+  embed a final step to write the run manifest, so the completion contract travels with the
+  skill. Regenerate committed skill artifacts with `init --write --skills --existing overwrite`
+  to pick it up.
+
+### Safety
+
+- **Read-only.** The evidence checks, tiers, and `check-run` never write. `check-run`'s only
+  associated write is the manifest the agent authors during its own run (not by the tool).
+- **Conservative by design.** The target-existence checks flag only unambiguous absences, so
+  enabling them does not retroactively break correctly-grounded `verified` documents.
+- **Zero-dependency.** Bounded text scans and the existing parsers only — no AST/language
+  server, no network.
+
 ## 1.18.0 — 2026-07-21
 
 Read-only retrieval (Gate 24). Adds four commands that return document **content**,

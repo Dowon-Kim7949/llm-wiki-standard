@@ -5,6 +5,42 @@
 `llm-wiki-governance`(옛 `@dowonk-7949/llm-wiki-standard`)의 주요 변경 사항을 기록합니다. 이
 프로젝트는 [유의적 버전(Semantic Versioning)](https://semver.org/)을 따르며, 항목은 최신순입니다.
 
+## 1.19.0 — 2026-07-21
+
+Evidence 의미 단계화(Gate 25) + agent update runner(Gate 26). "코드 근거·verified" 약속을
+FORMAT 검사에서 MEANING으로 넓히고, 위키-그라운디드 스킬 워크플로를 감사 가능하게 만든다.
+부가적·opt-in이라 기존 `llm-wiki` 명령 표면·`--format json`·프로그래매틱 API·frontmatter 계약은
+불변이며 런타임 의존성 추가 없음.
+
+### Added
+
+- **Evidence 타깃 실재 검사(Gate 25).** `#symbol:`/`#section:` locator를 가진
+  `evidence`/`source_files` 참조에 대해 파일 존재뿐 아니라 *타깃* 실재를 확인한다:
+  참조 파일이 심볼 이름을 전혀 언급 안 하면 `evidence.symbol_unverified`(`·`/`,`/`/`-결합은
+  목록으로 처리), Markdown 소스에 해당 헤딩이 없으면 `evidence.section_unverified`. 보수적
+  텍스트 존재 검사(AST 아님 — 오탐 회피). 기본 warning, `--strict` 승격. `route`는 v1에서 형식만.
+- **`evidence.ungrounded`(Gate 25).** `source_files`도 `evidence`도 없는 `verified` 문서를
+  flag — grounding 없는 "verified". 기본 warning, `--strict` 미승격(config `rules`로 토글/승격).
+- **계산된 evidence tier(Gate 25).** `llm-wiki stats`가 `evidenceTiers`를 보고한다
+  (`reference_checked` = grounding 있고 모든 참조 해소, `human_verified` = verified+리뷰 메타) —
+  계산·보고 전용, 신규 frontmatter 필드/`status`값 **아님**.
+- **`llm-wiki check-run` — agent update runner(Gate 26, 읽기 전용).** `.llm-wiki/runs/`의
+  스킬 실행 manifest(최신 또는 `--run <path>`)를 검증: `changedSource` 파일마다 이를 참조하는
+  `touchedDocs` 문서가 있는지, 로그 append·validate 통과 여부. `impact`(diff-앵커)의 intent-앵커
+  보완. 신규 토글 `run.*`(`run.doc_gap`/`run.log_missing`/`run.unvalidated` warning,
+  `run.manifest_missing` warning, `run.manifest_invalid` error). 기본 warning, `--strict` CI 실패.
+- **스킬 완성 계약(Gate 26).** 생성되는 `/llm-wiki-<task>` 스킬 본문에 run manifest 작성 단계가
+  내장돼 완성 계약이 스킬과 함께 이동한다. 커밋된 스킬 아티팩트는
+  `init --write --skills --existing overwrite`로 재생성해 반영.
+
+### Safety
+
+- **읽기 전용.** evidence 검사·tier·`check-run`은 쓰지 않는다. `check-run`의 유일한 관련 쓰기는
+  에이전트가 자기 실행 중 작성하는 manifest다(도구가 아님).
+- **설계상 보수적.** 타깃 실재 검사는 명백한 부재만 flag하므로, 켜도 올바르게 grounding된
+  `verified` 문서를 소급해 깨지 않는다.
+- **무의존성.** bounded 텍스트 스캔 + 기존 파서만 — AST/언어서버·네트워크 없음.
+
 ## 1.18.0 — 2026-07-21
 
 읽기 전용 retrieval(Gate 24). 거버넌스 리포트가 아니라 문서 **본문**을 반환하는 4개 명령을
