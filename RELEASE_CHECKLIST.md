@@ -1,5 +1,5 @@
 ---
-title: LLM-WIKI Standard Package Release Checklist
+title: LLM-WIKI Governance Package Release Checklist
 tags:
   - llm-wiki
   - package
@@ -24,7 +24,7 @@ visibility: internal
 contains_sensitive_info: false
 ---
 
-# LLM-WIKI Standard Package Release Checklist
+# LLM-WIKI Governance Package Release Checklist
 
 Use this checklist before publishing `llm-wiki-governance@<version>` (the version in `package.json`, matched against the release tag). It is version-agnostic — the steps apply to every `1.x` release.
 

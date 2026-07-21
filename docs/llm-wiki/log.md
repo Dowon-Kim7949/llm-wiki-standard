@@ -24,6 +24,21 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-21 - roadmap: post-1.16 계획(측정 우선) + Gate 22 초안 + 제목 정리
+
+- status: needs_review
+- actor: Claude Code (사용자 Dowon-Kim 지시 — "문서 현행화 확인 후 로드맵 작성; a안 = 측정을 Gate 22로 앞당김")
+- scope: docs (roadmap, gate-review, 제목)
+- changed:
+  - GATE_REVIEW.md: Gate 22(Impact Measurement) 표 행 + 상세 Scope Decision(proposed — NOT accepted) 추가; 제목 "…Standard Package Gate Review"→"…Governance…"
+  - ROADMAP.md + ROADMAP.ko.md: "Release Plan (post-1.16)" 추가 — 측정 우선 순서(Gate 22 측정 → 23 reverse-impact → 24 retrieval → 25 evidence tiers → 26 agent runner) + 1.15–1.16 shipped 요약; 제목→Governance (EN/KO 쌍 동기화)
+  - RELEASE_CHECKLIST.md, VERIFICATION.md: 제목 "…Standard Package …"→"…Governance…"
+- summary:
+  - 문서 현행화 확인(validate/strict/drift 0, repo pkg==npm latest 1.16.1) 후, 제품 정체성 감사(`outputs/audits/product-identity-audit.md`, Conditional Go)의 Top-5를 게이트로 배열. 사용자 선택(a): 측정(감사 #5)을 "주장의 전제"로 보고 Gate 22로 앞당김 — 단발 게이트가 아니라 계측 트랙(baseline now, retrieval[Gate 24] 후 delta가 헤드라인).
+  - 개명 완결: "LLM-WIKI Standard" 제목 잔여 4건(ROADMAP/GATE_REVIEW/RELEASE_CHECKLIST/VERIFICATION)을 Governance로 교정. fixtures·역사 기록(CHANGELOG/log 본문)은 의도적으로 유지.
+- caveats:
+  - Gate 22~26은 proposed/draft — 사람 수락 전. Gate 22만 상세 Scope Decision 작성, 23~26은 ROADMAP에 계획으로만(코드 전 게이트 규율).
+
 ## 2026-07-21 - release: prepare 1.16.1 (1.16.0 개명 후속 정리 + 첫 TP 자동배포)
 
 - status: needs_review

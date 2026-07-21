@@ -1,5 +1,5 @@
 ---
-title: LLM-WIKI Standard Roadmap
+title: LLM-WIKI Governance Roadmap
 tags:
   - llm-wiki
   - roadmap
@@ -8,7 +8,7 @@ tags:
 status: needs_review
 doc_type: roadmap
 project: llm-wiki-governance
-last_updated: 2026-07-16
+last_updated: 2026-07-21
 author: ai-generated
 last_edited_by: Claude Code
 wiki_block_version: v1
@@ -32,7 +32,7 @@ contains_sensitive_info: false
 
 > Language: [English](./ROADMAP.md) | [한국어](./ROADMAP.ko.md)
 
-# LLM-WIKI Standard Roadmap
+# LLM-WIKI Governance Roadmap
 
 이 로드맵은 미래 지향 문서다. 구현 이력은 `CHANGELOG.md`, `docs/llm-wiki/log.md`,
 그리고 `docs/llm-wiki/releases/` 아래 릴리스별 노트에 있다. 이 문서는 안정 `1.0.0`
@@ -248,6 +248,39 @@ Android Gradle Plugin 또는 AndroidX 신호, `AndroidManifest.xml`), Flutter(`f
 아닌 `backend`로 분류 — bounded·오탐 방지 소스 스캔(HTTP import **와** 서버 시작 호출)으로.
 셋 중 가장 작고 마지막; 유일한 리스크는 과분류라서 휴리스틱은 보수적·단방향(`library`→`backend`
 승격만, 강등 없음)을 유지한다. 무의존성. 범위: `GATE_REVIEW.md`(Gate 19).
+
+## 릴리스 계획 (1.15–1.16) — 완료 (shipped)
+
+- **1.15 — 스킬 생성 (Gate 21).** `init`/`quickstart`이 `feature`/`fix`/`docs-sync` 위키-그라운디드 자동화 프롬프트를 Claude 스킬·Cursor 룰·에이전트-중립 프롬프트로 생성하고 각 본문에 프로젝트 도메인 맵을 주입한다. opt-in·preview-first·미덮어씀·recognize-don't-run. `1.15.0`에서 출시, `1.15.1`에서 재시작 안내 추가(스킬은 세션 시작 시 로드).
+- **1.16 — 개명 + 거버넌스 리포지셔닝 + English-first 출력.** `@dowonk-7949/llm-wiki-standard` → `llm-wiki-governance`(unscoped; `llm-wiki` 명령은 불변) 개명, "AI가 쓴 프로젝트 문서를 위한 거버넌스(OKF-compatible)"로 포지셔닝, CLI 출력을 English-first로 전환(붙여넣는 handoff 프롬프트는 완전 영어; help/About/Next Step은 영어 우선). 부가적·프레젠테이션 — `1.0.0` 명령/`--format json`/프로그래매틱 API/frontmatter 계약·zero-dep 불변. `1.16.1`에서 스토어프론트(README 제목·`keywords`) 교정. 신규 게이트 없음.
+
+## 릴리스 계획 (post-1.16) — 가치를 증명하고, 메모리 루프를 닫는다
+
+독립 제품 정체성 감사(`outputs/audits/product-identity-audit.md`, **Conditional Go**)는 거버넌스 코어는 실제이고 이름도 정확하지만, 궁극적 가치 사슬 — 지속적 프로젝트 메모리 → 재탐색 감소 → 토큰 절감/더 빠르고 안전한 작업 — 이 **미검증**이고, 런치 주장 2개(프로즈의 의미적 "검증", MCP로 문서 본문 "query")를 철회해야 했음을 밝혔다. 그래서 이 라인은 **먼저 측정하고, 그다음 메모리 스토리를 진짜로 만드는 두 기능을 만든다** — 동일 규율(코드 전에 게이트), 각 후속 게이트는 Gate 22 하니스로 재측정. 순서: 측정 → 최고 레버 거버넌스 완결 → "프로젝트 메모리"를 참으로 만드는 메커니즘.
+
+### Gate 22 — Impact 측정 (앞으로 당김)
+
+더 만들기 전에 코어 가치를 증명(또는 반증)한다. 재현 가능·opt-in·zero-dep 벤치마크 하니스가 대표 태스크를 **위키 있음/없음**으로 실행해 input tokens·열어본 파일 수·task 성공·소요시간을 기록하고, 위키 읽기+유지 비용까지 세는 정직한 방법론과 baseline을 남긴다. 주로 검증 트랙(shipped 계약 변경 없음; `bench` 헬퍼는 후속 minor). 불리한 결과 포함 정직하게 보고. **숫자가 뒷받침하기 전까지 token/속도 주장은 안 싣는다.** 주의: 재탐색 감소 메커니즘은 retrieval(Gate 24)이 완성하므로, 헤드라인은 raw baseline이 아니라 retrieval 전후 **delta**다. 범위: `GATE_REVIEW.md`(Gate 22, proposed).
+
+### Gate 23 — 변경소스 → 위키 reverse-impact 게이트
+
+감사가 찾은 최대 비전-현실 간극: 현재 drift는 날짜 기반이라 가장 중요한 경우 — 코드와 문서가 **다른 곳/PR**에서 바뀌는 경우 — 를 놓친다. `source_files`/`evidence`의 git-diff 역색인을 만들어, 참조된 코드를 건드리는 변경이 관련 `verified` 문서를 flag하게 한다(commit-SHA 기준; working-tree/PR-base 인식), strict-governance preset은 drift에서 CI 실패 가능. "위키가 코드를 따라간다"를 실제·CI 강제로 만든다. 부가적·opt-in·zero-dep. (코드 전에 신규 게이트.)
+
+### Gate 24 — 읽기 전용 retrieval (search/get) MCP + API
+
+"프로젝트 메모리 / 에이전트가 위키를 query" 스토리를 참으로 만든다(런치에서 철회한 부분). status/visibility 필터가 있는 읽기 전용 `list_docs`/`search_docs`/`get_doc`/`get_related`를 MCP·프로그래매틱 API로 추가 — 거버넌스 보고가 아니라 **문서 본문**을 반환. **여기서 재측정** — 재탐색/토큰 delta가 나타날 지점. 부가적·opt-in·zero-dep. (코드 전에 신규 게이트.)
+
+### Gate 25 — Evidence 의미 단계화
+
+감사가 실증한 신뢰 갭 해소(존재하지 않는 symbol을 인용해도 지금은 통과). `reference_checked`와 `human_verified`를 구분하고, 지원 언어부터 symbol/route 존재를 실제 검사하며, strict preset은 근거 없는 `verified`를 실패시킨다. 부가적·opt-in·zero-dep. (코드 전에 신규 게이트.)
+
+### Gate 26 — Agent 실행 러너 + 완료 계약
+
+self-evolving 워크플로 조각: 스킬 실행이 구조화된 manifest(변경 코드·영향 문서·log 갱신·검증)를 남기고 CI가 누락된 위키 갱신을 검출 — 프로즈는 여전히 에이전트가 쓰되 파이프라인은 강제된다. 크고 모호 → 마지막. (코드 전에 신규 게이트.)
+
+### P3 도입 장벽 (흡수)
+
+brownfield 적합성(기존 대형 문서셋)과 비-JS 팀의 Node 런타임 장벽은 별도 기능이 아니라 위 게이트(특히 23/24) 안에서 다루고, 측정(Gate 22)이 실제 어디서 도입이 막히는지 보여준 뒤 재검토한다.
 
 ## 미배치 1.x 백로그 (Unscheduled 1.x Backlog)
 

@@ -1,5 +1,5 @@
 ---
-title: LLM-WIKI Standard Package Verification Report
+title: LLM-WIKI Governance Package Verification Report
 tags:
   - llm-wiki
   - package
@@ -25,7 +25,7 @@ visibility: internal
 contains_sensitive_info: false
 ---
 
-# LLM-WIKI Standard Package Verification Report
+# LLM-WIKI Governance Package Verification Report
 
 This report records verification coverage for the stable `1.x` release line (the version in `package.json`, matched against the release tag). It is version-agnostic.
 

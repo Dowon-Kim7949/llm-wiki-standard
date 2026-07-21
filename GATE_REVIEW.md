@@ -1,5 +1,5 @@
 ---
-title: LLM-WIKI Standard Package Gate Review
+title: LLM-WIKI Governance Package Gate Review
 tags:
   - llm-wiki
   - package
@@ -8,7 +8,7 @@ tags:
 status: needs_review
 doc_type: gate_review
 project: llm-wiki-governance
-last_updated: 2026-07-16
+last_updated: 2026-07-21
 author: ai-generated
 last_edited_by: Claude Code
 wiki_block_version: v1
@@ -32,7 +32,7 @@ visibility: internal
 contains_sensitive_info: false
 ---
 
-# LLM-WIKI Standard Package Gate Review
+# LLM-WIKI Governance Package Gate Review
 
 This document records the default decisions for the `0.1.0` stable release line and the `1.0.0` stability milestone.
 
@@ -60,6 +60,7 @@ This document records the default decisions for the `0.1.0` stable release line 
 | Gate 16 Cross-Repository Links Scope Approval | `accepted_for_1.11.0` | Add a conservative, NON-fetching cross-repo reference scheme (a reserved `repo:<name>/<path>` form, plus the already-recognized `http(s)://` URLs) recognized in `[[wiki links]]` and in `source_files`/`evidence`/`related`. Recognized references are treated as external — resolved (not flagged `wiki_link.missing`/`related.missing`/`source_files.missing`/`evidence.missing`/`markdown_link.missing`) but NEVER verified (verification would need network/git and break zero-dependency). Additive: local resolution is unchanged; only the reserved scheme is newly recognized. Accepted by Dowon-Kim on 2026-07-15. See "Cross-Repository Links Scope Decision" below. |
 | Gate 20 Review Workflow Scope Approval | `proposed_for_next` (DRAFT — not yet accepted) | Add a read-only `review` command that supports the human review→`verified` step (the weakest, most manual part of the loop, and the governance core): list `needs_review` content docs risk-ranked (thin / no-evidence / broken-link / never-enriched first) with a per-doc quality + evidence summary for fast spot-checking. Promotion to `verified` (stamping `reviewed_by`/`reviewed_at`) happens ONLY on an explicit, per-doc/confirmed `--approve <path>…` (or `--approve-all` with a confirmation) — NEVER automatically; the review DECISION stays human, only the MECHANICS get cheap. Additive/opt-in, read-only by default, zero-dep; `1.0.0` contracts unchanged. Motivated by the first external end-to-end run (a backend dev enriched a full wiki; the maintainer then had no ergonomic way to review + bless the `needs_review` backlog). DRAFTED for human acceptance. See "Review Workflow Scope Decision" below. |
 | Gate 21 Skill Generation Scope Approval | `accepted_for_1.15.0` | Generate invocable, wiki-grounded automation prompts for the feature/fix/docs-sync workflows already encoded in `src/task-prompts.js`, in each agent's native shape — Claude skill (`.claude/skills/llm-wiki-<task>/SKILL.md`), Cursor rule (`.cursor/rules/llm-wiki-<task>.mdc`), and an agent-neutral prompt doc (`docs/llm-wiki/prompts/llm-wiki-<task>.prompt.md`, for Codex/others) — so a user can invoke `/llm-wiki-feature "…"` to run "read the wiki → ground the change → update docs (needs_review) → log", closing the value loop (#8). Each body embeds a generation-time snapshot of the project's domain map so the agent knows which docs to read. Opt-in (per `--agent`/`--skills`), preview-first, existing files never overwritten, recognize-don't-run, needs_review discipline embedded. Additive, zero-dep; `1.0.0` contracts unchanged. Accepted by Dowon-Kim on 2026-07-20 with two additions over the draft (domain-map injection + multi-agent formats). MINOR (`1.15.0`). See "Skill Generation Scope Decision" below. |
+| Gate 22 Impact Measurement Scope Approval | `proposed_for_next` (DRAFT — not yet accepted) | Pull impact measurement to the FRONT of the post-1.16 line (before the feature gates). A reproducible, opt-in, zero-dep benchmark harness (repo-internal, e.g. `bench/`) runs a representative task with vs. without the governed wiki and records input tokens, source files opened, task success/quality, and wall-clock, plus an honest methodology that counts wiki read + maintenance cost (not just repo-scan tokens) and a recorded baseline. Primarily a VALIDATION track — no `1.0.0` contract change; any shipped `bench` helper is a later minor; zero-dep preserved. Results reported honestly INCLUDING unfavorable ones (an "overhead > benefit" result reshapes the roadmap, it is not hidden); no token/speed/productivity claim ships in README/launch until a measured result supports it. Re-run at each later gate for its delta. Motivated by the product-identity audit (`outputs/audits/product-identity-audit.md`): the governance core is real but the value chain is unproven. DRAFTED for human acceptance. See "Impact Measurement Scope Decision" below. |
 
 ## 1.0.0 Stability Milestone
 
@@ -903,6 +904,30 @@ surface, not a patch).
   (`src/commands/adapters.js` `ADAPTER_TARGETS`/`writeAdapterFiles` + `templates/`) for
   emission, and the domain/graph helpers (`src/commands/domains.js` /
   `src/commands/wiki-graph.js`) for the injected domain-map snapshot.
+
+## Impact Measurement Scope Decision (proposed — NOT yet accepted)
+
+**Motivation.** The product-identity audit (`outputs/audits/product-identity-audit.md`, Conditional Go) rates the governance core real and honestly named, but the value chain — durable memory → less rediscovery → fewer tokens / faster, safer work — is **unproven**; it lists benchmarking as the precondition for any efficiency/productivity claim. The launch copy already had to drop token-savings language for lack of evidence. So measurement is pulled to the FRONT of the post-1.16 line: build the harness and a baseline *before* the feature gates, so the roadmap is steered by numbers and every later gate is re-measured for its delta.
+
+**Scope (in).**
+- A reproducible, opt-in benchmark harness (zero-dep, repo-internal under e.g. `bench/`) that runs a representative task two ways — **without** the wiki and **with** the governed wiki — and records: input tokens, source files opened, task success/quality, and wall-clock.
+- A documented methodology: task selection, what counts as "with wiki", token accounting that INCLUDES wiki read + maintenance cost (not just repo-scan tokens), and variance handling — so results are honest and re-runnable by a third party.
+- A recorded baseline (under `bench/results/` and/or a `needs_review` doc under `docs/llm-wiki/`).
+- Re-run hooks so each later gate (23 reverse-impact, 24 retrieval, …) reports its delta against the baseline.
+
+**Scope (out) / invariants.**
+- No shipped CLI/`--format json`/frontmatter contract change is required — this is primarily a validation track. Any shipped helper (e.g. a `bench` command) is DEFERRED to its own minor. The zero-runtime-dependency invariant is preserved.
+- Results are reported honestly, **including unfavorable ones** — an "overhead > benefit" result is a finding that reshapes the roadmap, not something to hide. This is the governance/honesty brand applied to the product itself.
+- No token/speed/productivity claim ships in README/launch until a measured result supports it.
+
+**Caveat (sequencing).** The "reduced rediscovery" mechanism is only completed by retrieval (Gate 24); a baseline measured before it may be modest or even negative. That is expected and informative — the headline number is the **before/after-retrieval delta**, not the raw baseline.
+
+**Acceptance criteria (proposed).**
+- The harness runs green, is documented, and is reproducible by a third party.
+- A baseline result exists and is linked from `ROADMAP.md`.
+- The methodology explicitly accounts for wiki maintenance/read cost, not just repo-scan tokens.
+
+DRAFTED for human acceptance.
 
 ## Release Caveats
 

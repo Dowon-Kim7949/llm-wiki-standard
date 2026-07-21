@@ -1,5 +1,5 @@
 ---
-title: LLM-WIKI Standard Roadmap
+title: LLM-WIKI Governance Roadmap
 tags:
   - llm-wiki
   - roadmap
@@ -8,7 +8,7 @@ tags:
 status: needs_review
 doc_type: roadmap
 project: llm-wiki-governance
-last_updated: 2026-07-16
+last_updated: 2026-07-21
 author: ai-generated
 last_edited_by: Claude Code
 wiki_block_version: v1
@@ -32,7 +32,7 @@ contains_sensitive_info: false
 
 > Language: [English](./ROADMAP.md) | [한국어](./ROADMAP.ko.md)
 
-# LLM-WIKI Standard Roadmap
+# LLM-WIKI Governance Roadmap
 
 This roadmap is forward-looking. Shipped history lives in `CHANGELOG.md`,
 `docs/llm-wiki/log.md`, and the per-release notes under
@@ -281,6 +281,80 @@ false-positive-guarded source scan (an HTTP import **plus** a server-start call)
 smallest of the three and last; the only risk is over-classification, so the heuristic
 stays conservative and one-directional (promotes `library`→`backend` only, never demotes).
 Zero-dep. Scope: `GATE_REVIEW.md` (Gate 19).
+
+## Release Plan (1.15–1.16) — shipped
+
+- **1.15 — Skill generation (Gate 21).** `init`/`quickstart` generate invocable, wiki-grounded
+  automation prompts (`feature`/`fix`/`docs-sync`) as a Claude skill, a Cursor rule, and an
+  agent-neutral prompt, each injecting the project's domain map. Opt-in, preview-first, never
+  overwrites, recognize-don't-run. `1.15.0` shipped it; `1.15.1` added the restart-required note
+  (skills load at session start, not hot-reload).
+- **1.16 — Rename + governance reposition + English-first output.** Renamed
+  `@dowonk-7949/llm-wiki-standard` → `llm-wiki-governance` (unscoped; the `llm-wiki` command is
+  unchanged), repositioned as governance for AI-written project docs (OKF-compatible), and flipped
+  CLI output English-first (the pasted handoff prompt is fully English; help / quickstart About /
+  handoff Next Step lead with English). Additive/presentational — the `1.0.0` command /
+  `--format json` / programmatic-API / frontmatter contracts and zero-dep are intact. `1.16.1`
+  corrected the npm storefront (README title, `keywords`). No new gate (packaging + presentation).
+
+## Release Plan (post-1.16) — Prove the value, then close the memory loop
+
+An independent product-identity audit (`outputs/audits/product-identity-audit.md`, **Conditional
+Go**) found the governance core real and honestly named, but the ultimate value chain — durable
+project memory → less rediscovery → fewer tokens / faster, safer work — **unproven**, and two
+launch claims had to be walked back (semantic "verification" of prose; MCP "querying" document
+bodies). So this line **measures first, then builds the two features that make the memory story
+real** — same discipline as before (one gate before code), and each later gate is re-measured with
+the Gate 22 harness. Order is: measurement → the highest-leverage governance completion → the
+mechanism that makes "project memory" true.
+
+### Gate 22 — Impact measurement (pulled to the front)
+
+Prove (or disprove) the core value before building more. A reproducible, opt-in, zero-dep
+benchmark harness runs a representative task **with vs. without** the governed wiki and records
+input tokens, source files opened, task success, and wall-clock — with an honest methodology that
+counts wiki read + maintenance cost (not just repo-scan tokens), and a recorded baseline. Primarily
+a validation track (no shipped contract change; any `bench` helper is a later minor). Results are
+reported honestly, **including unfavorable ones**. No token/speed claim ships until a number
+supports it. Caveat: the rediscovery-reduction mechanism is completed by retrieval (Gate 24), so
+the headline figure is the before/after-retrieval **delta**, not the raw baseline. Scope:
+`GATE_REVIEW.md` (Gate 22, proposed).
+
+### Gate 23 — Changed-source → wiki reverse-impact gate
+
+The biggest vision-vs-reality gap the audit found: today drift is date-based and misses the case
+that matters most — code and its doc changing in **separate** places/PRs. Build a git-diff reverse
+index from `source_files`/`evidence` so a change that touches referenced code flags the affected
+`verified` docs (commit-SHA baseline; working-tree / PR-base aware), with a strict-governance
+preset that can fail CI on drift. Makes "the wiki keeps up with the code" real and CI-enforceable.
+Additive/opt-in, zero-dep. (New gate before code.)
+
+### Gate 24 — Read-only retrieval (search/get) over MCP + API
+
+Makes the "project memory / the agent queries the wiki" story true (the part walked back at
+launch). Add read-only `list_docs` / `search_docs` / `get_doc` / `get_related` with
+status/visibility filters, over MCP and the programmatic API — returning document content, not just
+governance reports. **Re-measure here** — this is where the rediscovery/token delta should show.
+Additive/opt-in, zero-dep. (New gate before code.)
+
+### Gate 25 — Evidence semantic tiers
+
+Close the credibility gap the audit demonstrated (a doc citing a non-existent symbol passes today).
+Distinguish `reference_checked` from `human_verified`, actually check symbol/route existence for
+supported languages, and let a strict preset fail an empty-evidence `verified` doc. Additive/opt-in,
+zero-dep. (New gate before code.)
+
+### Gate 26 — Agent update runner + completion contract
+
+The self-evolving-workflow piece: a skill run leaves a structured manifest (changed code, affected
+docs, log update, validation) that CI can check for missing wiki updates — the agent still writes
+the prose, but the pipeline is enforced. Larger and fuzzier; last. (New gate before code.)
+
+### P3 adoption barriers (folded in)
+
+Brownfield fit (existing large doc sets) and the Node-runtime hurdle for non-JS teams are
+cross-cutting concerns addressed within the gates above (especially 23/24) rather than as separate
+features, and revisited once measurement (Gate 22) shows where adoption actually stalls.
 
 ## Unscheduled 1.x Backlog
 
