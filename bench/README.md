@@ -38,6 +38,23 @@ the wiki read + maintenance cost), and the honest list of limitations. The froze
 before-retrieval reference is [`results/baseline.md`](results/baseline.md); the current
 run (with B2) is [`results/current.md`](results/current.md).
 
+## Real-LLM follow-up (design + prototype)
+
+The numbers above are a deterministic `chars/4` **proxy** — the only thing that can turn
+them into a figure safe to publish is a **real agent run** with real BPE tokens, wall-clock,
+and graded answers. That measurement is DESIGNED but NOT executed:
+
+- [`REAL_LLM_METHODOLOGY.md`](REAL_LLM_METHODOLOGY.md) — the design: arms (B no-retrieval vs
+  B2 retrieval), what is measured, controls, answer-quality rubrics, how to run, and the
+  honesty caveats.
+- [`real/runner.js`](real/runner.js) — a zero-dep prototype harness. `node bench/real/runner.js
+  --dry` validates the prompts/rubrics/schema without any model call; a real run needs a wired
+  `AgentRunner` (design §5). The default runner **throws** — it never fabricates tokens or
+  answers. `.llm-wiki/runs/` and `bench/real/agent.js` (the dev-only driver) are intended to be
+  git-ignored.
+
+Until a real run lands, **no token/speed claim ships** (METHODOLOGY §10).
+
 ## Invariants
 
 - **Zero runtime dependency** — Node built-ins only (matches the package invariant).
