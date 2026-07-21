@@ -355,7 +355,13 @@ Makes the "project memory / the agent queries the wiki" story true (the part wal
 launch). Add read-only `list_docs` / `search_docs` / `get_doc` / `get_related` with
 status/visibility filters, over MCP and the programmatic API — returning document content, not just
 governance reports. **Re-measure here** — this is where the rediscovery/token delta should show.
-Additive/opt-in, zero-dep. (New gate before code.)
+Additive/opt-in, zero-dep.
+
+**Status: drafted — proposed, not yet accepted.** Scope in `GATE_REVIEW.md` (Gate 24): four
+read-only ops — `list_docs`, `search_docs` (**zero-dep keyword/substring, honestly NOT semantic**),
+`get_doc`, `get_related` — reusing `listWikiContentDocs`, the frontmatter parser, and
+`collectWikiGraph`; honors `visibility` + reuses the sensitive-info scan (raw sensitive values never
+returned); no write surface. Likely a MINOR (`1.18.0`). Awaits human acceptance before code.
 
 ### Gate 25 — Evidence semantic tiers
 

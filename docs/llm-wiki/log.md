@@ -24,6 +24,21 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-21 - gate: Gate 24 (읽기 전용 retrieval search/get) 초안 — proposed, 미수락
+
+- status: needs_review
+- actor: Claude Code (초안 작성; 수락은 사람 Dowon-Kim)
+- scope: docs (gate-review, roadmap) — **코드 미변경**
+- changed:
+  - GATE_REVIEW.md: Gate 24 표 행(`proposed_for_next` DRAFT) + "Read-Only Retrieval (Search/Get) Scope Decision" 섹션(proposed — 미수락) 추가.
+  - ROADMAP.md · ROADMAP.ko.md: Gate 24 섹션에 "drafted — proposed, not yet accepted" 상태 문단 추가.
+- summary:
+  - post-1.16 measure-first 라인의 다음 게이트(측정→reverse-impact→**retrieval**). 제품 정체성 감사가 철회하게 한 런치 주장("에이전트가 위키를 query / 프로젝트 메모리")을 참으로 만드는 조각. 현재 모든 명령·MCP 툴은 거버넌스 **리포트**만 반환하고 문서 본문은 반환하지 않는다(`src/mcp/tools.js`) — 이 갭을 채운다.
+  - 읽기 전용 4개 연산: `list_docs`(status/visibility/type 필터 열거), `search_docs`(**zero-dep 키워드/부분문자열 — 정직하게 semantic/vector 아님**), `get_doc`(frontmatter+본문), `get_related`(그래프 이웃). `listWikiContentDocs`·frontmatter 파서·`collectWikiGraph` 재사용. MCP+프로그래매틱 API(+CLI) 표면. **여기서 Gate 22 하니스를 재측정** — 헤드라인 before/after-retrieval delta가 나오는 지점.
+  - 불변식: 읽기 전용·zero-dep(임베딩/인덱스/네트워크 없음)·additive·`visibility` 존중 + sensitive-info 스캔 재사용(raw 민감값 미반환)·쓰기 표면 없음. MINOR(`1.18.0`) 예상.
+- caveats:
+  - **코드 전 초안**: 저장소 규율상 사람 수락 후 빌드. Evidence 심볼(`listWikiContentDocs`·`collectWikiGraph`·`parseFrontmatter`·`scanSensitiveInfo`·`TOOL_DEFS`·`commands`) 실존 확인. Open questions(툴 이름·CLI 패리티 v1 필수 여부·restricted 문서 기본 처리·본문 반환 여부)는 수락 시 결정.
+
 ## 2026-07-21 - release: prepare 1.17.0 (Gate 23 reverse-impact)
 
 - status: needs_review
