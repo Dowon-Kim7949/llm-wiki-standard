@@ -24,6 +24,20 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-22 - docs: 재검증 정리 — DOMAIN_FEATURES verified 승격 + ARCHITECTURE Module Layout 완결성 보강
+
+- status: verified
+- actor: Claude Code (유지보수자 Dowon-Kim 지시·검토)
+- scope: docs
+- changed:
+  - docs/llm-wiki/DOMAIN_FEATURES.md (needs_review→verified; 1.20→1.21 누적 재검증 리뷰노트 추가)
+  - docs/llm-wiki/ARCHITECTURE_CONVENTIONS.md (Module Layout에 src/config-file.js·src/git.js 추가 + source_files에 src/git.js 등재 + 리뷰노트; verified 유지)
+- summary:
+  - DOMAIN_FEATURES: 1.20.0/1.21.0 신규 기능(P1 frontend/SPA 탐지·P2 evidence 경로 매칭·P3 `--domains`·P5 enrichment 체크리스트·P6 도메인 사전 배선·P7 휴리스트 투명성) 서술을 현재 소스와 대조 확인 후 verified 승격.
+  - ARCHITECTURE: 재검증 정리 중, 실제 코드를 구동하나 Module Layout에서 누락돼 있던 `src/config-file.js`(config 로딩 엔진)·`src/git.js`(git 프리미티브)를 보강. 기존 서술에 틀린 항목 없음(`defaultOptions`·index.js MCP export·모듈 11개 일치 확인), 서술 추가만이라 계약·동작 불변.
+- verification:
+  - 269 tests pass, validate --strict 0 findings (exit 0)
+
 ## 2026-07-22 - feat: enrichment 체크리스트(P5) + 탐지/미완 휴리스틱 테스트·투명성(P7), release 1.21.0
 
 - status: needs_review

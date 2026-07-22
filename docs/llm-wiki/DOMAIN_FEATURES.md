@@ -2,8 +2,8 @@
 title: Domain Features
 tags:
   - llm-wiki
-  - needs-review
-status: needs_review
+  - verified
+status: verified
 doc_type: domain_overview
 project: llm-wiki-governance
 last_updated: 2026-07-22
@@ -164,3 +164,4 @@ contains_sensitive_info: false
 - 2026-07-22에 침묵 no-op 제거 + 수동 도메인 지정(외부 피드백 P3)을 반영했다: `buildDomainContext`가 `domainCapable` 플래그를 반환하고 `--domains <a,b,c>`(수동 도메인, `{kind:"manual", sourceFile:null}` 병합)를 받으며, `initCommand`이 도메인 가능 유형인데 plans가 0이면 명시 안내(KO/EN)를 출력한다(`planDomainDocs`는 빈 sourceFile 스킵 → 수동 도메인은 source_files 빈 스캐폴드). 263 tests·additive·zero-dep, backend 불변. 미릴리스. `needs_review` 유지 — 사람 검토 후 재승인 예정.
 - 2026-07-22에 도메인 문서 orphan/링크 사전 배선(외부 피드백 P6, P1 온보딩 스토리 완성)을 반영했다: `src/commands/doc-templates.js`의 `docMetadata`에서 도메인이 계획될 때만 `index.md`(읽기 순서 4번을 `domains/00_overview.md` 실제 링크로 + `related`에 overview 추가)와 `DOMAIN_FEATURES.md`(`## Domains` 섹션으로 각 per-domain 문서 링크)를 배선하도록 했다. 공유 헬퍼 `domainLinkList(plans, prefix)`가 overview(`./`)·DOMAIN_FEATURES(`./domains/`)의 상대경로를 일관되게 만든다. 이로써 진입점에서 도메인 지도로 가는 경로가 생기고, 테스터가 수동으로 하던 배선이 스캐폴드에서 자동화된다. **도메인이 없으면 두 문서 byte-identical**(플래그 게이팅). 그래프 검증: index→overview·DOMAIN_FEATURES→per-domain inbound 엣지 확인, unresolved wiki links 0, broken-link finding 0. 스코프는 스캐폴드(init/quickstart)만 — `fix`-타임 재배선은 후속. 265 tests(신규 2)·additive·zero-dep·1.0.0 계약 불변. 미릴리스. 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.
 - 2026-07-22에 enrichment 체크리스트(외부 피드백 P5)와 탐지·미완 휴리스틱 테스트/투명성(외부 피드백 P7)을 반영했다. **P5**: `src/commands/scans.js`에 순수 헬퍼 `enrichmentChecklist(body)`를 추가하고 `scanEnrichment` finding에 additive `checklist` 필드를 부착했으며, `nextCommand`이 `enrich-placeholder-docs` 액션 + `Enrichment Checklist` 섹션 + additive payload `enrichmentChecklist`를 노출한다(문서별로 아직 placeholder가 남은 `##` 섹션·힌트). 이전엔 `next`에 not_enriched 액션 자체가 없었다. **P7**: `planDomainDocs` 결정적 스냅샷 테스트(정렬·ordinal·slug 정규화·cross-kind 병합)와 `FILE_DOMAIN_EXCLUDE` 폭넓은 제외 테스트를 추가하고, 위 "Detection & Enrichment Heuristics (transparency)" 섹션으로 탐지/미완 판정 기준을 공개했으며, `explain content.not_enriched`에 `next` 체크리스트 포인터를 넣었다. 269 tests(신규 4: P5 2 + P7 2)·additive·read-only·zero-dep·1.0.0 계약·frontmatter/status 불변. 미릴리스. 에이전트(Claude Code) 편집이라 `needs_review` 유지 — 사람 검토 후 재승인 예정.
+- 2026-07-22에 1.20.0→1.21.0 누적 기능(P1 frontend/SPA 도메인 탐지·P2 evidence 경로 매칭·P3 `--domains`+no-op 안내·P5 enrichment 체크리스트·P6 도메인 문서 사전 배선·P7 휴리스트 테스트/투명성)을 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-22)를 거쳐 `verified`로 재승인했다. 기능 서술과 Evidence 근거를 현재 소스와 대조 확인했다: `detectFrontendDomains`(domains.js:190)·`buildDomainContext` type 게이팅·`scanEvidenceSections`(scans.js:436, `evidence.section_unlisted`)·`--domains`+`domainCapable`(cli.js:258)·`enrichmentChecklist`(scans.js:172)+`enrich-placeholder-docs`(commands.js:1763)·`domainLinkList`(doc-templates.js)·탐지 상수 집합(`DIR/FILE/FRONTEND_DOMAIN_PARENTS`)이 모두 일치. 269 tests·validate --strict 0.
