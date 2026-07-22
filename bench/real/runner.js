@@ -10,6 +10,7 @@
 // harness is reviewable before any API budget is spent.
 //
 //   node bench/real/runner.js --dry                 validate harness, no model call
+//   node bench/real/runner.js --print-prompts       dump the 6x2 prompts to paste into a coding agent (manual-driver path; see DRIVER_RUNBOOK.md)
 //   node bench/real/runner.js --arm B  --repeats 3  real run (needs a wired AgentRunner)
 //   node bench/real/runner.js --arm B2 --repeats 3
 //
@@ -146,7 +147,12 @@ export async function runArm({ arm, repeats, agentRunner, grader, isoStamp }) {
 
 function parse(argv) {
   const args = argv.slice(2);
-  const opts = { dry: args.includes("--dry"), arm: null, repeats: 1 };
+  const opts = {
+    dry: args.includes("--dry"),
+    printPrompts: args.includes("--print-prompts"),
+    arm: null,
+    repeats: 1
+  };
   const armIdx = args.indexOf("--arm");
   if (armIdx >= 0) opts.arm = args[armIdx + 1];
   const repIdx = args.indexOf("--repeats");
@@ -178,6 +184,25 @@ function dryReport() {
   console.log(L.join("\n"));
 }
 
+// Print every (task, arm) prompt verbatim so a human driving a coding agent
+// (Claude Code / Codex / Cursor) can paste them — see bench/real/DRIVER_RUNBOOK.md.
+// Single source of truth: same buildPrompt/ARMS the executed run uses.
+function printPrompts() {
+  const tasks = loadTasks();
+  const L = [];
+  for (const task of tasks) {
+    for (const arm of [ARMS.B, ARMS.B2]) {
+      L.push(`===== TASK ${task.id} — ARM ${arm.id} (${arm.label}) =====`);
+      L.push(`# ground-truth: ${task.groundTruth.join(", ")}`);
+      L.push(`# run in a FRESH session; record input/output tokens, wall-clock, tool calls, opened files`);
+      L.push("");
+      L.push(buildPrompt(task, arm));
+      L.push("");
+    }
+  }
+  console.log(L.join("\n"));
+}
+
 function writeResult(summary) {
   const dir = join(BENCH_ROOT, "results");
   mkdirSync(dir, { recursive: true });
@@ -188,6 +213,10 @@ function writeResult(summary) {
 
 async function main() {
   const opts = parse(process.argv);
+  if (opts.printPrompts) {
+    printPrompts();
+    return;
+  }
   if (opts.dry) {
     dryReport();
     return;
