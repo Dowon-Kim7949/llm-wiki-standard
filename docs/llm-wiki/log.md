@@ -24,6 +24,21 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-22 - docs: 1.22.0 배포 후 findings i18n 반영분 재검증(verified 승격)
+
+- status: verified
+- actor: Claude Code (유지보수자 Dowon-Kim 검토)
+- scope: docs
+- changed:
+  - docs/llm-wiki/ARCHITECTURE_CONVENTIONS.md (needs_review→verified)
+  - docs/llm-wiki/DOMAIN_FEATURES.md (needs_review→verified)
+  - docs/llm-wiki/PUBLIC_API.md (needs_review→verified)
+- summary:
+  - 1.22.0(Gate 27 findings i18n)이 강등한 3개 코어 문서를 재검증. `src/i18n.js`의 export(localizeFinding/localizeExplanation/normalizeLang/localizeMessage) 실재와 applyRuleConfig seam 지역화·`--lang`/config lang 서술이 현재 소스와 일치함을 확인.
+  - npm dist-tags.latest=1.22.0 배포 확인 후 verified 승격.
+- verification:
+  - 275 tests pass, validate --strict 0 findings (exit 0)
+
 ## 2026-07-22 - feat: findings 메시지 한국어화(Gate 27, P4), release 1.22.0
 
 - status: needs_review

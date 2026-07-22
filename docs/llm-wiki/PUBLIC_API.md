@@ -2,8 +2,8 @@
 title: Public Api
 tags:
   - llm-wiki
-  - needs-review
-status: needs_review
+  - verified
+status: verified
 doc_type: public_api
 project: llm-wiki-governance
 last_updated: 2026-07-22
@@ -246,3 +246,4 @@ MCP 클라이언트 등록 예시:
 - 2026-07-21에 1.18.0 read-only retrieval(Gate 24, accepted)를 반영했다: 신규 4개 명령 `list-docs`/`search-docs <query>`/`get-doc <path>`/`get-related <path>`을 Commands 표에, 대응 MCP 툴 `list_docs`/`search_docs`/`get_doc`/`get_related`(snake_case)을 노출 툴 목록에, `src/commands/retrieval.js`를 Evidence에 등재했다. 거버넌스 리포트가 아니라 문서 **본문**을 반환하는 첫 표면 — 프로그래매틱 API 동결 맵에도 4개 kebab 키를 additive로 추가. `search-docs`는 zero-dep 키워드/부분문자열(semantic 아님), restricted/민감 문서는 list/search 기본 제외(opt-in `--include-sensitive`)·반환 본문/스니펫은 민감 라인 redact, 쓰기 표면 없음. `1.0.0` 계약·`--format json`·frontmatter·zero-dep 불변. 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.
 - 2026-07-22에 1.19 명령 표면 doc-sync 갭을 메웠다: 야간 자율 실행의 Gate 25/26 커밋이 ARCHITECTURE/DOMAIN_FEATURES만 갱신하고 PUBLIC_API는 놓쳐, 배포된 read-only `check-run [--run <path>] [--strict]` 명령(Gate 26)과 `stats --format json`의 계산된 `evidenceTiers`(Gate 25)가 누락돼 있었다. Commands 표에 `check-run` 행(intent-앵커 run manifest 검증; `run.*` findings; 쓰기 없음)을, Key Options에 `--run <path>`을, Evidence·frontmatter evidence에 `src/commands.js#symbol:checkRunCommand`를, `stats` 행에 `evidenceTiers` 부가 노출을 등재했다. check-run은 `impact`와 마찬가지로 CLI/API 전용(MCP 미노출). additive·read-only·`--format json`·frontmatter·zero-dep·`1.0.0` 계약 불변. 코드에 맞춰 문서를 수정한 뒤 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-22)를 거쳐 `verified`로 재승인했다(1.16.0→1.19 명령 표면 누적분 포함).
 - 2026-07-22에 `get-doc`에 `--section <terms>` 집중 읽기 옵션을 추가했다(벤치가 지목한 "큰 문서 전문 읽기가 토큰-비쌈" 문제 대응): 관련 `##` 섹션+프리앰블만 반환하고, `##` 섹션이 없거나 매치가 없으면 full body로 fallback하며, 필터 시에만 additive `document.section` `{query,returned,total}`을 부가한다(기본 출력 불변). CLI 플래그·MCP `get_doc.section`·프로그래매틱 옵션 3표면 배선. 실측: 잘 구조화된 문서에 −53%(PUBLIC_API 자체), 거대 단일 섹션 문서엔 미미(1~8%). additive·read-only·zero-dep·`1.0.0` 계약 불변, 미릴리스(main 한정, 다음 minor에서 배포·버전 태깅 예정). 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.
+- 2026-07-22에 1.22.0 findings i18n(Gate 27, P4)의 전역 `--lang <en|ko>` 옵션과 config `lang`을 Key Options에 등재했다(프로즈만 지역화; rule ID·`--format json` 키/shape·CLI 명령·경로 영어 고정, `message`는 `--lang ko`에서만 지역화하되 `rule`/shape 불변, 기본 `en` byte-identical). 1.22.0 npm 배포 후 이 추가분과 앞선 `get-doc --section` 반영분을 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-22)를 거쳐 `verified`로 재승인했다. 명령·옵션 표면이 현재 CLI(`src/cli.js`)·프로그래매틱 API(`src/index.js`)와 일치함을 확인했다(275 tests·validate --strict 0; npm dist-tags.latest=1.22.0).

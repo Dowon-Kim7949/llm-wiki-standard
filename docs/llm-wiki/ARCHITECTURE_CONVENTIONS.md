@@ -2,8 +2,8 @@
 title: Architecture Conventions
 tags:
   - llm-wiki
-  - needs-review
-status: needs_review
+  - verified
+status: verified
 doc_type: architecture_conventions
 project: llm-wiki-governance
 last_updated: 2026-07-22
@@ -170,3 +170,4 @@ contains_sensitive_info: false
 - 2026-07-22에 frontend/mobile(SPA) 도메인 자동 탐지를 반영했다(외부 실사용 피드백 P1): `src/commands/domains.js`에 `detectFrontendDomains`(pages/views/features/modules/screens 폴더 + vue/react-router 라우트 그룹 정규식 파싱; 프론트 전용 제외 집합 `FRONTEND_EXCLUDE_NAMES`)를 추가하고 `buildDomainContext`를 유형별 게이팅(backend/fullstack→`detectDomainDirectories`, frontend/mobile→`detectFrontendDomains`, 나머지→empty)으로 리팩터했다. `detectFrontendDomains`는 `commands.js` 배럴에 노출하지 않고 내부 유지(테스트는 `src/commands/domains.js`에서 직접 import) — 다수 verified 문서가 참조하는 `commands.js`의 불필요한 evidence 드리프트를 피하려는 의도적 선택. 백엔드/풀스택 경로는 byte-identical(전용 스캐너 분리·별도 제외 집합). additive·zero-dep·정규식만·1.0.0 계약 불변, 미릴리스(main 한정). 262 tests(신규 3)·validate --strict 0. 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.
 - 2026-07-22에 재검증 정리 중 Module Layout 완결성 갭을 교정했다: 실제로 config 로딩을 구동하는 `src/config-file.js`(`loadProjectConfig`/`mergeConfigIntoOptions`, `src/cli.js`·`src/commands.js`가 함께 import)와 git 프리미티브 `src/git.js`(`changedFiles`/`isPathIgnored` 등; `impact`/drift/gitignore 탐지 구동)가 모듈 지도에서 누락돼 있어 두 모듈을 Module Layout에 추가하고 `src/git.js`를 source_files에 등재했다(config-file.js는 이미 등재). 서술 추가만 있고 기존 주장·계약·동작은 불변이며, 대조 검증 결과 기존 서술에 틀린 항목은 없었다(`defaultOptions`·index.js MCP export·모듈 목록 11개 모두 소스와 일치). 유지보수자(Dowon-Kim)가 재검증 정리 과정에서 이 보강을 지시·검토해 `verified`를 유지한다(reviewed_at: 2026-07-22). 269 tests·validate --strict 0.
 - 2026-07-22에 1.22.0 findings i18n(Gate 27, P4, accepted)을 반영했다: 신규 `src/i18n.js`(zero-dep KO 카탈로그 + `localizeFinding`/`localizeExplanation`/`normalizeLang`)를 Module Layout·source_files·Evidence에 추가하고, 프로즈만 지역화하는 Convention(finding `message`는 `applyRuleConfig` seam에서, `explain` 프로즈는 `localizeExplanation`; rule ID/JSON shape/CLI 명령/경로 영어 고정; 기본 `en` byte-identical)을 기술했다. `--lang ko|en`(전역 옵션)·config `lang` 배선. 275 tests·validate --strict 0. additive·zero-dep·1.0.0 계약 불변. 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.
+- 2026-07-22에 1.22.0 배포 후 위 findings i18n 반영분을 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-22)를 거쳐 `verified`로 재승인했다. `src/i18n.js`의 `localizeFinding`/`localizeExplanation`/`normalizeLang`/`localizeMessage` export 실재와 `applyRuleConfig` seam 지역화 서술이 현재 소스와 일치함을 대조 확인했다(275 tests·validate --strict 0; npm dist-tags.latest=1.22.0).

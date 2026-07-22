@@ -2,8 +2,8 @@
 title: Domain Features
 tags:
   - llm-wiki
-  - needs-review
-status: needs_review
+  - verified
+status: verified
 doc_type: domain_overview
 project: llm-wiki-governance
 last_updated: 2026-07-22
@@ -168,3 +168,4 @@ contains_sensitive_info: false
 - 2026-07-22에 enrichment 체크리스트(외부 피드백 P5)와 탐지·미완 휴리스틱 테스트/투명성(외부 피드백 P7)을 반영했다. **P5**: `src/commands/scans.js`에 순수 헬퍼 `enrichmentChecklist(body)`를 추가하고 `scanEnrichment` finding에 additive `checklist` 필드를 부착했으며, `nextCommand`이 `enrich-placeholder-docs` 액션 + `Enrichment Checklist` 섹션 + additive payload `enrichmentChecklist`를 노출한다(문서별로 아직 placeholder가 남은 `##` 섹션·힌트). 이전엔 `next`에 not_enriched 액션 자체가 없었다. **P7**: `planDomainDocs` 결정적 스냅샷 테스트(정렬·ordinal·slug 정규화·cross-kind 병합)와 `FILE_DOMAIN_EXCLUDE` 폭넓은 제외 테스트를 추가하고, 위 "Detection & Enrichment Heuristics (transparency)" 섹션으로 탐지/미완 판정 기준을 공개했으며, `explain content.not_enriched`에 `next` 체크리스트 포인터를 넣었다. 269 tests(신규 4: P5 2 + P7 2)·additive·read-only·zero-dep·1.0.0 계약·frontmatter/status 불변. 미릴리스. 에이전트(Claude Code) 편집이라 `needs_review` 유지 — 사람 검토 후 재승인 예정.
 - 2026-07-22에 1.20.0→1.21.0 누적 기능(P1 frontend/SPA 도메인 탐지·P2 evidence 경로 매칭·P3 `--domains`+no-op 안내·P5 enrichment 체크리스트·P6 도메인 문서 사전 배선·P7 휴리스트 테스트/투명성)을 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-22)를 거쳐 `verified`로 재승인했다. 기능 서술과 Evidence 근거를 현재 소스와 대조 확인했다: `detectFrontendDomains`(domains.js:190)·`buildDomainContext` type 게이팅·`scanEvidenceSections`(scans.js:436, `evidence.section_unlisted`)·`--domains`+`domainCapable`(cli.js:258)·`enrichmentChecklist`(scans.js:172)+`enrich-placeholder-docs`(commands.js:1763)·`domainLinkList`(doc-templates.js)·탐지 상수 집합(`DIR/FILE/FRONTEND_DOMAIN_PARENTS`)이 모두 일치. 269 tests·validate --strict 0.
 - 2026-07-22에 1.22.0 findings 메시지 한국어화(Gate 27, P4, accepted)를 반영했다: "findings 메시지 한국어화" 기능·Evidence를 추가했다 — 신규 `src/i18n.js`(zero-dep KO 카탈로그, `localizeFinding`/`localizeExplanation`, EN fallback)가 `--lang ko`/config `lang`에서 finding `message`(`applyRuleConfig` seam, text·JSON)와 `explain` 프로즈를 지역화. rule ID·JSON shape·CLI 명령·경로는 영어 고정, 기본 `en` byte-identical. v1: 47개 explanation 전부 + scans/frontmatter/structure finding message. 275 tests(신규 6)·validate --strict 0. additive·zero-dep·1.0.0 계약 불변. 마지막 외부 피드백 항목 완료. 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.
+- 2026-07-22에 1.22.0 배포 후 위 "findings 메시지 한국어화" 기능·Evidence를 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-22)를 거쳐 `verified`로 재승인했다. 기능 서술과 근거(`src/i18n.js#symbol:localizeFinding`·`localizeExplanation`)가 현재 소스와 일치함을 확인했다(275 tests·validate --strict 0; npm dist-tags.latest=1.22.0).
