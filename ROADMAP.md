@@ -462,8 +462,15 @@ zero-dependency, backend/fullstack byte-identical.
   `index` and `DOMAIN_FEATURES` entry points (P6), a per-document enrichment checklist in `next`
   (P5), and detection / `not_enriched` heuristic transparency docs plus snapshot regression
   tests (P7).
-- **Candidates (not yet built):** KO localization of findings messages (P4); `fix`-time
-  re-wiring of domain links; a real-LLM retrieval benchmark to replace the chars/4 proxy.
+- **1.22 — Findings i18n (npm 1.22.0).** Optional Korean localization of human-facing findings
+  prose (external feedback P4, Gate 27): a global `--lang ko|en` (default `en`) plus config
+  `lang` localize a finding's `message` (via the shared `applyRuleConfig` seam, so text and
+  `--format json` both pick it up) and `explain`'s prose, from a zero-dependency catalog
+  (`src/i18n.js`) with English fallback. Rule IDs, the `--format json` shape, CLI commands, and
+  paths stay English; default `en` output is byte-identical.
+- **Candidates (not yet built):** `fix`-time re-wiring of domain links; a real-LLM retrieval
+  benchmark to replace the chars/4 proxy; report-chrome/severity-word localization and
+  languages beyond KO/EN.
 
 ## Non-Goals (unchanged safety ethos)
 

@@ -14,6 +14,7 @@ import { renderTemplate, renderWikiDocumentTemplate, todayIsoDate } from "./temp
 import { apiServiceInventoryChecklist, buildTaskPrompt } from "./task-prompts.js";
 import { buildReleaseNotes, buildReleaseNotesBody, collectCommits } from "./release-notes.js";
 import { fileChangedSince, lineRangeChangedSince, changedFiles, isPathIgnored } from "./git.js";
+import { localizeExplanation } from "./i18n.js";
 import { buildDomainContext, emptyDomainContext } from "./commands/domains.js";
 import { docMetadata } from "./commands/doc-templates.js";
 import {
@@ -333,7 +334,7 @@ export async function nextCommand(options) {
 
 export async function explainCommand(options) {
   const rule = normalizeExplainRule(options.findingRule);
-  const explanation = FINDING_EXPLANATIONS[rule];
+  const explanation = localizeExplanation(rule, FINDING_EXPLANATIONS[rule], options.lang);
 
   if (!explanation) {
     const knownRules = Object.keys(FINDING_EXPLANATIONS).sort();

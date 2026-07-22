@@ -106,6 +106,9 @@ export function mergeConfigIntoOptions(options, config) {
   if (config.strict) {
     options.strict = true;
   }
+  if (options.lang == null && (config.lang === "ko" || config.lang === "en")) {
+    options.lang = config.lang;
+  }
   if (config.rules && (!options.rules || Object.keys(options.rules).length === 0)) {
     options.rules = { ...config.rules };
   }

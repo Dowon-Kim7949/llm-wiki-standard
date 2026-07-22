@@ -5,6 +5,29 @@
 `llm-wiki-governance`(옛 `@dowonk-7949/llm-wiki-standard`)의 주요 변경 사항을 기록합니다. 이
 프로젝트는 [유의적 버전(Semantic Versioning)](https://semver.org/)을 따르며, 항목은 최신순입니다.
 
+## 1.22.0 — 2026-07-22
+
+사람이 읽는 findings **프로즈**의 선택적 한국어화(마지막 외부 피드백 항목 P4). 부가적·zero-dependency:
+rule ID·`--format json` shape·프로그래매틱 API·frontmatter 계약 불변, 기본 영어 출력은 모든 포맷에서
+byte-identical.
+
+### Added
+
+- **`--lang ko|en`(전역, 기본 `en`) + config `lang` — findings 프로즈 한국어화(Gate 27, P4).**
+  사람이 읽는 프로즈만 지역화한다: finding `message`(공유 `applyRuleConfig` seam 경유라 text 섹션과
+  `--format json`의 `message` 양쪽에 반영)와 `explain`의 meaning/why/remediation. 신규 zero-dependency
+  카탈로그(`src/i18n.js`) + `{param}` 보간 + 엄격한 영어 fallback(KO 키 누락 시 영어 유지, 빈 값 없음).
+  공유 `applyProjectConfig`/`resolveOptions` seam을 거쳐 CLI·프로그래매틱 API·MCP가 같은 언어를 해석한다.
+- 47개 `explain` 항목 전부 + `validate`/`audit`/`status`/`next`가 노출하는 finding message
+  (`scans`/`frontmatter`/`structure` 계열)를 지역화. 운영성·엣지 message는 후속까지 영어 fallback.
+
+### Unchanged (동결 계약)
+
+- rule ID·모든 `--format json` 키와 shape·category·config 키·명령/옵션명·evidence 문법·`explain`이
+  보여주는 CLI 명령·경로는 영어로 유지 — 프로즈만 지역화. `--format json`의 `message`는 명시적
+  `--lang ko`에서만 지역화(`rule`·shape 불변; 소비자는 `rule`로 매칭). 기본 `en`은 모든 포맷에서
+  byte-identical. 리포트 chrome(섹션 헤더·severity 단어)·KO/EN 외 언어·OS 로케일 자동감지는 범위 밖.
+
 ## 1.21.0 — 2026-07-22
 
 외부 실사용에서 나온 개발자 경험(DX) 개선 추가분. 부가적·zero-dependency: 기존 `llm-wiki`

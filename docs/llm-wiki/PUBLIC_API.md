@@ -2,8 +2,8 @@
 title: Public Api
 tags:
   - llm-wiki
-  - verified
-status: verified
+  - needs-review
+status: needs_review
 doc_type: public_api
 project: llm-wiki-governance
 last_updated: 2026-07-22
@@ -93,6 +93,7 @@ contains_sensitive_info: false
 
 - `--cwd <path>`, `--type <frontend|backend|fullstack|library|mixed|unknown>`, `--profile <p>...`, `--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...` (`all`은 codex/claude/antigravity 세 개만 확장; 나머지는 명시 선택. writable: codex/claude/cursor/copilot/windsurf/gemini, candidate: jetbrains/antigravity)
 - `--format <text|json|markdown|html>`(대부분 명령), `graph`는 `--format <text|json|mermaid|dot>`(mermaid/dot는 graph 전용). `--out <path>`, `--strict`, `--minimal`
+- `--lang <en|ko>`(전역 옵션, 1.22, 기본 `en`) — 사람이 읽는 findings **프로즈**(finding `message` + `explain`의 meaning/why/remediation)를 한국어로 지역화한다. config `lang`으로도 설정 가능(CLI 우선). rule ID·`--format json` 키/shape·CLI 명령·경로는 항상 영어; `--format json`의 `message`는 `--lang ko`에서만 한국어가 되고 `rule` 키·shape는 불변(소비자는 `rule`로 매칭). 기본 `en`은 모든 포맷에서 byte-identical.
 - `--write`, `--dry-run`, `--apply` (migrate), `--downgrade` (drift), `--existing <skip|overwrite>`, `--version <x.y.z>`, `--since <git-ref>` (release-notes/validate/impact), `--body-only` (release-notes), `--changed` (validate), `--run <path>` (check-run — 특정 run manifest 지정; 생략 시 `.llm-wiki/runs/`의 최신), `--domains <a,b,c>` (init/quickstart — 도메인 수동 지정). `--strict`는 warning을 exit 1로 승격한다(대부분의 명령; `impact --strict`·`check-run --strict`는 CI 실패로 만든다).
 
 ## Exit Codes

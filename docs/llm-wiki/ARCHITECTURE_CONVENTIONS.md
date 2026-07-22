@@ -2,8 +2,8 @@
 title: Architecture Conventions
 tags:
   - llm-wiki
-  - verified
-status: verified
+  - needs-review
+status: needs_review
 doc_type: architecture_conventions
 project: llm-wiki-governance
 last_updated: 2026-07-22
@@ -22,6 +22,7 @@ source_files:
   - src/detector.js
   - src/encoding.js
   - src/git.js
+  - src/i18n.js
   - src/mcp/server.js
 evidence:
   - src/cli.js#symbol:parseArgs
@@ -77,6 +78,7 @@ contains_sensitive_info: false
 - `src/config-file.js` — `llm-wiki.config.json` 로딩·병합 엔진(`CONFIG_FILENAME`·`RULE_TOGGLE_ACTIONS`·`loadProjectConfig`·`mergeConfigIntoOptions`). `src/cli.js`·`src/commands.js`가 함께 import하며, cli.js의 공유 seam `applyProjectConfig`가 이 위에서 CLI·프로그래매틱 API·MCP 세 표면의 effective options를 일원화한다(1.7.2).
 - `src/template-renderer.js` — 생성 문서 frontmatter 템플릿과 `todayIsoDate()`.
 - `src/task-prompts.js` — `prompt`/`handoff`용 반복 작업 프롬프트.
+- `src/i18n.js` — (1.22, Gate 27) findings 프로즈 지역화(KO). zero-dep 카탈로그(`MESSAGE_CATALOG`·`EXPLANATION_CATALOG`) + `{param}` 보간, EN fallback. `localizeFinding`(finding `message`를 `messageId ?? rule` 키로 조회)·`localizeExplanation`(`explain`의 meaning/why/remediation)·`normalizeLang`(unset→`en`). rule ID·JSON 키/shape·category·CLI 명령·경로는 영어 고정. 기본 `en`은 이 모듈을 거치지 않아 byte-identical.
 - `src/release-notes.js` — `release-notes` 구현: conventional commit 파싱·수집(`collectCommits`)과 릴리스 노트 렌더링. `buildReleaseNotesBody`가 1.7의 `--body-only` 본문(frontmatter/H1/스캐폴드 라인 제외)을 만들어 GitHub Release 본문 + 본문 민감정보 스캔에 쓰인다.
 - `src/git.js` — git 프리미티브(`runGit`·`changedFiles`·`fileChangedSince`·`lineRangeChangedSince`·`isPathIgnored`). `impact`/`validate --changed`의 변경집합(1.17), date-앵커 drift, `initWrite`/`doctor`의 `structure.output_gitignored` 탐지(1.14.2)를 구동한다 — 모두 best-effort라 비-git 환경/미무시 경로는 안전 폴백(false/빈 집합).
 - `src/report.js` · `src/encoding.js` · `src/files.js` · `src/sensitive-info.js` — 출력, UTF-8 처리, 파일 열거, 민감정보 스캔. 1.14.1부터 `encoding.js`는 detector 전용 BOM 인식 리더(`readTextAuto`/`decodeWithBom`; UTF-16LE/BE·UTF-8 BOM)도 제공한다 — 위키 문서용 `readUtf8`는 raw UTF-8을 보존해 mojibake 스캔이 계속 동작하도록 불변.
@@ -96,6 +98,7 @@ contains_sensitive_info: false
 - config `rules` 토글은 중앙 `applyRuleConfig`가 `audit`/`status`/`validate-frontmatter`의 findings에 적용한다(off 드롭·severity override, idempotent). `sensitive.*` 같은 안전 카테고리는 `NON_TOGGLEABLE_CATEGORIES`로 토글에서 제외한다. opt-in lint(예: `content.thin_body`)는 config로 활성화될 때만 findings를 낸다(1.8).
 - config `requiredDocs`(커스텀 문서셋)는 `findMissingDocs`가 core/profile 필수 목록에 병합해 `structure.required_doc`로 검사한다. config `templates` 오버라이드는 `renderOverriddenDoc`가 **body만** 취하고 frontmatter는 항상 `renderWikiDocumentTemplate`(status: needs_review)가 생성해, 오버라이드가 `status: verified`를 만들 수 없다(구조적 가드레일)(1.8).
 - 안전 우선: 기존 wiki/adapter 파일은 기본 보존, `log.md`는 append-only, 민감정보 의심값은 redaction.
+- 사람이 읽는 findings 프로즈만 지역화한다(1.22, Gate 27): finding `message`는 findings를 옵션과 함께 통과시키는 유일 seam인 `applyRuleConfig`에서 `options.lang`으로 지역화되어 text·JSON 양쪽에 반영되고, `explain` 프로즈는 `localizeExplanation`이 담당한다. rule ID·category·JSON 키/shape·config 키·CLI 명령/옵션·evidence 문법·경로는 영어로 고정한다. 기본 `en`은 카탈로그를 거치지 않아 출력이 byte-identical하다.
 
 ## Evidence
 
@@ -131,6 +134,7 @@ contains_sensitive_info: false
 - `src/commands/scans.js#symbol:scanEvidenceReferences` — evidence 검증(Gate 25, 1.19): FORMAT(shape/파일 존재/line 범위)에 더해 `#symbol:`/`#section:` locator의 **타깃 실재**를 보수적으로 확인(파일이 이름/헤딩을 전혀 언급 안 할 때만 `evidence.symbol_unverified`/`evidence.section_unverified`; `.md` 섹션만; AST 아님).
 - `src/commands/scans.js#symbol:scanUngroundedVerified` — grounding(`source_files`·`evidence`) 없는 `verified` 문서를 `evidence.ungrounded`로 flag(warning, `--strict` 미승격; config `rules`로 off/escalate)(Gate 25, 1.19).
 - `src/commands/scans.js#symbol:evidenceTier` — `reference_checked`(grounding 있고 모든 참조 해소) vs `human_verified`(verified+리뷰 메타) 단계를 계산하는 순수 함수(+ `EVIDENCE_REFERENCE_RULES`); `stats` JSON `evidenceTiers`에 additive 노출(신규 frontmatter 필드/status값 없음)(Gate 25, 1.19).
+- `src/i18n.js#symbol:localizeFinding`·`localizeExplanation` — findings 프로즈 KO 지역화(Gate 27, 1.22): `--lang ko`/config `lang`에서 finding `message`(`applyRuleConfig` seam 경유)와 `explain` 프로즈를 지역화. zero-dep 카탈로그·EN fallback·기본 `en` byte-identical; rule ID/JSON shape/CLI 명령/경로 영어 고정.
 
 ## Open Questions
 
@@ -165,3 +169,4 @@ contains_sensitive_info: false
 - 2026-07-22에 1.16.0→1.19 누적분(rename·reverse-impact·retrieval·Gate 25 evidence 단계화·Gate 26 check-run)을 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-22)를 거쳐 `verified`로 재승인했다. 함께 커밋된 dogfood 스킬을 Gate 26 완성 계약이 담기도록 재생성했는데, `writeSkillArtifacts`는 `--existing overwrite`와 무관하게 기존 파일을 덮지 않으므로(그 플래그는 오히려 위키 문서를 덮으니 사용 금지) **기존 9개 삭제 후 `init --write --skills`**로 재생성하는 것이 올바른 방법이다(위 Gate 26 노트의 괄호 표기 정정).
 - 2026-07-22에 frontend/mobile(SPA) 도메인 자동 탐지를 반영했다(외부 실사용 피드백 P1): `src/commands/domains.js`에 `detectFrontendDomains`(pages/views/features/modules/screens 폴더 + vue/react-router 라우트 그룹 정규식 파싱; 프론트 전용 제외 집합 `FRONTEND_EXCLUDE_NAMES`)를 추가하고 `buildDomainContext`를 유형별 게이팅(backend/fullstack→`detectDomainDirectories`, frontend/mobile→`detectFrontendDomains`, 나머지→empty)으로 리팩터했다. `detectFrontendDomains`는 `commands.js` 배럴에 노출하지 않고 내부 유지(테스트는 `src/commands/domains.js`에서 직접 import) — 다수 verified 문서가 참조하는 `commands.js`의 불필요한 evidence 드리프트를 피하려는 의도적 선택. 백엔드/풀스택 경로는 byte-identical(전용 스캐너 분리·별도 제외 집합). additive·zero-dep·정규식만·1.0.0 계약 불변, 미릴리스(main 한정). 262 tests(신규 3)·validate --strict 0. 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.
 - 2026-07-22에 재검증 정리 중 Module Layout 완결성 갭을 교정했다: 실제로 config 로딩을 구동하는 `src/config-file.js`(`loadProjectConfig`/`mergeConfigIntoOptions`, `src/cli.js`·`src/commands.js`가 함께 import)와 git 프리미티브 `src/git.js`(`changedFiles`/`isPathIgnored` 등; `impact`/drift/gitignore 탐지 구동)가 모듈 지도에서 누락돼 있어 두 모듈을 Module Layout에 추가하고 `src/git.js`를 source_files에 등재했다(config-file.js는 이미 등재). 서술 추가만 있고 기존 주장·계약·동작은 불변이며, 대조 검증 결과 기존 서술에 틀린 항목은 없었다(`defaultOptions`·index.js MCP export·모듈 목록 11개 모두 소스와 일치). 유지보수자(Dowon-Kim)가 재검증 정리 과정에서 이 보강을 지시·검토해 `verified`를 유지한다(reviewed_at: 2026-07-22). 269 tests·validate --strict 0.
+- 2026-07-22에 1.22.0 findings i18n(Gate 27, P4, accepted)을 반영했다: 신규 `src/i18n.js`(zero-dep KO 카탈로그 + `localizeFinding`/`localizeExplanation`/`normalizeLang`)를 Module Layout·source_files·Evidence에 추가하고, 프로즈만 지역화하는 Convention(finding `message`는 `applyRuleConfig` seam에서, `explain` 프로즈는 `localizeExplanation`; rule ID/JSON shape/CLI 명령/경로 영어 고정; 기본 `en` byte-identical)을 기술했다. `--lang ko|en`(전역 옵션)·config `lang` 배선. 275 tests·validate --strict 0. additive·zero-dep·1.0.0 계약 불변. 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.

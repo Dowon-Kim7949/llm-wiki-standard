@@ -5,6 +5,7 @@ import { audit, checkRunCommand, doctor, driftCommand, explainCommand, fixComman
 import { printResult } from "./report.js";
 import { loadProjectConfig, mergeConfigIntoOptions } from "./config-file.js";
 import { startMcpServer } from "./mcp/server.js";
+import { SUPPORTED_LANGS } from "./i18n.js";
 
 const COMMANDS = new Map([
   ["doctor", doctor],
@@ -149,6 +150,7 @@ export function defaultOptions() {
     changed: false,
     type: null,
     format: "text",
+    lang: null,
     dryRun: false,
     write: false,
     apply: false,
@@ -283,6 +285,14 @@ export function parseArgs(argv) {
         options.format = value;
         index += 1;
       }
+    } else if (arg === "--lang") {
+      usedOptions.add("lang");
+      const value = readOptionValue(rest, index, arg, errors);
+      if (value) {
+        if (SUPPORTED_LANGS.includes(value)) options.lang = value;
+        else errors.push(`Unsupported language: ${value} (supported: ${SUPPORTED_LANGS.join(", ")}).`);
+        index += 1;
+      }
     } else if (arg === "--out") {
       usedOptions.add("out");
       const value = readOptionValue(rest, index, arg, errors);
@@ -392,6 +402,10 @@ const COMMAND_OPTION_RULES = {
   mcp: new Set(["cwd"])
 };
 
+// Options accepted by every command (output-shaping, harmless where inert).
+// `--lang` selects the language for human-facing findings/explain prose (Gate 27).
+const GLOBAL_OPTIONS = new Set(["lang"]);
+
 function validateCommandOptions(command, usedOptions, errors) {
   if (!command || command === "help" || command === "--help" || command === "-h") return;
 
@@ -399,7 +413,7 @@ function validateCommandOptions(command, usedOptions, errors) {
   if (!allowed) return;
 
   for (const option of usedOptions) {
-    if (!allowed.has(option)) {
+    if (!allowed.has(option) && !GLOBAL_OPTIONS.has(option)) {
       errors.push(`Option --${option} is not supported by ${command}.`);
     }
   }

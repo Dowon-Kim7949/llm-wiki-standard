@@ -12,7 +12,8 @@ import * as api from "../src/index.js";
 import { loadProjectConfig, mergeConfigIntoOptions } from "../src/config-file.js";
 import { buildReleaseNotes, buildReleaseNotesBody, parseCommit } from "../src/release-notes.js";
 import { fileChangedSince, lineRangeChangedSince } from "../src/git.js";
-import { FINDING_EXPLANATIONS } from "../src/commands/findings.js";
+import { FINDING_EXPLANATIONS, applyRuleConfig } from "../src/commands/findings.js";
+import { localizeFinding, localizeMessage, normalizeLang } from "../src/i18n.js";
 import { execFileSync } from "node:child_process";
 
 test("init dry-run works for an empty zero-base project", async () => {
@@ -3244,7 +3245,7 @@ test("package metadata targets npmjs public publish without committed tokens", a
   const packageJson = JSON.parse(await readFile(path.join(process.cwd(), "package.json"), { encoding: "utf8" }));
 
   assert.equal(packageJson.name, "llm-wiki-governance");
-  assert.equal(packageJson.version, "1.21.0");
+  assert.equal(packageJson.version, "1.22.0");
   assert.equal(packageJson.private, false);
   assert.equal(packageJson.publishConfig, undefined);
   assert.equal(packageJson.repository.url, "git+https://github.com/Dowon-Kim7949/llm-wiki-governance.git");
@@ -4414,4 +4415,63 @@ test("skill generation surfaces a restart-required note only when skills are cre
   await writeJson(path.join(qs, "package.json"), { dependencies: { fastify: "^4.0.0" } });
   const quick = await quickstartCommand({ cwd: qs, dryRun: false, write: true, minimal: true, withAdapters: false, skills: true, type: "backend", profiles: [], agents: [], existing: "skip" });
   assert.ok(quick.text.includes("재시작") && quick.text.includes("session start"), "quickstart shows the restart note");
+});
+
+// --- Gate 27 (P4): findings message + explain KO localization ---
+
+test("parseArgs accepts --lang ko|en globally and rejects unsupported languages", () => {
+  const ok = parseArgs(["validate", "--lang", "ko"]);
+  assert.equal(ok.options.lang, "ko");
+  assert.equal(ok.errors.length, 0);
+  const en = parseArgs(["audit", "--lang", "en"]);
+  assert.equal(en.options.lang, "en");
+  assert.equal(en.errors.length, 0);
+  const bad = parseArgs(["validate", "--lang", "fr"]);
+  assert.ok(bad.errors.some((e) => /Unsupported language/.test(e)), "rejects unsupported language");
+  assert.equal(parseArgs(["validate"]).options.lang, null, "default lang is null (resolves to en downstream)");
+});
+
+test("localizeMessage interpolates KO, falls back for unknown ids, and never localizes en", () => {
+  assert.equal(localizeMessage("source_files.missing", { source: "a.js" }, "ko"), "source_files 항목이 존재하지 않습니다: a.js.");
+  assert.equal(localizeMessage("source_files.missing", { source: "a.js" }, "en"), null, "en never routes through the catalog");
+  assert.equal(localizeMessage("no.such.id", {}, "ko"), null, "unknown id → caller keeps English");
+  assert.equal(normalizeLang("fr"), "en", "unsupported lang resolves to en");
+});
+
+test("localizeFinding localizes message by messageId/rule and keeps rule/severity English", () => {
+  const f = { severity: "warning", rule: "related.missing", path: "x", message: "related entry does not exist: y.", params: { target: "y" } };
+  const ko = localizeFinding(f, "ko");
+  assert.equal(ko.message, "related 항목이 존재하지 않습니다: y.");
+  assert.equal(ko.rule, "related.missing", "rule id stays English");
+  assert.equal(ko.severity, "warning");
+  assert.equal(localizeFinding(f, "en"), f, "en returns the same reference (byte-identical)");
+  const strict = { rule: "frontmatter.verified_review", messageId: "frontmatter.verified_review.strict", message: "..." };
+  assert.match(localizeFinding(strict, "ko").message, /strict 모드/, "explicit messageId selects the strict KO variant");
+});
+
+test("applyRuleConfig localizes finding messages under --lang ko and stays byte-identical for en", () => {
+  const raw = [{ severity: "warning", rule: "markdown_link.missing", path: "d.md", message: "Markdown link target does not exist: z.md.", params: { link: "z.md" } }];
+  assert.equal(applyRuleConfig(raw, { lang: "en", rules: {} }), raw, "en + no rules → same reference");
+  const ko = applyRuleConfig(raw, { lang: "ko", rules: {} });
+  assert.equal(ko[0].message, "Markdown 링크 대상이 존재하지 않습니다: z.md.");
+  assert.equal(ko[0].rule, "markdown_link.missing");
+  const toggled = applyRuleConfig(raw, { lang: "ko", rules: { "markdown_link.missing": "error" } });
+  assert.equal(toggled[0].severity, "error", "localization composes with rule severity override");
+  assert.match(toggled[0].message, /링크 대상이 존재하지/);
+});
+
+test("explainCommand localizes prose for ko while keeping rule/category/commands English", async () => {
+  const en = await explainCommand({ findingRule: "evidence.ungrounded", lang: "en" });
+  const ko = await explainCommand({ findingRule: "evidence.ungrounded", lang: "ko" });
+  assert.notEqual(ko.explanation.meaning, en.explanation.meaning, "prose is localized");
+  assert.match(ko.explanation.meaning, /verified 문서/);
+  assert.deepEqual(ko.explanation.commands, en.explanation.commands, "CLI commands stay English");
+  assert.equal(ko.explanation.category, en.explanation.category, "category stays English");
+  assert.match(ko.text, /## Finding/, "section chrome stays English in v1");
+});
+
+test("config lang is honored via mergeConfigIntoOptions and the CLI flag wins", () => {
+  assert.equal(mergeConfigIntoOptions({ lang: null }, { lang: "ko" }).lang, "ko", "config fills lang when unset");
+  assert.equal(mergeConfigIntoOptions({ lang: "en" }, { lang: "ko" }).lang, "en", "explicit option wins over config");
+  assert.equal(mergeConfigIntoOptions({ lang: null }, { lang: "fr" }).lang, null, "invalid config lang ignored");
 });

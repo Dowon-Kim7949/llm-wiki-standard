@@ -72,7 +72,8 @@ export function validateFrontmatter(frontmatter, options = {}) {
       findings.push({
         severity: "error",
         rule: "frontmatter.required",
-        message: `Missing required field: ${field}.`
+        message: `Missing required field: ${field}.`,
+        params: { field }
       });
     }
   }
@@ -81,7 +82,8 @@ export function validateFrontmatter(frontmatter, options = {}) {
     findings.push({
       severity: "error",
       rule: "frontmatter.status",
-      message: `Invalid status: ${frontmatter.status}.`
+      message: `Invalid status: ${frontmatter.status}.`,
+      params: { status: frontmatter.status }
     });
   }
 
@@ -98,7 +100,8 @@ export function validateFrontmatter(frontmatter, options = {}) {
       findings.push({
         severity: "error",
         rule: "frontmatter.array",
-        message: `${arrayField} must be an array.`
+        message: `${arrayField} must be an array.`,
+        params: { field: arrayField }
       });
     }
   }
@@ -107,7 +110,8 @@ export function validateFrontmatter(frontmatter, options = {}) {
     findings.push({
       severity: "warning",
       rule: "frontmatter.visibility",
-      message: `Unexpected visibility: ${frontmatter.visibility}.`
+      message: `Unexpected visibility: ${frontmatter.visibility}.`,
+      params: { visibility: frontmatter.visibility }
     });
   }
 
@@ -123,6 +127,7 @@ export function validateFrontmatter(frontmatter, options = {}) {
     findings.push({
       severity: options.strict ? "error" : "warning",
       rule: "frontmatter.verified_review",
+      messageId: options.strict ? "frontmatter.verified_review.strict" : "frontmatter.verified_review",
       message: options.strict
         ? "verified documents must include reviewed_by and reviewed_at in strict mode."
         : "verified documents should include reviewed_by and reviewed_at once the team adopts that policy."

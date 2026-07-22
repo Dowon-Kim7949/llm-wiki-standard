@@ -342,8 +342,13 @@ enrichment 린팅(→ 1.8, 토글 가능한 `content.thin_body` 규칙으로).
 - **1.21 — 도메인 온보딩 + enrichment DX (npm 1.21.0).** 도메인 문서를 `index`·`DOMAIN_FEATURES`
   진입점에 사전 배선(P6), `next`의 문서별 enrichment 체크리스트(P5), 탐지/`not_enriched` 휴리스틱
   투명성 문서 + 스냅샷 회귀 테스트(P7).
-- **후보(미구현):** findings 메시지 KO 로컬라이제이션(P4); `fix`-타임 도메인 링크 재배선;
-  chars/4 프록시를 대체할 실제-LLM retrieval 벤치.
+- **1.22 — Findings i18n (npm 1.22.0).** 사람이 읽는 findings 프로즈의 선택적 한국어화(외부 피드백 P4,
+  Gate 27): 전역 `--lang ko|en`(기본 `en`)과 config `lang`가 finding `message`(공유 `applyRuleConfig`
+  seam 경유라 text·`--format json` 양쪽 반영)와 `explain` 프로즈를 zero-dependency 카탈로그
+  (`src/i18n.js`)·영어 fallback으로 지역화. rule ID·`--format json` shape·CLI 명령·경로는 영어 고정,
+  기본 `en`은 byte-identical.
+- **후보(미구현):** `fix`-타임 도메인 링크 재배선; chars/4 프록시를 대체할 실제-LLM retrieval 벤치;
+  리포트 chrome/severity 단어 지역화 및 KO/EN 외 언어.
 
 ## 비목표 (Non-Goals — 안전 원칙 불변)
 

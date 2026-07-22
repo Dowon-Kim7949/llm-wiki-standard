@@ -1,6 +1,6 @@
 {
   "name": "llm-wiki-governance",
-  "version": "1.21.0",
+  "version": "1.22.0",
   "private": false,
   "type": "module",
   "description": "Governance for AI-written project docs: verify, catch drift, keep them code-grounded, enforce in CI. OKF-compatible, zero-dependency.",

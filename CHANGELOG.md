@@ -6,6 +6,36 @@ All notable changes to `llm-wiki-governance` (formerly `@dowonk-7949/llm-wiki-st
 are documented here. This project follows [Semantic Versioning](https://semver.org/).
 Entries are newest-first.
 
+## 1.22.0 — 2026-07-22
+
+Optional Korean localization of human-facing findings prose (the last external-feedback
+item, P4). Additive and zero-dependency: rule IDs, the `--format json` shape, the
+programmatic API, and the frontmatter contract are unchanged, and default English output
+stays byte-identical in every format.
+
+### Added
+
+- **`--lang ko|en` (global, default `en`) + config `lang` — Korean localization of findings
+  prose (Gate 27, P4).** Localizes only human-facing prose: a finding's `message` (via the
+  shared `applyRuleConfig` seam, so both the text sections and the `--format json` `message`
+  pick it up) and `explain`'s meaning / why / remediation. A new zero-dependency catalog
+  (`src/i18n.js`) with `{param}` interpolation and a strict English fallback (a missing KO
+  key keeps the English string, never blank). Resolved through the shared
+  `applyProjectConfig`/`resolveOptions` seam, so CLI, programmatic API, and MCP all honor the
+  same language.
+- Localized all 47 `explain` entries plus the finding messages surfaced by
+  `validate`/`audit`/`status`/`next` (the `scans` / `frontmatter` / `structure` families);
+  operational/edge messages fall back to English until a follow-up.
+
+### Unchanged (frozen contract)
+
+- Rule IDs, all `--format json` keys and its shape, category names, config keys,
+  command/option names, evidence-locator syntax, the CLI commands shown by `explain`, and
+  file paths stay English — only prose localizes. `--format json` `message` localizes only
+  under an explicit `--lang ko` (`rule` and shape unchanged; consumers must key on `rule`).
+  Default `en` output is byte-identical in every format. Report chrome (section headers,
+  severity words), languages beyond KO/EN, and OS-locale auto-detection stay out of scope.
+
 ## 1.21.0 — 2026-07-22
 
 More external-usage developer-experience improvements, additive and zero-dependency: the

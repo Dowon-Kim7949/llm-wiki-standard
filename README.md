@@ -77,6 +77,8 @@ The `llm-wiki mcp` server is deterministic (no model); the agent *calling* its t
 | `handoff` · `prompt` | Agent handoff prompt · repeatable task prompts (feature/fix/refactor/docs-sync/okf-extract). |
 | `mcp` | Run the read-only MCP server (see below). |
 
+Add `--lang ko` (or set `lang` in `llm-wiki.config.json`) to see findings messages and `explain` output in Korean; rule IDs, the `--format json` shape, and default English output are unchanged.
+
 Full command, option, exit-code, and programmatic-API reference: run `npx llm-wiki help <command>` (offline), or see [PUBLIC_API.md](https://github.com/Dowon-Kim7949/llm-wiki-governance/blob/main/docs/llm-wiki/PUBLIC_API.md).
 
 ## Governance in practice

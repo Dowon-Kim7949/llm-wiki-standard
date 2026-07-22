@@ -89,7 +89,8 @@ export async function scanSourceFiles(cwd) {
           severity: "warning",
           rule: "source_files.missing",
           path: rel,
-          message: `source_files entry does not exist: ${source}.`
+          message: `source_files entry does not exist: ${source}.`,
+          params: { source }
         });
       }
     }
@@ -118,7 +119,8 @@ export async function scanRelatedReferences(cwd) {
           severity: "warning",
           rule: "related.missing",
           path: rel,
-          message: `related entry does not exist: ${target}.`
+          message: `related entry does not exist: ${target}.`,
+          params: { target }
         });
       }
     }
@@ -213,7 +215,8 @@ export async function scanThinBody(cwd, options) {
         severity: "warning",
         rule: "content.thin_body",
         path: rel,
-        message: `Document body has only ${words} word${words === 1 ? "" : "s"} of prose (min ${THIN_BODY_MIN_WORDS}); enrich it with source-backed content.`
+        message: `Document body has only ${words} word${words === 1 ? "" : "s"} of prose (min ${THIN_BODY_MIN_WORDS}); enrich it with source-backed content.`,
+        params: { words, min: THIN_BODY_MIN_WORDS }
       });
     }
   }
@@ -259,7 +262,8 @@ export async function scanVisibilityConsistency(cwd, options) {
         severity: "warning",
         rule: "visibility.public_sensitive",
         path: at,
-        message: `Public document has ${sensitive.length} sensitive-looking value(s); values omitted. Redact them or lower visibility.`
+        message: `Public document has ${sensitive.length} sensitive-looking value(s); values omitted. Redact them or lower visibility.`,
+        params: { count: sensitive.length }
       });
     }
     if (wantDeclared && frontmatter.contains_sensitive_info === false) {
@@ -267,7 +271,8 @@ export async function scanVisibilityConsistency(cwd, options) {
         severity: "warning",
         rule: "visibility.declared_mismatch",
         path: at,
-        message: `Document declares contains_sensitive_info: false but ${sensitive.length} sensitive-looking value(s) were found; values omitted.`
+        message: `Document declares contains_sensitive_info: false but ${sensitive.length} sensitive-looking value(s) were found; values omitted.`,
+        params: { count: sensitive.length }
       });
     }
   }
@@ -298,7 +303,8 @@ export async function scanEvidenceReferences(cwd, options = {}) {
           severity: "error",
           rule: "evidence.shape",
           path: rel,
-          message: `Invalid evidence reference: ${reference || "(empty)"}.`
+          message: `Invalid evidence reference: ${reference || "(empty)"}.`,
+          params: { reference: reference || "(empty)" }
         });
         continue;
       }
@@ -311,7 +317,8 @@ export async function scanEvidenceReferences(cwd, options = {}) {
           severity: strictSeverity,
           rule: "evidence.missing",
           path: rel,
-          message: `Evidence source does not exist: ${evidenceReference.source}.`
+          message: `Evidence source does not exist: ${evidenceReference.source}.`,
+          params: { source: evidenceReference.source }
         });
         continue;
       }
@@ -323,7 +330,8 @@ export async function scanEvidenceReferences(cwd, options = {}) {
             severity: strictSeverity,
             rule: "evidence.line_range",
             path: rel,
-            message: `Evidence line range is outside ${evidenceReference.source}: ${evidenceReference.locator.start}-${evidenceReference.locator.end} (file has ${lineCount} line${lineCount === 1 ? "" : "s"}).`
+            message: `Evidence line range is outside ${evidenceReference.source}: ${evidenceReference.locator.start}-${evidenceReference.locator.end} (file has ${lineCount} line${lineCount === 1 ? "" : "s"}).`,
+            params: { source: evidenceReference.source, start: evidenceReference.locator.start, end: evidenceReference.locator.end, lineCount }
           });
         }
       } else if (evidenceReference.locator?.kind === "symbol") {
@@ -338,7 +346,8 @@ export async function scanEvidenceReferences(cwd, options = {}) {
             severity: strictSeverity,
             rule: "evidence.symbol_unverified",
             path: rel,
-            message: `Evidence symbol is not mentioned in ${evidenceReference.source}: ${evidenceReference.locator.value}.`
+            message: `Evidence symbol is not mentioned in ${evidenceReference.source}: ${evidenceReference.locator.value}.`,
+            params: { source: evidenceReference.source, value: evidenceReference.locator.value }
           });
         }
       } else if (evidenceReference.locator?.kind === "section" && evidenceReference.source.toLowerCase().endsWith(".md")) {
@@ -350,7 +359,8 @@ export async function scanEvidenceReferences(cwd, options = {}) {
             severity: strictSeverity,
             rule: "evidence.section_unverified",
             path: rel,
-            message: `Evidence section heading is not found in ${evidenceReference.source}: ${evidenceReference.locator.value}.`
+            message: `Evidence section heading is not found in ${evidenceReference.source}: ${evidenceReference.locator.value}.`,
+            params: { source: evidenceReference.source, value: evidenceReference.locator.value }
           });
         }
       }
@@ -473,7 +483,8 @@ export async function scanEvidenceSections(cwd, options = {}) {
           severity: strictSeverity,
           rule: "evidence.section_unlisted",
           path: rel,
-          message: `Frontmatter evidence entry is not mentioned in body ## Evidence: ${reference}.`
+          message: `Frontmatter evidence entry is not mentioned in body ## Evidence: ${reference}.`,
+          params: { reference }
         });
       }
     }
@@ -667,7 +678,8 @@ export function driftFinding(rel, reference, baseline) {
     severity: "warning",
     rule: "evidence.stale",
     path: rel,
-    message: `Verified document references ${reference}, which changed after ${baseline}; re-review and update it or downgrade to needs_review.`
+    message: `Verified document references ${reference}, which changed after ${baseline}; re-review and update it or downgrade to needs_review.`,
+    params: { reference, baseline }
   };
 }
 
@@ -693,7 +705,8 @@ export async function scanReverseImpact(cwd, changedSet) {
       severity: "warning",
       rule: "impact.source_changed",
       path: rel,
-      message: `Verified document depends on ${changedSources.join(", ")}, which changed in this diff, but the document is unchanged; re-review and update it or downgrade to needs_review.`
+      message: `Verified document depends on ${changedSources.join(", ")}, which changed in this diff, but the document is unchanged; re-review and update it or downgrade to needs_review.`,
+      params: { sources: changedSources.join(", ") }
     });
   }
   return findings;
@@ -737,7 +750,8 @@ export async function scanOkfProfile(cwd, activeProfiles = []) {
           severity: "error",
           rule: "okf.array_shape",
           path: rel,
-          message: `OKF v0.1 frontmatter field ${arrayField} must be an array when present.`
+          message: `OKF v0.1 frontmatter field ${arrayField} must be an array when present.`,
+          params: { field: arrayField }
         });
       }
     }
@@ -765,7 +779,8 @@ export async function scanMarkdownLinks(cwd) {
           severity: "warning",
           rule: "markdown_link.missing",
           path: rel,
-          message: `Markdown link target does not exist: ${link}.`
+          message: `Markdown link target does not exist: ${link}.`,
+          params: { link }
         });
       }
     }

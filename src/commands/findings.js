@@ -7,6 +7,7 @@
 // (renderTextReport); no back-dependency on commands.js.
 import { JSON_SCHEMA_VERSION } from "../config.js";
 import { renderTextReport } from "../report.js";
+import { localizeFinding, normalizeLang } from "../i18n.js";
 
 export const FINDING_EXPLANATIONS = {
   "structure.wiki_missing": findingExplanation("structure", "warning", "The project does not have docs/llm-wiki/index.md, so LLM-WIKI is not initialized.", "Agents and CI need a stable wiki entrypoint before they can follow the documentation contract.", ["Ask whether the project should be initialized now.", "Run init --dry-run first when you want to preview files.", "Run init --write when you are ready to create the missing wiki structure."], ["llm-wiki init --dry-run", "llm-wiki init --write", "llm-wiki status"], ["structure.required_doc"]),
@@ -111,19 +112,31 @@ export const NON_TOGGLEABLE_CATEGORIES = new Set(["sensitive"]);
 // unchanged. Idempotent, so it is safe as findings compose across commands.
 export function applyRuleConfig(findings, options) {
   const rules = options && options.rules;
-  if (!rules || typeof rules !== "object" || Object.keys(rules).length === 0) return findings;
+  const hasRules = rules && typeof rules === "object" && Object.keys(rules).length > 0;
+  // Gate 27 (P4): localize each finding's human-facing `message` to options.lang
+  // here — the single seam every command routes findings through — so both the
+  // text sections (built via formatFinding) and the JSON `findings` payload pick
+  // up the localized message. The default `en` path never routes through the
+  // catalog, so English output stays byte-identical.
+  const localizing = normalizeLang(options && options.lang) !== "en";
+  if (!hasRules && !localizing) return findings;
   const out = [];
   for (const finding of findings) {
+    const localized = localizing ? localizeFinding(finding, options.lang) : finding;
+    if (!hasRules) {
+      out.push(localized);
+      continue;
+    }
     const action = rules[finding.rule];
     const toggleable = action !== undefined
       && Object.prototype.hasOwnProperty.call(FINDING_EXPLANATIONS, finding.rule)
       && !NON_TOGGLEABLE_CATEGORIES.has(findingCategory(finding.rule));
     if (!toggleable) {
-      out.push(finding);
+      out.push(localized);
       continue;
     }
     if (action === "off") continue;
-    out.push({ ...finding, severity: action });
+    out.push({ ...localized, severity: action });
   }
   return out;
 }

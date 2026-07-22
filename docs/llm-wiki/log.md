@@ -24,6 +24,28 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-22 - feat: findings 메시지 한국어화(Gate 27, P4), release 1.22.0
+
+- status: needs_review
+- actor: Claude Code
+- scope: src, tests, docs, release
+- changed:
+  - src/i18n.js (신규: zero-dep KO 카탈로그 + localizeFinding/localizeExplanation/localizeMessage/normalizeLang)
+  - src/cli.js (--lang 파싱·검증 + GLOBAL_OPTIONS + defaultOptions.lang)
+  - src/config-file.js (mergeConfigIntoOptions: config lang, CLI 우선)
+  - src/commands/findings.js (applyRuleConfig가 lang으로 finding message 지역화)
+  - src/commands.js (explainCommand가 localizeExplanation 사용)
+  - src/commands/scans.js, src/frontmatter.js (finding 사이트에 messageId/params 부착)
+  - tests/verification.test.js (i18n 6 신규 + 버전 assertion 1.22.0)
+  - docs/llm-wiki/{ARCHITECTURE_CONVENTIONS,DOMAIN_FEATURES,PUBLIC_API}.md (기능·Module Layout·Evidence; needs_review)
+  - package.json (1.21.0→1.22.0), CHANGELOG.md/.ko.md, ROADMAP.md/.ko.md, README.md/.ko.md, GATE_REVIEW.md (Gate 27)
+- summary:
+  - 사람이 읽는 findings 프로즈만 지역화: finding message(applyRuleConfig seam → text·JSON)와 explain 프로즈. 전역 --lang ko|en(기본 en) + config lang, applyProjectConfig/resolveOptions로 CLI/API/MCP 일관.
+  - rule ID·JSON 키/shape·category·CLI 명령·경로는 영어 고정. 기본 en은 카탈로그 미경유라 byte-identical. KO 누락 시 영어 fallback.
+  - v1: 47개 explanation 전부 + scans/frontmatter/structure finding message. 운영성 message는 EN fallback.
+- verification:
+  - 275 tests pass (신규 6), validate --strict 0 findings (exit 0)
+
 ## 2026-07-22 - docs: 재검증 정리 — DOMAIN_FEATURES verified 승격 + ARCHITECTURE Module Layout 완결성 보강
 
 - status: verified
