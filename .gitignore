@@ -1,0 +1,8 @@
+# Node
+node_modules/
+
+# Agent-authored run manifests (Gate 26 `check-run` input; ephemeral, per-run — never committed)
+.llm-wiki/runs/
+
+# Real-LLM bench driver (wired locally against a provider client + credentials; never committed)
+bench/real/agent.js
