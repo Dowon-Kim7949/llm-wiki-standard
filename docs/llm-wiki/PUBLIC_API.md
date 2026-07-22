@@ -2,8 +2,8 @@
 title: Public Api
 tags:
   - llm-wiki
-  - verified
-status: verified
+  - needs_review
+status: needs_review
 doc_type: public_api
 project: llm-wiki-governance
 last_updated: 2026-07-22
@@ -85,7 +85,7 @@ contains_sensitive_info: false
 | `stats` | wiki 헬스 스냅샷(verified%/enrichment%/evidence coverage/staleness/orphan) + 헬스 스코어. 1.19부터 `--format json`에 계산된 `evidenceTiers`(`reference_checked`/`human_verified`)를 additive로 부가(신규 frontmatter 필드/status값 없음) | 없음 |
 | `list-docs` | (읽기전용 retrieval, 1.18) 문서 메타데이터(path/title/status/doc_type/visibility/last_updated/tags) 열거. `--status`/`--visibility`/`--doc-type` 필터. 본문 미반환. restricted/민감 문서는 `--include-sensitive` 없으면 제외 | 없음 |
 | `search-docs <query>` | (읽기전용 retrieval, 1.18) 제목/본문/frontmatter에 대한 **zero-dep 키워드/부분문자열** 검색(semantic 아님). 모든 term이 있어야 매치(AND), 점수순 랭크 + 스니펫. `--limit`(기본 20). restricted/민감 문서 제외(같은 `--include-sensitive`), 스니펫 redact | 없음 |
-| `get-doc <path>` | (읽기전용 retrieval, 1.18) 문서 하나의 frontmatter + 본문 반환. `<path>`는 repo-relative/wiki-relative/bare name 허용. 민감 라인 redact | 없음 |
+| `get-doc <path> [--section <terms>]` | (읽기전용 retrieval, 1.18) 문서 하나의 frontmatter + 본문 반환. `<path>`는 repo-relative/wiki-relative/bare name 허용. 민감 라인 redact. `--section <terms>`는 관련 `##` 섹션(+프리앰블)만 반환하는 집중 읽기(큰 문서용; `##` 섹션이 없거나 매치 없으면 full body로 fallback; 필터 시 additive `document.section` `{query,returned,total}` 부가) | 없음 |
 | `get-related <path>` | (읽기전용 retrieval, 1.18) 문서의 해소된 그래프 이웃(outbound/inbound: wiki 링크[이중 대괄호]·related·markdown 링크) 반환 | 없음 |
 | `release-notes [--body-only]` | 마지막 `v*` 태그 이후 conventional commit으로 릴리스 노트 문서 생성. `--body-only`는 변경 섹션 본문만 출력(frontmatter/H1/스캐폴드 라인 제외, GitHub Release 본문용)하고 본문 민감정보 스캔에 매치 시 차단(exit 2, 본문 withhold) | `--out` 시 |
 
@@ -244,3 +244,4 @@ MCP 클라이언트 등록 예시:
 - 2026-07-21에 1.17.0 reverse-impact(Gate 23, accepted)를 반영했다: 신규 read-only `impact [--since <ref>] [--strict]` 명령을 Commands 표·Key Options·Evidence(동결 `commands` 맵에도 `impact` 추가)에 등재하고, 변경집합 프리미티브 `src/git.js#changedFiles`를 source_files/evidence에 넣었다. additive(옵션·명령 미사용 시 기존 표면 불변), `--format json`·frontmatter·zero-dep 불변. 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.
 - 2026-07-21에 1.18.0 read-only retrieval(Gate 24, accepted)를 반영했다: 신규 4개 명령 `list-docs`/`search-docs <query>`/`get-doc <path>`/`get-related <path>`을 Commands 표에, 대응 MCP 툴 `list_docs`/`search_docs`/`get_doc`/`get_related`(snake_case)을 노출 툴 목록에, `src/commands/retrieval.js`를 Evidence에 등재했다. 거버넌스 리포트가 아니라 문서 **본문**을 반환하는 첫 표면 — 프로그래매틱 API 동결 맵에도 4개 kebab 키를 additive로 추가. `search-docs`는 zero-dep 키워드/부분문자열(semantic 아님), restricted/민감 문서는 list/search 기본 제외(opt-in `--include-sensitive`)·반환 본문/스니펫은 민감 라인 redact, 쓰기 표면 없음. `1.0.0` 계약·`--format json`·frontmatter·zero-dep 불변. 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.
 - 2026-07-22에 1.19 명령 표면 doc-sync 갭을 메웠다: 야간 자율 실행의 Gate 25/26 커밋이 ARCHITECTURE/DOMAIN_FEATURES만 갱신하고 PUBLIC_API는 놓쳐, 배포된 read-only `check-run [--run <path>] [--strict]` 명령(Gate 26)과 `stats --format json`의 계산된 `evidenceTiers`(Gate 25)가 누락돼 있었다. Commands 표에 `check-run` 행(intent-앵커 run manifest 검증; `run.*` findings; 쓰기 없음)을, Key Options에 `--run <path>`을, Evidence·frontmatter evidence에 `src/commands.js#symbol:checkRunCommand`를, `stats` 행에 `evidenceTiers` 부가 노출을 등재했다. check-run은 `impact`와 마찬가지로 CLI/API 전용(MCP 미노출). additive·read-only·`--format json`·frontmatter·zero-dep·`1.0.0` 계약 불변. 코드에 맞춰 문서를 수정한 뒤 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-22)를 거쳐 `verified`로 재승인했다(1.16.0→1.19 명령 표면 누적분 포함).
+- 2026-07-22에 `get-doc`에 `--section <terms>` 집중 읽기 옵션을 추가했다(벤치가 지목한 "큰 문서 전문 읽기가 토큰-비쌈" 문제 대응): 관련 `##` 섹션+프리앰블만 반환하고, `##` 섹션이 없거나 매치가 없으면 full body로 fallback하며, 필터 시에만 additive `document.section` `{query,returned,total}`을 부가한다(기본 출력 불변). CLI 플래그·MCP `get_doc.section`·프로그래매틱 옵션 3표면 배선. 실측: 잘 구조화된 문서에 −53%(PUBLIC_API 자체), 거대 단일 섹션 문서엔 미미(1~8%). additive·read-only·zero-dep·`1.0.0` 계약 불변, 미릴리스(main 한정, 다음 minor에서 배포·버전 태깅 예정). 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.

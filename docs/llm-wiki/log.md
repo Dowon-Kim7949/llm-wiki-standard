@@ -24,6 +24,28 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-22 - feat(retrieval): get-doc --section 집중 읽기 + 벤치 재측정
+
+- status: needs_review
+- actor: Claude Code
+- scope: code(src/commands/retrieval.js·cli.js·mcp/tools.js) + tests + docs(PUBLIC_API·log) + bench
+- changed:
+  - src/commands/retrieval.js: `getDocCommand`에 `--section <terms>` 집중 읽기 추가. 순수 `selectSections`가 본문을 `##` 레벨 섹션으로 나눠 terms 매치 상위 N(기본 3)개 섹션+프리앰블만 반환; `##` 섹션이 없거나 매치 없으면 full body로 fallback. 필터 시에만 additive `document.section` `{query,returned,total}` 부가(기본 출력 byte-identical).
+  - src/cli.js: `--section` 옵션(defaultOptions·parseArgs·COMMAND_OPTION_RULES get-doc·help 2곳) 배선.
+  - src/mcp/tools.js: `get_doc`에 `section` inputSchema + `buildToolOptions` 매핑. (API는 `normalizeOptions`가 defaultOptions 전파로 자동.)
+  - tests/verification.test.js: get-doc --section 회귀 테스트(매치 섹션만 반환, 무매치 fallback, 기본 출력에 section 필드 없음).
+  - docs/llm-wiki/PUBLIC_API.md: get-doc 행에 `--section` 등재(needs_review 강등).
+  - bench/results/real-driver-pilot-claude-2026-07-22.md: B2-section 재측정 기록.
+- summary:
+  - 벤치가 지목한 "retrieval이 큰 문서 전문을 읽어 토큰이 비쌈" 문제 대응. `--section`으로 관련 부분만 읽게 함. 실측: 잘 구조화된 문서 −53%(PUBLIC_API), 거대 단일 섹션 문서 1~8%(DOMAIN_FEATURES·ARCHITECTURE).
+  - **재측정(B2-section, N=1) 결론: 토큰 이득 불확정.** 에이전트가 실제 여는 문서가 거대-섹션이라 축소가 작고 N=1 변동(~±40%)이 효과를 삼킴. retrieval은 여전히 소스-only(B)보다 총 토큰이 많다. **README 토큰-절감 주장 계속 금지.**
+- evidence:
+  - src/commands/retrieval.js#symbol:getDocCommand
+  - src/commands/retrieval.js#symbol:selectSections
+- caveats:
+  - additive·read-only·zero-dep·1.0.0 계약 불변; 기본(무 --section) 출력 불변. **미릴리스**(main 한정, npm 1.19.0엔 없음) — 다음 minor에서 버전 bump+태그로 배포 예정.
+  - 거대-섹션 문서에 대한 후속: 문서 재구조화(작은 `##` 섹션) 또는 sub-section/bullet 단위 chunking, 또는 retrieval 가치를 "토큰 절감"이 아닌 "오리엔테이션+정확성"으로 규정.
+
 ## 2026-07-22 - fix(retrieval): search-docs가 append-only change log를 후순위로 강등
 
 - status: needs_review

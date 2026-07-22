@@ -2253,6 +2253,33 @@ test("retrieval: get-doc returns content, redacts sensitive lines, and reports n
   assert.ok(missing.findings.some((finding) => finding.rule === "retrieval.not_found"));
 });
 
+test("retrieval: get-doc --section returns only matching sections (focused read), falls back to full body", async () => {
+  const cwd = await makeProject("retr-section-");
+  await writeFile(path.join(cwd, "package.json"), `${JSON.stringify({ name: "retr" }, null, 2)}\n`, { encoding: "utf8" });
+  await writeVerifiedSourceDoc(cwd, "index.md", "package.json", "2026-07-11");
+  await writeWikiDoc(cwd, "big.md", "Big Doc",
+    "## Alpha\nApples and oranges, padding for length.\n\n## Beta\nThe widget subsystem lives here and handles widget config.\n\n## Gamma\nGophers and gadgets, entirely unrelated.");
+
+  // Default (no --section): full body, and no additive `section` field.
+  const full = await getDocCommand({ ...RETR_BASE, cwd, docPath: "big.md" });
+  assert.ok(full.document.body.includes("Apples") && full.document.body.includes("Gophers"), "full body has all sections");
+  assert.equal("section" in full.document, false, "default get-doc output has no section field");
+
+  // Focused read: only the matching section(s) + preamble.
+  const focused = await getDocCommand({ ...RETR_BASE, cwd, docPath: "big.md", section: "widget" });
+  assert.ok(focused.document.body.includes("widget"), "matching section returned");
+  assert.equal(focused.document.body.includes("Gophers"), false, "unrelated Gamma section omitted");
+  assert.equal(focused.document.body.includes("Apples"), false, "unrelated Alpha section omitted");
+  assert.ok(focused.document.section && focused.document.section.returned >= 1 && focused.document.section.total >= 3,
+    "section metadata reflects a focused subset");
+  assert.ok(focused.document.body.length < full.document.body.length, "focused read is smaller than the full body");
+
+  // Fallback: a term present in no section returns the full body (no section metadata).
+  const miss = await getDocCommand({ ...RETR_BASE, cwd, docPath: "big.md", section: "zzznotpresent" });
+  assert.ok(miss.document.body.includes("Gophers"), "no section match falls back to full body");
+  assert.equal("section" in miss.document, false, "fallback output has no section field");
+});
+
 test("retrieval: get-related returns resolved graph neighbors and reports not_found", async () => {
   const cwd = await makeRetrievalWiki("retr-related-");
   const rel = await getRelatedCommand({ ...RETR_BASE, cwd, docPath: "index.md" });

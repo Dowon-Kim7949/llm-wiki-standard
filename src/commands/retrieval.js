@@ -24,6 +24,7 @@ import { formatFinding, summarizeFindings, withText } from "./findings.js";
 
 const REDACTION = "[redacted: sensitive-looking value omitted]";
 const DEFAULT_SEARCH_LIMIT = 20;
+const DEFAULT_SECTION_LIMIT = 3;
 
 // Load every wiki content doc with parsed frontmatter, body, and a sensitivity
 // flag (declared contains_sensitive_info, restricted visibility, or a
@@ -207,27 +208,83 @@ export async function searchDocsCommand(options) {
   ]);
 }
 
+// Focused read: split a markdown body into a preamble (before the first "## "
+// heading) and level-2 sections, then return the preamble plus the top-`limit`
+// sections that match the query terms (by term-occurrence score), in document
+// order. Falls back to the FULL body when there is no query, no "## " section,
+// or no section matches — so a caller always gets a usable answer. This lets a
+// retrieval agent read only the relevant part of a large doc instead of the
+// whole body. Zero-dep, deterministic.
+export function selectSections(body, query, limit = DEFAULT_SECTION_LIMIT) {
+  const terms = (typeof query === "string" ? query : "").toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return { body, sectioned: false, returned: 0, total: 0 };
+  const lines = body.split("\n");
+  const preamble = [];
+  const sections = [];
+  let current = null;
+  for (const line of lines) {
+    if (/^##\s+/.test(line)) {
+      if (current) sections.push(current);
+      current = [line];
+    } else if (current) {
+      current.push(line);
+    } else {
+      preamble.push(line);
+    }
+  }
+  if (current) sections.push(current);
+  if (sections.length === 0) return { body, sectioned: false, returned: 0, total: 0 };
+  const scored = sections.map((sec, idx) => {
+    const hay = sec.join("\n").toLowerCase();
+    let score = 0;
+    for (const term of terms) score += occurrences(hay, term);
+    return { idx, text: sec.join("\n"), score };
+  });
+  const matching = scored.filter((sec) => sec.score > 0);
+  if (matching.length === 0) return { body, sectioned: false, returned: 0, total: sections.length };
+  const top = matching
+    .slice()
+    .sort((left, right) => right.score - left.score || left.idx - right.idx)
+    .slice(0, limit)
+    .sort((left, right) => left.idx - right.idx);
+  const assembled = [preamble.join("\n").trim(), ...top.map((sec) => sec.text)]
+    .filter(Boolean)
+    .join("\n\n");
+  return { body: assembled, sectioned: true, returned: top.length, total: sections.length };
+}
+
 export async function getDocCommand(options) {
   const docs = await loadContentDocs(options.cwd);
   const doc = resolveDoc(docs, options.docPath);
   if (!doc) return notFound("get-doc", "LLM-WIKI Document", options.docPath);
 
-  const bodyRedacted = redactSensitive(doc.body);
-  const redacted = bodyRedacted !== doc.body;
+  const query = typeof options.section === "string" ? options.section.trim() : "";
+  const selection = query
+    ? selectSections(doc.body, query, DEFAULT_SECTION_LIMIT)
+    : { body: doc.body, sectioned: false, returned: 0, total: 0 };
+  const bodyRedacted = redactSensitive(selection.body);
+  const redacted = bodyRedacted !== selection.body;
   const meta = docSummary(doc);
+  const document = { ...meta, frontmatter: doc.frontmatter, body: bodyRedacted, redacted };
+  // Additive: only present when --section actually filtered (default output unchanged).
+  if (selection.sectioned) document.section = { query, returned: selection.returned, total: selection.total };
+  const summary = [
+    `path: ${doc.path}`,
+    `title: ${meta.title ?? "(no title)"}`,
+    `status: ${meta.status ?? "?"}`,
+    `visibility: ${meta.visibility ?? "?"}`,
+    `redacted: ${redacted ? "yes (sensitive-looking lines omitted)" : "no"}`
+  ];
+  if (selection.sectioned) {
+    summary.push(`section: ${selection.returned}/${selection.total} sections matching "${query}" (omit --section for the full body)`);
+  }
   return withText({
     command: "get-doc",
     result: "pass",
-    document: { ...meta, frontmatter: doc.frontmatter, body: bodyRedacted, redacted },
+    document,
     findings: []
   }, "LLM-WIKI Document", [
-    { title: "Summary", body: [
-      `path: ${doc.path}`,
-      `title: ${meta.title ?? "(no title)"}`,
-      `status: ${meta.status ?? "?"}`,
-      `visibility: ${meta.visibility ?? "?"}`,
-      `redacted: ${redacted ? "yes (sensitive-looking lines omitted)" : "no"}`
-    ] },
+    { title: "Summary", body: summary },
     { title: "Body", body: bodyRedacted || "(empty)" },
     { title: "Caveats", body: ["Read-only. Sensitive-looking lines are redacted; frontmatter visibility/contains_sensitive_info are preserved so a caller can see the doc's own declaration."] }
   ]);

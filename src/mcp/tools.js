@@ -38,6 +38,7 @@ const visibilityFilterProp = { type: "string", enum: ["internal", "public", "res
 const docTypeFilterProp = { type: "string", description: "Filter by doc_type (or OKF type)." };
 const includeSensitiveProp = { type: "boolean", description: "Include restricted/sensitive documents (excluded from list/search by default)." };
 const docPathProp = { type: "string", description: "Document path: repo-relative (docs/llm-wiki/GLOSSARY.md), wiki-relative (GLOSSARY.md), or a bare name (GLOSSARY)." };
+const sectionProp = { type: "string", description: "Optional focused read: return only the most relevant ## sections (plus the preamble) matching these terms instead of the full body. Falls back to the full body when nothing matches." };
 
 function schema(properties, required = []) {
   return { type: "object", properties, required, additionalProperties: false };
@@ -163,7 +164,7 @@ export const TOOL_DEFS = [
     description:
       "Read-only retrieval. Return one document's frontmatter and body by path. Sensitive-looking body lines are redacted; the document's own visibility/contains_sensitive_info frontmatter is preserved.",
     command: "get-doc",
-    inputSchema: schema({ path: docPathProp, cwd: cwdProp }, ["path"])
+    inputSchema: schema({ path: docPathProp, section: sectionProp, cwd: cwdProp }, ["path"])
   },
   {
     name: "get_related",
@@ -191,6 +192,7 @@ export function buildToolOptions(tool, args = {}) {
   if (typeof args.task === "string") options.task = args.task;
   if (typeof args.query === "string") options.query = args.query;
   if (typeof args.path === "string") options.docPath = args.path;
+  if (typeof args.section === "string") options.section = args.section;
   if (typeof args.status === "string") options.status = args.status;
   if (typeof args.visibility === "string") options.visibility = args.visibility;
   if (typeof args.docType === "string") options.docType = args.docType;

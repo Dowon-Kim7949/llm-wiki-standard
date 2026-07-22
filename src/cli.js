@@ -141,6 +141,7 @@ export function defaultOptions() {
     docType: null,
     includeSensitive: false,
     limit: null,
+    section: null,
     version: null,
     since: null,
     run: null,
@@ -244,6 +245,13 @@ export function parseArgs(argv) {
         const parsed = Number.parseInt(value, 10);
         if (Number.isInteger(parsed) && parsed > 0) options.limit = parsed;
         else errors.push(`--limit must be a positive integer: ${value}`);
+        index += 1;
+      }
+    } else if (arg === "--section") {
+      usedOptions.add("section");
+      const value = readOptionValue(rest, index, arg, errors);
+      if (value) {
+        options.section = value;
         index += 1;
       }
     } else if (arg === "--profile") {
@@ -370,7 +378,7 @@ const COMMAND_OPTION_RULES = {
   stats: new Set(["cwd", "type", "profile", "agent", "strict", "format", "out"]),
   "list-docs": new Set(["cwd", "status", "visibility", "doc-type", "include-sensitive", "format", "out"]),
   "search-docs": new Set(["cwd", "status", "visibility", "doc-type", "include-sensitive", "limit", "format", "out"]),
-  "get-doc": new Set(["cwd", "format", "out"]),
+  "get-doc": new Set(["cwd", "section", "format", "out"]),
   "get-related": new Set(["cwd", "format", "out"]),
   "release-notes": new Set(["cwd", "version", "since", "body-only", "format", "out"]),
   mcp: new Set(["cwd"])
@@ -504,7 +512,7 @@ Usage:
   llm-wiki stats [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--strict] [--format text|json|markdown|html] [--out <path>]
   llm-wiki list-docs [--status <s>] [--visibility <v>] [--doc-type <t>] [--include-sensitive] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki search-docs <query> [--status <s>] [--visibility <v>] [--doc-type <t>] [--include-sensitive] [--limit <n>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
-  llm-wiki get-doc <path> [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki get-doc <path> [--section <terms>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki get-related <path> [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki release-notes [--version <x.y.z>] [--since <git-ref>] [--body-only] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki mcp [--cwd <path>]
@@ -828,16 +836,19 @@ JSON (--format json):
   "get-doc": `llm-wiki get-doc
 
 Usage:
-  llm-wiki get-doc <path> [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki get-doc <path> [--section <terms>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
 
 Purpose:
   Read-only retrieval. Returns one document's frontmatter and body. <path> may be
   repo-relative (docs/llm-wiki/GLOSSARY.md), wiki-relative (GLOSSARY.md), or a
   bare name (GLOSSARY). Sensitive-looking body lines are redacted; the document's
   own visibility/contains_sensitive_info frontmatter is preserved.
+  --section <terms> returns only the most relevant ## sections (plus the preamble)
+  instead of the full body — a focused read for large docs; it falls back to the
+  full body when there is no ## section or nothing matches.
 
 JSON (--format json):
-  Top-level keys: schemaVersion, command, result, document, findings[]. document carries path, title, status, docType, visibility, lastUpdated, tags, frontmatter, body, redacted. A missing path yields result: fail and a retrieval.not_found finding.
+  Top-level keys: schemaVersion, command, result, document, findings[]. document carries path, title, status, docType, visibility, lastUpdated, tags, frontmatter, body, redacted (plus an additive section {query,returned,total} only when --section filtered). A missing path yields result: fail and a retrieval.not_found finding.
 `,
   "get-related": `llm-wiki get-related
 

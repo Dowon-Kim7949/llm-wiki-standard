@@ -65,3 +65,42 @@
    (input/output split), fully automated, no `/cost`. Needs API access + budget.
 3. **Interactive `/cost` (manual):** only needed to measure the real Claude Code *product*
    experience (MCP tools). Least automated.
+
+## Re-measurement: get-doc --section + scorer fix (B2-section, 2026-07-22)
+
+After shipping the `search-docs` scorer fix and the `get-doc --section` focused-read feature,
+the 6 B2 arms were re-run (isolated Explore subagents, N=1) using `get-doc --section "<terms>"`
+instead of full-body reads.
+
+| Task | B (src) | B2 full | B2 --section |
+| --- | --- | --- | --- |
+| type-detection-mobile | 22,599 | 29,244 | 26,862 |
+| audit-pipeline | 46,302 | 41,235 | 58,825 |
+| config-merge | 23,767 | 37,256 | 47,959 |
+| rule-toggle | 21,086 | 28,072 | 31,910 |
+| skill-generation | 25,607 | 26,942 | 23,203 |
+| mcp-tools | 25,390 | 40,886 | 35,296 |
+| **sum tokens** | **164,751** | **203,635** | **224,055** |
+| **sum wall-ms** | **220,749** | **316,390** | **316,533** |
+
+**Honest result: no token win — inconclusive at N=1.** B2 (both full and --section) still costs
+MORE total tokens than B (source-only). The --section run did not drop below B2-full, but that
+is **N=1 variance, not a regression**: per-task swings are large (audit-pipeline was
+46k→41k→59k across the three runs purely from how much the agent chose to explore). Two reasons
+the --section effect is undetectable here:
+
+1. **The repo's retrieval targets are mega-sectioned.** The docs the agents actually open
+   (`DOMAIN_FEATURES.md`, `ARCHITECTURE_CONVENTIONS.md`) are structured as one/few huge `##`
+   sections, so `##`-level focused-read shrinks them only 1–8% (vs **−53%** on well-sectioned
+   `PUBLIC_API.md` in isolation). The feature works; these target docs don't chunk.
+2. **N=1 variance (~±40%) swamps a small effect.** Detecting a modest --section saving needs
+   N≥3 and/or better-sectioned docs.
+
+**Takeaways:**
+- `get-doc --section` is validated in isolation (−53% on `PUBLIC_API.md`) and is a real,
+  backward-compatible improvement — but it does **not** make retrieval token-competitive on THIS
+  repo, because the big reference docs are mega-sectioned.
+- To actually cut retrieval tokens here: restructure the mega-docs into smaller `##` sections,
+  add finer (sub-section / bullet) chunking, or accept that retrieval's value on this repo is
+  **orientation + correctness (6/6 tie)**, not token savings.
+- **README token-savings claim: still not supported (measured unfavorable). Stays forbidden.**
