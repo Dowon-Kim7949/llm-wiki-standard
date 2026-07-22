@@ -90,6 +90,10 @@ Full command, option, exit-code, and programmatic-API reference: run `npx llm-wi
 - **Wire up CI.** Copy [`templates/github-actions/llm-wiki-validate.yml`](https://github.com/Dowon-Kim7949/llm-wiki-governance/blob/main/templates/github-actions/llm-wiki-validate.yml) to run `validate` on every PR, or reference the composite action in one step — `uses: Dowon-Kim7949/llm-wiki-governance/.github/actions/validate@v1.7.0` (pin an exact tag).
 - **Make it readable.** `graph --format mermaid`, `stats`, and `audit --format html` help humans see the corpus; it stays Markdown-in-git (renders on GitHub/GitLab, Obsidian, MkDocs — not a static-site generator).
 
+## Does it actually help?
+
+In an N=3 benchmark on an external Vue/Quasar app (Claude Opus 4.8; 6 code-comprehension tasks), an agent querying a **current** wiki answered at **equal correctness while reading no source code**, using ~10% fewer tokens — task-dependent (larger when the answer spans many files, negligible or worse when it's one small file). A **stale** wiki instead produced a confidently wrong answer, so the real payoff is **correctness that depends on freshness** — exactly what `verified` review, drift / `impact`, and `validate --changed` protect. This is a scoped result (one agent, one repo, total-token proxy), not a universal speed claim. Honest method + full numbers: [BENCHMARK.md](https://github.com/Dowon-Kim7949/llm-wiki-governance/blob/main/docs/llm-wiki/BENCHMARK.md).
+
 ## Agent-native (MCP)
 
 `llm-wiki mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio (newline-delimited JSON-RPC 2.0, Node built-ins only — no third-party SDK). Register it in an MCP client:

@@ -468,9 +468,15 @@ zero-dependency, backend/fullstack byte-identical.
   `--format json` both pick it up) and `explain`'s prose, from a zero-dependency catalog
   (`src/i18n.js`) with English fallback. Rule IDs, the `--format json` shape, CLI commands, and
   paths stay English; default `en` output is byte-identical.
-- **Candidates (not yet built):** `fix`-time re-wiring of domain links; a real-LLM retrieval
-  benchmark to replace the chars/4 proxy; report-chrome/severity-word localization and
-  languages beyond KO/EN.
+- **Measured (2026-07-22):** a real-LLM **N=3** benchmark on an external Vue/Quasar project
+  (Claude Opus 4.8) replaced the chars/4 proxy. On a current wiki, an agent answered
+  code-comprehension questions at **equal correctness while reading no source**, ~10% fewer
+  tokens (task-dependent); a **stale** wiki instead produced a wrong answer — the payoff is
+  correctness-at-freshness, not raw speed. Scoped result (one agent/repo). See
+  `docs/llm-wiki/BENCHMARK.md`.
+- **Candidates (not yet built):** `fix`-time re-wiring of domain links; further benchmark rigor
+  (cross-agent, and the SDK path for input/output token split); report-chrome/severity-word
+  localization and languages beyond KO/EN.
 
 ## Non-Goals (unchanged safety ethos)
 

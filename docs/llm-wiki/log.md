@@ -24,6 +24,22 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-22 - docs: real-LLM N=3 벤치(csap 외부 프로젝트) 결과 반영 + README/포지셔닝 정직 문구
+
+- status: needs_review
+- actor: Claude Code (유지보수자 지시)
+- scope: bench, docs
+- changed:
+  - bench/results/real-driver-csap-aws-global-pilot-2026-07-22.md (신규: pilot stale N=1 + fresh N=1 + fresh N=3 실측)
+  - docs/llm-wiki/BENCHMARK.md ("실측" 섹션 + 규율 갱신; verified→needs_review)
+  - README.md/.ko.md ("Does it actually help?"/"실제로 도움이 되나?" — 스코프 명시 정직 수치)
+  - ROADMAP.md/.ko.md (real-LLM 벤치: 미구현 후보 → 실측 완료)
+- summary:
+  - 외부 프로젝트 `csap-roadkeeper-frontend`@`aws-global` 대상 실제-LLM 벤치(Claude Opus 4.8, N=3). 최신(de-drifted) 위키에서 B2(위키 retrieval) = 0.90× 토큰(−10%)·0.95× wall·정확도 18/18 동률·소스 fallback 0; stale 위키는 로그인 보안 오답(평문 주장 vs 실제 RSA-OAEP) → 신선도-종속 정확도가 핵심 가치. csap 저장소는 무변경(위키 수정본은 job tmp 스크래치 복사본).
+  - README 토큰/속도 규율 갱신: 실측 존재로 **스코프 명시 정직 수치는 허용**, 단 볼드 헤드라인·`chars/4` 프록시 수치는 계속 금지.
+- verification:
+  - csap working tree unchanged (no commit/push/edit); validate --strict 0
+
 ## 2026-07-22 - docs: 1.22.0 배포 후 findings i18n 반영분 재검증(verified 승격)
 
 - status: verified

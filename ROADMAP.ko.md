@@ -347,8 +347,12 @@ enrichment 린팅(→ 1.8, 토글 가능한 `content.thin_body` 규칙으로).
   seam 경유라 text·`--format json` 양쪽 반영)와 `explain` 프로즈를 zero-dependency 카탈로그
   (`src/i18n.js`)·영어 fallback으로 지역화. rule ID·`--format json` shape·CLI 명령·경로는 영어 고정,
   기본 `en`은 byte-identical.
-- **후보(미구현):** `fix`-타임 도메인 링크 재배선; chars/4 프록시를 대체할 실제-LLM retrieval 벤치;
-  리포트 chrome/severity 단어 지역화 및 KO/EN 외 언어.
+- **실측 완료(2026-07-22):** 외부 Vue/Quasar 프로젝트 대상 실제-LLM **N=3** 벤치(Claude Opus 4.8)로
+  chars/4 프록시를 대체했다. 최신 위키에서 에이전트는 **소스를 안 읽고 동일 정확도로** 답하며 토큰
+  ~10% 절감(태스크 의존적), 반면 **오래된** 위키는 오답을 냈다 — 이득의 본질은 raw 속도가 아니라
+  신선도에서 오는 정확도. 스코프 한정 결과(단일 에이전트/레포). `docs/llm-wiki/BENCHMARK.md` 참조.
+- **후보(미구현):** `fix`-타임 도메인 링크 재배선; 추가 벤치 엄밀성(교차 에이전트, input/output 분리
+  SDK 경로); 리포트 chrome/severity 단어 지역화 및 KO/EN 외 언어.
 
 ## 비목표 (Non-Goals — 안전 원칙 불변)
 
