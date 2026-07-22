@@ -2,8 +2,8 @@
 title: Architecture Conventions
 tags:
   - llm-wiki
-  - verified
-status: verified
+  - needs_review
+status: needs_review
 doc_type: architecture_conventions
 project: llm-wiki-governance
 last_updated: 2026-07-22
@@ -66,7 +66,7 @@ contains_sensitive_info: false
   - `adapters.js` — 어댑터 레지스트리 `ADAPTER_TARGETS`(+ `TEMPLATE_ROOT`)와 스캔/제안/쓰기/상태 헬퍼(`scanAdapters`·`planAdapterSuggestions`·`writeAdapterFiles`·`summarizeAdapterStatus`·`selectedAgents`).
   - `wiki-files.js` — 스캔·어댑터·fix/migrate가 공유하는 파일 열거/판별 유틸(`listTargetMarkdown`·`listWikiContentDocs`·`isAppendOnlyLog`).
   - `fix-migrate.js` — `fix`/`drift` 명령과 fix/migrate 공유 헬퍼(block-version 분석·`runMechanicalRemediation`·frontmatter/evidence 편집·`renderStubDocument`·`blockedApply`). `migrateCommand`는 `audit` 순환 회피로 commands.js에 잔류하며 이 헬퍼들을 import한다.
-  - `domains.js` — backend/fullstack 도메인 감지·계획(`detectDomainDirectories`·`planDomainDocs` 등).
+  - `domains.js` — 도메인 감지·계획. backend/fullstack은 `detectDomainDirectories`(디렉터리/파일 도메인), frontend/mobile(SPA)은 `detectFrontendDomains`(`pages`/`views`/`features`/`modules`/`screens` 하위 폴더 + vue-router/react-router 라우트 그룹 정규식 파싱, zero-dep, SPA UI 배관 폴더 제외); 둘 다 `planDomainDocs`로 결정적 계획. `buildDomainContext`가 유형별로 게이팅한다(백엔드/풀스택 경로 byte-identical).
   - `doc-templates.js` — 생성 문서 본문 템플릿(`docMetadata` + 본문 빌더).
   - `skills.js` — (1.15, Gate 21) 위키-그라운디드 자동화 프롬프트 아티팩트 생성. `SKILL_TASKS`(feature/fix/docs-sync)와 `selectedSkillFormats`/`planSkillArtifacts`/`writeSkillArtifacts`로 Claude 스킬(`.claude/skills/`)·Cursor 룰(`.cursor/rules/`)·중립 프롬프트(`.llm-wiki/prompts/`)를 만든다. 본문은 `task-prompts.js` 재사용 + `docs/llm-wiki/domains/` 도메인 맵 스냅샷 주입. opt-in·미덮어씀·recognize-don't-run. init이 어댑터 쓰기와 나란히 호출.
   - `retrieval.js` — (1.18, Gate 24) read-only retrieval 4개 핸들러(`listDocsCommand`·`searchDocsCommand`·`getDocCommand`·`getRelatedCommand`). 거버넌스 리포트가 아니라 문서 **본문**을 반환하는 유일 표면. `listWikiContentDocs`(열거)·`parseFrontmatter`(필터/본문)·`collectWikiGraph`(get-related 이웃)·`scanSensitiveInfo`(redaction) 재사용. `search-docs`는 zero-dep 키워드/부분문자열(AND, 점수 랭크; semantic 아님). restricted/민감(visibility restricted·contains_sensitive_info·sensitive 스캔 히트) 문서는 list/search 기본 제외(opt-in `includeSensitive`), 반환 본문/스니펫은 민감 라인 redact. commands.js가 배럴 re-export.
@@ -160,3 +160,4 @@ contains_sensitive_info: false
 - 2026-07-21에 1.19 evidence 의미 단계화(Gate 25, accepted[Dowon-Kim 위임])를 반영했다: `scans.js`에 (1) `scanEvidenceReferences`의 `#symbol:`/`#section:` 타깃 실재 보수적 검사(`evidence.symbol_unverified`/`evidence.section_unverified`; 파일이 이름/헤딩을 전혀 언급 안 할 때만, `·`-결합 목록·`.md` 섹션만·`readTextAuto` BOM 인식), (2) grounding 없는 verified를 flag하는 `scanUngroundedVerified`(`evidence.ungrounded`, warning·`--strict` 미승격), (3) 순수 `evidenceTier`(+ `EVIDENCE_REFERENCE_RULES`)를 추가하고 `stats` JSON에 `evidenceTiers` additive 노출했다. `findings.js`에 3개 rule 등록, `commands.js` audit/validate 배선. 251 tests·validate --strict 0(청결 dogfood: 50/50 reference_checked, 14/50 human_verified). additive·read-only·zero-dep·1.0.0 계약·frontmatter/status 불변. 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.
 - 2026-07-21에 1.19 agent update runner(Gate 26, accepted[Dowon-Kim 위임, 야간 자율])를 반영했다: read-only `check-run` 명령(`src/commands.js#symbol:checkRunCommand`)이 `.llm-wiki/runs/`의 run manifest를 읽어 스킬 실행 파이프라인(changedSource↔touchedDocs 참조·로그 append·validate)을 검증한다. `findings.js`에 `run.*` 5개 rule 등록, `cli.js`/`index.js`에 `check-run`+`--run` 배선(command-set 단언 갱신), `skills.js#artifactBody`에 스킬 본문 완성 계약(매니페스트 작성→check-run) 내장. `impact`(diff-앵커)의 intent-앵커 보완, read-only(매니페스트는 에이전트가 작성), additive·zero-dep·1.0.0 계약 불변. 254 tests·validate --strict 0. 커밋된 dogfood 스킬 아티팩트는 미덮어씀 규율상 재생성 필요(`init --write --skills --existing overwrite`). 에이전트 편집이라 `needs_review` — 사람 검토 후 재승인 예정.
 - 2026-07-22에 1.16.0→1.19 누적분(rename·reverse-impact·retrieval·Gate 25 evidence 단계화·Gate 26 check-run)을 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-22)를 거쳐 `verified`로 재승인했다. 함께 커밋된 dogfood 스킬을 Gate 26 완성 계약이 담기도록 재생성했는데, `writeSkillArtifacts`는 `--existing overwrite`와 무관하게 기존 파일을 덮지 않으므로(그 플래그는 오히려 위키 문서를 덮으니 사용 금지) **기존 9개 삭제 후 `init --write --skills`**로 재생성하는 것이 올바른 방법이다(위 Gate 26 노트의 괄호 표기 정정).
+- 2026-07-22에 frontend/mobile(SPA) 도메인 자동 탐지를 반영했다(외부 실사용 피드백 P1): `src/commands/domains.js`에 `detectFrontendDomains`(pages/views/features/modules/screens 폴더 + vue/react-router 라우트 그룹 정규식 파싱; 프론트 전용 제외 집합 `FRONTEND_EXCLUDE_NAMES`)를 추가하고 `buildDomainContext`를 유형별 게이팅(backend/fullstack→`detectDomainDirectories`, frontend/mobile→`detectFrontendDomains`, 나머지→empty)으로 리팩터했다. `detectFrontendDomains`는 `commands.js` 배럴에 노출하지 않고 내부 유지(테스트는 `src/commands/domains.js`에서 직접 import) — 다수 verified 문서가 참조하는 `commands.js`의 불필요한 evidence 드리프트를 피하려는 의도적 선택. 백엔드/풀스택 경로는 byte-identical(전용 스캐너 분리·별도 제외 집합). additive·zero-dep·정규식만·1.0.0 계약 불변, 미릴리스(main 한정). 262 tests(신규 3)·validate --strict 0. 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.

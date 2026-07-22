@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { cp, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { detectFrontendDomains } from "../src/commands/domains.js";
 import { audit, checkRunCommand, detectDomainDirectories, doctor, domainDisplayName, driftCommand, driftTargets, evidenceTier, explainCommand, fixCommand, getDocCommand, getRelatedCommand, graphCommand, handoffCommand, impactCommand, initCommand, listDocsCommand, migrateCommand, nextCommand, normalizeDomainSlug, planDomainDocs, promptCommand, quickstartCommand, releaseNotesCommand, searchDocsCommand, statsCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "../src/commands.js";
 import { parseArgs } from "../src/cli.js";
 import { writeReport, renderHtmlDashboard, renderOutputFile, printResult } from "../src/report.js";
@@ -164,6 +165,56 @@ test("detectDomainDirectories prunes nested parents under a domain folder", asyn
 
   const names = (await detectDomainDirectories(cwd)).map((item) => item.rawName).sort();
   assert.deepEqual(names, ["user"]); // 'profile' not split — modules/ subtree is pruned
+});
+
+test("detectFrontendDomains finds SPA feature folders and excludes UI plumbing (P1)", async () => {
+  const cwd = await makeProject("fe-folders-");
+  for (const dir of [
+    "src/pages/hazards", "src/pages/jobs", "src/views/transfers",
+    "src/features/auth", "src/screens/profile",
+    "src/pages/components", "src/pages/shared", "src/pages/layouts"
+  ]) {
+    await mkdir(path.join(cwd, ...dir.split("/")), { recursive: true });
+  }
+  const found = await detectFrontendDomains(cwd);
+  const names = found.map((item) => item.rawName).sort();
+  assert.deepEqual(names, ["auth", "hazards", "jobs", "profile", "transfers"]); // UI plumbing excluded
+  const hazards = found.find((item) => item.rawName === "hazards");
+  assert.equal(hazards.kind, "dir");
+  assert.equal(hazards.sourceFile, "src/pages/hazards");
+});
+
+test("detectFrontendDomains parses route groups from vue-router and react-router files (P1)", async () => {
+  const cwd = await makeProject("fe-routes-vue-");
+  await mkdir(path.join(cwd, "src", "router"), { recursive: true });
+  await writeFile(path.join(cwd, "src", "router", "routes.ts"),
+    "export default [\n" +
+    "  { path: '/hazards', component: H },\n" +
+    "  { path: '/jobs/:id', component: J },\n" +
+    "  { path: '/', component: Home },\n" +
+    "  { path: '/:pathMatch(.*)*', component: NotFound },\n" +
+    "  { path: '/shared', component: S },\n" +
+    "]\n", { encoding: "utf8" });
+  const vue = await detectFrontendDomains(cwd);
+  assert.deepEqual(vue.map((item) => item.rawName).sort(), ["hazards", "jobs"]); // root/wildcard/'shared' dropped
+  assert.equal(vue.find((item) => item.rawName === "hazards").kind, "route");
+
+  const cwd2 = await makeProject("fe-routes-react-");
+  await mkdir(path.join(cwd2, "src"), { recursive: true });
+  await writeFile(path.join(cwd2, "src", "router.tsx"),
+    '<Routes>\n  <Route path="/devices" element={<D/>} />\n  <Route path="/statistics" element={<S/>} />\n</Routes>\n',
+    { encoding: "utf8" });
+  const react = await detectFrontendDomains(cwd2);
+  assert.deepEqual(react.map((item) => item.rawName).sort(), ["devices", "statistics"]);
+});
+
+test("detectDomainDirectories ignores SPA feature folders (backend detection unchanged)", async () => {
+  const cwd = await makeProject("fe-not-backend-");
+  for (const dir of ["src/pages/hazards", "src/views/jobs", "src/screens/profile"]) {
+    await mkdir(path.join(cwd, ...dir.split("/")), { recursive: true });
+  }
+  // pages/views/screens are not backend domain parents → backend detector finds nothing.
+  assert.deepEqual(await detectDomainDirectories(cwd), []);
 });
 
 test("backend with routes only in a single file yields no per-domain docs", async () => {

@@ -3,11 +3,30 @@
 // contained: depends only on the Node stdlib and files.js; no back-dependency
 // on commands.js.
 import path from "node:path";
-import { readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { toPosix } from "../files.js";
 
 // Directories whose immediate SUBDIRECTORIES are domains (folder-per-domain).
 const DIR_DOMAIN_PARENTS = new Set(["domains", "domain", "modules", "features"]);
+
+// Frontend/SPA feature-parent directories: in a typical Vue/React/RN layout their
+// immediate SUBDIRECTORIES are feature domains (src/pages/hazards, src/views/jobs,
+// src/features/auth, src/screens/profile, ...). Used only for frontend/mobile
+// detection (backend/fullstack keep DIR_DOMAIN_PARENTS), so backend is unaffected.
+const FRONTEND_DIR_DOMAIN_PARENTS = new Set(["pages", "views", "features", "modules", "screens"]);
+
+// Router files whose route table names the top-level feature groups (vue-router /
+// react-router). Matched by basename; files directly inside a router/ or routes/
+// directory are also parsed. Parsed with regex only — no parser dependency.
+const FRONTEND_ROUTE_FILE = /^(routes?|router)\.[jt]sx?$/i;
+
+// Non-domain folders/segments common in SPAs (added to DOMAIN_EXCLUDE_NAMES for
+// frontend detection only): UI plumbing, not business features.
+const FRONTEND_EXCLUDE_NAMES = new Set([
+  "components", "component", "layouts", "layout", "composables", "hooks",
+  "assets", "styles", "style", "css", "directives", "plugins", "mixins",
+  "helpers", "lib", "libs", "types", "constants", "boot", "router", "routes"
+]);
 
 // Directories whose immediate SOURCE FILES are domains (module-per-resource).
 const FILE_DOMAIN_PARENTS = new Set(["endpoints", "routers", "routes", "resources", "controllers", "handlers"]);
@@ -145,6 +164,11 @@ function isExcludedDomainDir(name) {
   return DOMAIN_EXCLUDE_NAMES.has(name.toLowerCase());
 }
 
+// Frontend detection excludes the backend technical set PLUS SPA UI plumbing.
+function isExcludedFrontendDomain(name) {
+  return isExcludedDomainDir(name) || FRONTEND_EXCLUDE_NAMES.has(name.toLowerCase());
+}
+
 function isDomainSourceFile(name) {
   if (name.startsWith(".") || name.startsWith("__")) return false;
   if (/\.d\.ts$/i.test(name) || /\.(test|spec)\.[jt]sx?$/i.test(name)) return false;
@@ -155,6 +179,91 @@ function isDomainSourceFile(name) {
 
 function stripSourceExtension(name) {
   return name.replace(/\.[^.]+$/, "");
+}
+
+// Best-effort frontend/SPA domain detection (used for frontend/mobile only, so
+// backend/fullstack detection is byte-identical). Two signals, both bounded and
+// exclusion-guarded like the backend detector: (1) folder-per-feature — the
+// 1-depth subdirectories of pages/views/features/modules/screens; (2) route
+// groups — the top-level path segment of each route parsed (regex, no parser
+// dependency) from router/routes files. Returns { rawName, sourceFile, kind }.
+export async function detectFrontendDomains(cwd) {
+  const found = [];
+  await scanForFrontendDomains(cwd, cwd, 0, found);
+  return found;
+}
+
+async function scanForFrontendDomains(cwd, dir, depth, found) {
+  if (depth > DOMAIN_MAX_DEPTH) return;
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  if (entries.some((entry) => entry.isFile() && entry.name === "pyvenv.cfg")) return;
+  const base = path.basename(dir).toLowerCase();
+
+  // Folder-per-feature: subdirectories of a feature-parent are domains; prune.
+  if (FRONTEND_DIR_DOMAIN_PARENTS.has(base)) {
+    for (const entry of entries) {
+      if (entry.isDirectory() && !isExcludedFrontendDomain(entry.name)) {
+        found.push({ rawName: entry.name, sourceFile: toPosix(path.relative(cwd, path.join(dir, entry.name))), kind: "dir" });
+      }
+    }
+    return;
+  }
+
+  // Route tables: parse router/routes files (and any source file inside a
+  // router/ or routes/ directory) for top-level route groups.
+  const inRouteDir = base === "router" || base === "routes";
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    if (inRouteDir ? isFrontendSourceFile(entry.name) : FRONTEND_ROUTE_FILE.test(entry.name)) {
+      found.push(...await parseRouteFile(path.join(dir, entry.name), cwd));
+    }
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() || isSkippedTraversalDir(entry.name)) continue;
+    await scanForFrontendDomains(cwd, path.join(dir, entry.name), depth + 1, found);
+  }
+}
+
+function isFrontendSourceFile(name) {
+  if (name.startsWith(".") || name.startsWith("__")) return false;
+  if (/\.d\.ts$/i.test(name) || /\.(test|spec)\.[jt]sx?$/i.test(name)) return false;
+  return /\.[jt]sx?$/i.test(name);
+}
+
+// Extract top-level route-group segments from a router file. Handles object
+// route configs (`path: "/hazards"`, vue-router & react-router) and JSX routes
+// (`<Route path="/hazards">`). Dynamic (`:id`, `*`), empty, and excluded
+// segments are dropped. Unreadable files yield []. Pure-ish (reads one file).
+async function parseRouteFile(absPath, cwd) {
+  let text;
+  try {
+    text = await readFile(absPath, "utf8");
+  } catch {
+    return [];
+  }
+  const sourceFile = toPosix(path.relative(cwd, absPath));
+  const segments = new Set();
+  const patterns = [/\bpath\s*:\s*['"]([^'"]*)['"]/g, /<Route\b[^>]*?\bpath\s*=\s*['"]([^'"]*)['"]/g];
+  for (const re of patterns) {
+    let match;
+    while ((match = re.exec(text)) !== null) {
+      const segment = firstRouteSegment(match[1]);
+      if (segment && !isExcludedFrontendDomain(segment)) segments.add(segment);
+    }
+  }
+  return [...segments].map((segment) => ({ rawName: segment, sourceFile, kind: "route" }));
+}
+
+function firstRouteSegment(routePath) {
+  const first = String(routePath).replace(/^\/+/, "").split("/")[0] ?? "";
+  // Reject dynamic params, wildcards, and empties; keep plain word segments.
+  return /^[\p{L}\p{N}][\p{L}\p{N}_-]*$/u.test(first) ? first : "";
 }
 
 // Merge detected directories by normalized slug, sort deterministically by slug,
@@ -178,14 +287,22 @@ export function planDomainDocs(detected) {
     }));
 }
 
-// Domain docs are generated only for backend/fullstack, non-minimal init.
+// Domain docs are generated for non-minimal init. backend/fullstack use the
+// directory/file detector (unchanged — byte-identical); frontend/mobile use the
+// SPA detector (folders + route groups). Other types get none.
 // relatedExtras links the backend contract docs only when they are themselves
 // part of this init's candidate set, so no broken links are introduced.
 export async function buildDomainContext(cwd, projectType, minimal, candidateSet) {
-  if (minimal || (projectType !== "backend" && projectType !== "fullstack")) {
+  if (minimal) return emptyDomainContext();
+  let detected;
+  if (projectType === "backend" || projectType === "fullstack") {
+    detected = await detectDomainDirectories(cwd);
+  } else if (projectType === "frontend" || projectType === "mobile") {
+    detected = await detectFrontendDomains(cwd);
+  } else {
     return emptyDomainContext();
   }
-  const plans = planDomainDocs(await detectDomainDirectories(cwd));
+  const plans = planDomainDocs(detected);
   const relatedExtras = ["docs/llm-wiki/API_CONTRACTS.md", "docs/llm-wiki/DATA_MODEL.md"]
     .filter((doc) => candidateSet.has(doc));
   return { plans, relatedExtras };

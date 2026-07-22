@@ -3,10 +3,10 @@ title: Examples
 tags:
   - llm-wiki
   - verified
-status: verified
+status: needs_review
 doc_type: examples
 project: llm-wiki-governance
-last_updated: 2026-07-21
+last_updated: 2026-07-22
 author: cli-generated
 last_edited_by: Claude Code
 reviewed_by: Dowon-Kim

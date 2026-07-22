@@ -2,8 +2,8 @@
 title: Domain Features
 tags:
   - llm-wiki
-  - verified
-status: verified
+  - needs_review
+status: needs_review
 doc_type: domain_overview
 project: llm-wiki-governance
 last_updated: 2026-07-22
@@ -55,7 +55,7 @@ contains_sensitive_info: false
 ## Features
 
 - **프로젝트 자동 감지** — `src/detector.js`가 Node(`package.json`)뿐 아니라 Python(`pyproject.toml`/`requirements.txt` 등)·Go(`go.mod`)·Rust(`Cargo.toml`)·JVM(`pom.xml`/`build.gradle`)·PHP(`composer.json`)·Ruby(`Gemfile`)·.NET(`*.csproj`/`*.fsproj`) 매니페스트 신호로 `frontend/backend/fullstack/library` 유형과 생태계·주 매니페스트(`primaryManifest`)를 추론한다. 1.12부터 `mobile` 유형도 감지한다(Android Gradle 플러그인/AndroidX/AndroidManifest.xml, Flutter `pubspec.yaml`, Apple/iOS Podfile·`*.xcodeproj`·Package.swift, React Native `react-native` 의존성). 1.13부터 `infra` 유형도 감지한다(Docker `Dockerfile`·Compose, Kubernetes(apiVersion+kind YAML), Helm `Chart.yaml`, Terraform `*.tf`) — 단 앱 신호가 없을 때만 선택되는 fallback이라 컨테이너화된 앱 레포는 앱 유형을 유지한다. 1.14부터 Go `net/http`·Python stdlib HTTP 서버를 소스에서 감지하면 해당 생태계를 `library`가 아닌 `backend`로 단방향 승격한다. 1.14.1부터 매니페스트/소스 읽기가 BOM 인식이라 UTF-16(LE/BE)·UTF-8 BOM으로 저장된 매니페스트(Windows에서 저장된 `requirements.txt` 등이 mojibake로 `library` 오분류되던 문제 교정)도 올바르게 디코드한다. `--type`로 명시 override 가능.
-- **초기 문서 생성** — `init --write`가 core + profile 문서와 선택 adapter를 생성한다. backend/fullstack에서는 업무 도메인을 감지해 도메인별 문서(`domains/NN_<name>.md`, `doc_type: domain`, `source_files`=탐지 경로)를 만들고 `domains/00_overview.md`에서 상대링크로 연결한다. 두 컨벤션을 모두 잡는다: **디렉터리 도메인**(`domains/domain/modules/features`의 직속 하위 폴더)과 **파일 도메인**(`endpoints/routers/routes/resources/controllers/handlers`의 소스 파일, 예: FastAPI `app/api/api_v2/endpoints/hazard.py`). bounded 탐색·제외 가드로 오탐을 0에 가깝게(vendored/venv/test/dunder 제외, 집계자 파일명 제외). 1.14.4부터 가상환경·의존성 트리를 확실히 배제한다: `pyvenv.cfg`를 가진 디렉터리는 venv로 간주해 통째 스킵(이름 무관 — `venv3.10`·`.venv-py39` 등), `site-packages`/`dist-packages`와 버전형 `venv*`/`env<N>` 이름도 제외 — 그래서 설치된 라이브러리(passlib `handlers/`, boto3 `resources/`)가 도메인으로 오탐되지 않는다. 결정적 정렬·파일↔폴더 slug 병합. 기존 파일은 기본 보존, `log.md`는 append-only. 범위는 `GATE_REVIEW.md`(Gate 10).
+- **초기 문서 생성** — `init --write`가 core + profile 문서와 선택 adapter를 생성한다. backend/fullstack에서는 업무 도메인을 감지해 도메인별 문서(`domains/NN_<name>.md`, `doc_type: domain`, `source_files`=탐지 경로)를 만들고 `domains/00_overview.md`에서 상대링크로 연결한다. 두 컨벤션을 모두 잡는다: **디렉터리 도메인**(`domains/domain/modules/features`의 직속 하위 폴더)과 **파일 도메인**(`endpoints/routers/routes/resources/controllers/handlers`의 소스 파일, 예: FastAPI `app/api/api_v2/endpoints/hazard.py`). frontend/mobile(SPA)에서는 별도 `detectFrontendDomains`가 도메인을 잡는다: `pages`/`views`/`features`/`modules`/`screens` 하위 1-depth 폴더와, vue-router/react-router 라우트 파일(`router.*`/`routes.*` 또는 `router/`·`routes/` 하위)의 최상위 라우트 그룹을 정규식으로 파싱(파서 의존성 없음)한다 — SPA UI 배관 폴더(components/layouts/composables/assets 등)는 제외. 백엔드/풀스택 탐지 경로는 불변(byte-identical). bounded 탐색·제외 가드로 오탐을 0에 가깝게(vendored/venv/test/dunder 제외, 집계자 파일명 제외). 1.14.4부터 가상환경·의존성 트리를 확실히 배제한다: `pyvenv.cfg`를 가진 디렉터리는 venv로 간주해 통째 스킵(이름 무관 — `venv3.10`·`.venv-py39` 등), `site-packages`/`dist-packages`와 버전형 `venv*`/`env<N>` 이름도 제외 — 그래서 설치된 라이브러리(passlib `handlers/`, boto3 `resources/`)가 도메인으로 오탐되지 않는다. 결정적 정렬·파일↔폴더 slug 병합. 기존 파일은 기본 보존, `log.md`는 append-only. 범위는 `GATE_REVIEW.md`(Gate 10).
 - **frontmatter 계약 검증** — 필수 필드/status enum/날짜 형식/배열 형태를 검증하고, `verified`는 `--strict`에서 리뷰 메타를 요구한다.
 - **근거 추적** — `source_files`(넓은 근거)와 `evidence`(파일/라인/심볼/섹션/라우트 정밀 근거)를 검증하고 본문 `## Evidence` 정렬을 확인한다. 1.14.2부터 `evidence`는 `파일#L10` 외에 콜론-라인 표기(`파일:10`·`파일:10-20`)도 동등하게 수용한다(에디터/grep 스타일 근거가 헛 `evidence.missing`을 내지 않음).
 - **연결성 검증** — 로컬 markdown 링크, 위키 링크(이중 대괄호 표기), `related` 항목의 존재성을 검증한다(`related.missing`).
@@ -87,7 +87,8 @@ contains_sensitive_info: false
 - `src/commands/scans.js#symbol:scanEnrichment` — enrichment 미완성 감지.
 - `src/commands/scans.js#symbol:scanRelatedReferences` — related 존재성 검증.
 - `src/commands/fix-migrate.js#symbol:fixCommand` — 범위 한정 자동수정.
-- `src/commands/domains.js#symbol:planDomainDocs` — backend/fullstack 도메인 문서 계획(정렬·병합·순번).
+- `src/commands/domains.js#symbol:planDomainDocs` — 도메인 문서 계획(정렬·병합·순번; backend/fullstack·frontend/mobile 공용).
+- `src/commands/domains.js#symbol:detectFrontendDomains` — frontend/mobile(SPA) 도메인 탐지: `pages`/`views`/`features`/`modules`/`screens` 하위 폴더 + vue-router/react-router 라우트 그룹(정규식, zero-dep); `buildDomainContext`가 frontend/mobile에서 호출(백엔드 경로 불변).
 - `src/detector.js#symbol:detectProject` — 프로젝트 유형 추론.
 - `src/index.js#symbol:commands` — 프로그래매틱 API의 동결된 명령 맵(CLI 표면과 1:1).
 - `src/mcp/tools.js#symbol:TOOL_DEFS` — MCP로 노출하는 읽기 전용 툴 정의(commands 위 얇은 래퍼).
@@ -148,3 +149,4 @@ contains_sensitive_info: false
 - 2026-07-21에 1.19 agent update runner(Gate 26, accepted[Dowon-Kim 위임, 야간 자율])를 반영했다: "agent update runner + 완성 계약" 기능·Evidence를 추가했다 — read-only `check-run`이 `.llm-wiki/runs/` run manifest로 스킬 실행 파이프라인을 검증하고 스킬 본문에 완성 계약을 내장(`impact`의 intent-앵커 보완). 신규 `run.*` findings, 쓰기 없음(매니페스트는 에이전트 작성), additive·zero-dep·1.0.0 계약 불변. 254 tests·validate --strict 0. 커밋된 dogfood 스킬 아티팩트는 미덮어씀 규율상 재생성 필요. 에이전트 편집이라 `needs_review` — 사람 검토 후 재승인 예정.
 - 2026-07-21에 1.19 evidence 의미 단계화(Gate 25, accepted[Dowon-Kim 위임])를 반영했다: "evidence 의미 단계화" 기능·Evidence를 추가했다 — `#symbol:`/`#section:` 타깃 실재 보수적 검사(`evidence.symbol_unverified`/`evidence.section_unverified`), grounding 없는 verified flag(`evidence.ungrounded`), 계산된 tier(`reference_checked`/`human_verified`)의 `stats` 노출. product-identity 감사가 지목한 "format-only 검증·grounding 없는 verified" 갭을 닫는다. additive·read-only·zero-dep·1.0.0 계약·frontmatter/status 불변; `--strict`는 `*_unverified`만 승격. 251 tests·validate --strict 0(청결 dogfood). 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.
 - 2026-07-22에 1.16.0→1.19 누적 기능(rename·reverse-impact·retrieval·Gate 25 evidence 의미 단계화·Gate 26 agent update runner)을 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-22)를 거쳐 `verified`로 재승인했다. 기능 서술과 Evidence 근거가 현재 소스와 일치함을 확인했다.
+- 2026-07-22에 frontend/mobile(SPA) 도메인 자동 탐지를 추가했다(외부 프로젝트 `csap-roadkeeper-frontend`의 실사용 피드백 P1 대응): 신규 `detectFrontendDomains`가 `pages`/`views`/`features`/`modules`/`screens` 하위 1-depth 폴더와 vue-router/react-router 라우트 파일의 최상위 라우트 그룹(정규식, zero-dep)을 도메인으로 잡고, `buildDomainContext`가 frontend/mobile에서 이를 호출한다(백엔드/풀스택 탐지 경로는 byte-identical, SPA UI 배관 폴더 제외). 262 tests(신규 3)·validate --strict 0. 미릴리스(main 한정). 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.

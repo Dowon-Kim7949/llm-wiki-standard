@@ -24,6 +24,26 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-22 - feat(domains): frontend/mobile(SPA) 도메인 자동 탐지 (외부 피드백 P1)
+
+- status: needs_review
+- actor: Claude Code
+- scope: code(src/commands/domains.js·commands.js) + tests + docs(DOMAIN_FEATURES·ARCHITECTURE·log)
+- changed:
+  - src/commands/domains.js: 신규 `detectFrontendDomains`(+`scanForFrontendDomains`·`parseRouteFile`·`firstRouteSegment`·`isFrontendSourceFile`·`isExcludedFrontendDomain`). `pages`/`views`/`features`/`modules`/`screens` 하위 1-depth 폴더와 vue-router/react-router 라우트 파일(`router.*`/`routes.*` 또는 `router/`·`routes/` 하위)의 최상위 라우트 그룹을 정규식으로 파싱(파서 의존성 없음). `FRONTEND_EXCLUDE_NAMES`로 SPA UI 배관(components/layouts/composables/assets 등) 제외.
+  - `buildDomainContext`를 유형별 게이팅으로 리팩터: backend/fullstack→`detectDomainDirectories`(불변), frontend/mobile→`detectFrontendDomains`, 나머지→empty.
+  - tests/verification.test.js: 프론트 폴더 탐지·라우트 파싱(vue+react)·백엔드 불변 가드 3개(`detectFrontendDomains`를 `src/commands/domains.js`에서 직접 import — commands.js 배럴은 미변경, 다수 verified 문서가 참조하는 commands.js의 불필요한 드리프트 회피).
+  - drift: get-doc `--section`(0204176)이 cli.js/mcp/tools.js를 바꿔 드리프트된 verified 문서 5개(00_overview·EXAMPLES·index·profiles/library·project-profile)를 `drift --downgrade`로 needs_review 강등(내용 보존; validate --strict 0 회복).
+- summary:
+  - `csap-roadkeeper-frontend`(Vue3/Quasar) 실사용 피드백 최우선 항목(P1) 대응. 프론트/모바일 SPA에서 out-of-box 도메인 경험이 0이던 문제 해소. init --dry-run --type frontend에서 per-domain 문서(01_hazards 등) 계획 확인.
+- evidence:
+  - src/commands/domains.js#symbol:detectFrontendDomains
+  - src/commands/domains.js#symbol:buildDomainContext
+- caveats:
+  - 백엔드/풀스택 탐지는 byte-identical(전용 스캐너·별도 제외 집합). additive·zero-dep·정규식만.
+  - **미릴리스**(main 한정, npm 미반영). 다음 minor에서 버전 bump+태그로 배포 예정.
+  - 외부 피드백 문서의 나머지 항목(P2 evidence DX ~ P7)은 후속.
+
 ## 2026-07-22 - feat(retrieval): get-doc --section 집중 읽기 + 벤치 재측정
 
 - status: needs_review
