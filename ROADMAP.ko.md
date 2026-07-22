@@ -330,6 +330,19 @@ enrichment 린팅(→ 1.8, 토글 가능한 `content.thin_body` 규칙으로).
 - **Notion 네이티브 모드: 계획 없음.** Notion은 손실 import가 필요하다; 수요가
   생기면 core 기능이 아니라 단방향 하위 Markdown → Notion 미러로 다룬다.
 
+## 출시 계획 (post-1.19) — 외부 실사용發 반응형 DX
+
+실제 Vue/Quasar SPA에 LLM-WIKI를 구축한 QA/DX 피드백에서 나왔다. 부가적·zero-dependency·
+백엔드/풀스택 byte-identical.
+
+- **1.20 — 프론트엔드 DX + evidence DX + retrieval.** main에 반영(npm 배포 대기): 프론트엔드/
+  모바일(SPA) 도메인 탐지(`pages`/`views`/`features`/`modules`/`screens` 폴더 + vue/react-router
+  라우트 그룹, 정규식), `get-doc --section` 집중 읽기, `search-docs`의 change log 후순위화,
+  `evidence.section_unlisted` 경로 기준 매칭(locator 형식 관대).
+- **후보(미구현):** `--type` 강제인데 도메인 0개일 때 명시 메시지(+ 선택 `--domains`); findings
+  메시지 KO 로컬라이제이션; `next`/`handoff`의 문서별 enrichment 체크리스트; 새 도메인 문서
+  orphan 방지 자동 링크; 탐지/`not_enriched` 휴리스틱 스냅샷 테스트 + 문서화.
+
 ## 비목표 (Non-Goals — 안전 원칙 불변)
 
 - 명시적 `--write`/`--apply` 없이는 쓰지 않는다; 어디서나 미리보기 우선.

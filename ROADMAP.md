@@ -448,6 +448,21 @@ need**:
   appears, treat it as a one-way downstream Markdown → Notion mirror, not a core
   feature.
 
+## Release Plan (post-1.19) — Reactive DX from external usage
+
+Driven by QA/DX feedback from building an LLM-WIKI on a real Vue/Quasar SPA. Additive,
+zero-dependency, backend/fullstack byte-identical.
+
+- **1.20 — Frontend DX + evidence DX + retrieval.** Shipped to main (pending npm publish):
+  frontend/mobile (SPA) domain detection (`pages`/`views`/`features`/`modules`/`screens`
+  folders + vue/react-router route groups, regex-only), `get-doc --section` focused read,
+  `search-docs` change-log deprioritization, and `evidence.section_unlisted` path-based
+  matching (locator-format tolerant).
+- **Candidates (not yet built):** an explicit message when a forced `--type` finds no domains
+  (plus an optional `--domains`); KO localization of findings messages; a per-document
+  enrichment checklist in `next`/`handoff`; auto-linking new domain docs to avoid orphans;
+  snapshot tests + documentation of the detection / `not_enriched` heuristics.
+
 ## Non-Goals (unchanged safety ethos)
 
 - No writes without an explicit `--write` / `--apply`; preview-first everywhere.

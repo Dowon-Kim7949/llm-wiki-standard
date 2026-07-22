@@ -6,6 +6,39 @@ All notable changes to `llm-wiki-governance` (formerly `@dowonk-7949/llm-wiki-st
 are documented here. This project follows [Semantic Versioning](https://semver.org/).
 Entries are newest-first.
 
+## 1.20.0 — 2026-07-22
+
+Retrieval and frontend developer-experience improvements, most driven by external usage
+feedback (building an LLM-WIKI on a Vue/Quasar SPA). Additive and zero-dependency: the
+`llm-wiki` command surface, `--format json`, the programmatic API, and the frontmatter
+contract are unchanged, and backend/fullstack domain detection is byte-identical.
+
+### Added
+
+- **Frontend/SPA domain detection.** `init` now detects per-domain docs for `frontend` and
+  `mobile` projects, not only backend/fullstack: the 1-depth folders under
+  `pages`/`views`/`features`/`modules`/`screens`, plus the top-level route groups parsed
+  (regex, no parser dependency) from vue-router/react-router files. SPA UI-plumbing folders
+  (`components`/`layouts`/`composables`/…) are excluded, and backend/fullstack detection is
+  unchanged.
+- **`llm-wiki get-doc --section <terms>` — focused read.** Returns only the most relevant
+  `##` sections (plus the preamble) instead of the full document body, falling back to the
+  full body when there is no `##` section or nothing matches. An additive `document.section`
+  `{query, returned, total}` appears only when it filtered; default `get-doc` output is
+  unchanged. Wired across the CLI, MCP (`get_doc.section`), and the programmatic API.
+
+### Changed
+
+- **`search-docs` deprioritizes the append-only change log.** `docs/llm-wiki/log.md`
+  (a `change_log`) accumulated every keyword and previously dominated results; it now ranks
+  after all other matches (still returned, not excluded) so reference docs surface first.
+  Output shape unchanged.
+- **`evidence.section_unlisted` matches by source path, not verbatim.** A body `## Evidence`
+  entry satisfying a frontmatter `evidence` reference no longer needs a verbatim substring: a
+  `path:60-70` body reference satisfies a `path#L60-L70` frontmatter entry (and locator-format
+  differences generally), removing spurious warnings. External `http(s)`/`repo:` references
+  still require a verbatim mention.
+
 ## 1.19.0 — 2026-07-21
 
 Evidence semantic tiers (Gate 25) + agent update runner (Gate 26). Deepens the

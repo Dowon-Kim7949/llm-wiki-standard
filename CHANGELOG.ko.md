@@ -5,6 +5,34 @@
 `llm-wiki-governance`(옛 `@dowonk-7949/llm-wiki-standard`)의 주요 변경 사항을 기록합니다. 이
 프로젝트는 [유의적 버전(Semantic Versioning)](https://semver.org/)을 따르며, 항목은 최신순입니다.
 
+## 1.20.0 — 2026-07-22
+
+retrieval·프론트엔드 개발자 경험(DX) 개선. 대부분 외부 실사용 피드백(Vue/Quasar SPA에 LLM-WIKI
+구축)에서 나왔다. 부가적·zero-dependency: 기존 `llm-wiki` 명령 표면·`--format json`·프로그래매틱
+API·frontmatter 계약 불변, 백엔드/풀스택 도메인 탐지는 byte-identical.
+
+### Added
+
+- **프론트엔드/SPA 도메인 탐지.** `init`이 backend/fullstack뿐 아니라 `frontend`·`mobile`
+  프로젝트에서도 per-domain 문서를 감지한다: `pages`/`views`/`features`/`modules`/`screens`
+  하위 1-depth 폴더와, vue-router/react-router 라우트 파일의 최상위 라우트 그룹(정규식, 파서
+  의존성 없음). SPA UI 배관 폴더(`components`/`layouts`/`composables` 등)는 제외하며,
+  백엔드/풀스택 탐지는 불변.
+- **`llm-wiki get-doc --section <terms>` — 집중 읽기.** 문서 전문 대신 관련 `##` 섹션(+프리앰블)만
+  반환하고, `##` 섹션이 없거나 매치가 없으면 full body로 fallback한다. 필터 시에만 additive
+  `document.section` `{query, returned, total}`을 부가(기본 출력 불변). CLI·MCP(`get_doc.section`)·
+  프로그래매틱 API 3표면 배선.
+
+### Changed
+
+- **`search-docs`가 append-only change log를 후순위로.** `docs/llm-wiki/log.md`(`change_log`)가
+  모든 키워드를 누적해 결과를 독식하던 문제를 교정 — 이제 다른 모든 매치 뒤로 강등(제외 아님)해
+  참조 문서가 먼저 온다. 출력 형태 불변.
+- **`evidence.section_unlisted`가 소스 경로 기준 매칭.** 본문 `## Evidence`가 frontmatter
+  `evidence` 항목을 만족하는 데 verbatim 부분문자열이 더는 필요 없다: 본문 `path:60-70`이
+  frontmatter `path#L60-L70`을 만족(및 locator 형식 차이 일반). 외부 `http(s)`/`repo:` 참조는
+  여전히 verbatim 매칭.
+
 ## 1.19.0 — 2026-07-21
 
 Evidence 의미 단계화(Gate 25) + agent update runner(Gate 26). "코드 근거·verified" 약속을
