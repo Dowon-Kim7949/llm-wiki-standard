@@ -8,7 +8,7 @@ tags:
 status: needs_review
 doc_type: roadmap
 project: llm-wiki-governance
-last_updated: 2026-07-22
+last_updated: 2026-07-23
 author: ai-generated
 last_edited_by: Claude Code
 wiki_block_version: v1
@@ -347,6 +347,13 @@ enrichment 린팅(→ 1.8, 토글 가능한 `content.thin_body` 규칙으로).
   seam 경유라 text·`--format json` 양쪽 반영)와 `explain` 프로즈를 zero-dependency 카탈로그
   (`src/i18n.js`)·영어 fallback으로 지역화. rule ID·`--format json` shape·CLI 명령·경로는 영어 고정,
   기본 `en`은 byte-identical.
+- **1.23 — Bootstrap 스킬 + Codex 네이티브 스킬 (npm 1.23.0).** 최초 위키 작성 전용 `bootstrap` 태스크
+  (스킬 `/llm-wiki-bootstrap`·`prompt --task bootstrap`)가 `init --write` 뼈대를 실제 코드 근거로 보강하고
+  모두 `needs_review`로 유지한다. 규칙은 단일 소스(`src/task-prompts.js`의 `initialEnrichmentWorkflow`)에서
+  `handoff` 프롬프트와 공유해 갈라지지 않는다. 여기에 Codex 네이티브 스킬 출력
+  (`.agents/skills/llm-wiki-<task>/SKILL.md`)을 더하고, `selectedSkillFormats`가 형식을 대칭 선택한다
+  (`--agent codex`/`claude`/`cursor` → 해당 형식, `--skills` → 전부). 부가적·zero-dependency, 스킬 미요청 시
+  byte-identical이며, 유일한 동작 변경은 `--agent codex` 단독 선택 시 Codex 스킬이 생성되는 것.
 - **실측 완료(2026-07-22):** 외부 Vue/Quasar 프로젝트 대상 실제-LLM **N=3** 벤치(Claude Opus 4.8)로
   chars/4 프록시를 대체했다. 최신 위키에서 에이전트는 **소스를 안 읽고 동일 정확도로** 답하며 토큰
   ~10% 절감(태스크 의존적), 반면 **오래된** 위키는 오답을 냈다 — 이득의 본질은 raw 속도가 아니라

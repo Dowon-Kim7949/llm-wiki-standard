@@ -6,6 +6,37 @@ All notable changes to `llm-wiki-governance` (formerly `@dowonk-7949/llm-wiki-st
 are documented here. This project follows [Semantic Versioning](https://semver.org/).
 Entries are newest-first.
 
+## 1.23.0 — 2026-07-23
+
+Adds a first-time wiki-writing `bootstrap` skill/task and Codex-native skill generation.
+Additive and zero-dependency: the frozen programmatic `commands` map, the `--format json`
+shape, and the frontmatter contract are unchanged, and output is byte-identical when skills
+are not requested.
+
+### Added
+
+- **`bootstrap` task — repeatable first-time enrichment of an `init --write` skeleton.**
+  Available as a skill (`/llm-wiki-bootstrap`) and as `prompt --task bootstrap`. It turns the
+  generated skeleton into code-grounded docs (read `docs/llm-wiki/index.md` first → inspect
+  real source → replace placeholders → enrich domains → record `source_files`/`evidence` →
+  keep `needs_review`, never auto-`verified` → append `log.md` → run validate/audit/stats).
+  The initial-enrichment rules live in a single source (`initialEnrichmentWorkflow` in
+  `src/task-prompts.js`) shared by both the `handoff` prompt and the `bootstrap` task, so the
+  two can never drift apart.
+- **Codex native skills — `.agents/skills/llm-wiki-<task>/SKILL.md`** with `name`/`description`
+  frontmatter. Format selection is symmetric across agents: `--agent codex` emits the Codex
+  format, `--agent claude`/`cursor` their formats, and `--skills` emits every native format
+  (Claude + Codex + Cursor + agent-neutral prompt). Skill/task set is now bootstrap, feature,
+  fix, docs-sync.
+
+### Unchanged (frozen contract)
+
+- Preview-first; writes only on `--write`; existing skill files are never overwritten
+  (kept/skipped reported); no machine-absolute paths or usernames in artifacts;
+  recognize-don't-run. Zero-dependency; frozen `commands` map, `--format json` shape, and
+  frontmatter contract unchanged. `--agent codex` alone now emits Codex skills (previously no
+  artifacts) — the only behavior change, and only when that agent is explicitly selected.
+
 ## 1.22.0 — 2026-07-22
 
 Optional Korean localization of human-facing findings prose (the last external-feedback

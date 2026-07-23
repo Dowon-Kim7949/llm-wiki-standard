@@ -3247,7 +3247,7 @@ test("package metadata targets npmjs public publish without committed tokens", a
   const packageJson = JSON.parse(await readFile(path.join(process.cwd(), "package.json"), { encoding: "utf8" }));
 
   assert.equal(packageJson.name, "llm-wiki-governance");
-  assert.equal(packageJson.version, "1.22.0");
+  assert.equal(packageJson.version, "1.23.0");
   assert.equal(packageJson.private, false);
   assert.equal(packageJson.publishConfig, undefined);
   assert.equal(packageJson.repository.url, "git+https://github.com/Dowon-Kim7949/llm-wiki-governance.git");

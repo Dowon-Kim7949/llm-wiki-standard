@@ -8,7 +8,7 @@ tags:
 status: needs_review
 doc_type: roadmap
 project: llm-wiki-governance
-last_updated: 2026-07-22
+last_updated: 2026-07-23
 author: ai-generated
 last_edited_by: Claude Code
 wiki_block_version: v1
@@ -468,6 +468,15 @@ zero-dependency, backend/fullstack byte-identical.
   `--format json` both pick it up) and `explain`'s prose, from a zero-dependency catalog
   (`src/i18n.js`) with English fallback. Rule IDs, the `--format json` shape, CLI commands, and
   paths stay English; default `en` output is byte-identical.
+- **1.23 — Bootstrap skill + Codex native skills (npm 1.23.0).** A first-time wiki-writing
+  `bootstrap` task (skill `/llm-wiki-bootstrap` and `prompt --task bootstrap`) that enriches an
+  `init --write` skeleton from real source evidence and keeps everything `needs_review`; its
+  rules are a single source (`initialEnrichmentWorkflow` in `src/task-prompts.js`) shared with
+  the `handoff` prompt so they can't drift. Plus Codex-native skill output
+  (`.agents/skills/llm-wiki-<task>/SKILL.md`); `selectedSkillFormats` selects formats
+  symmetrically (`--agent codex`/`claude`/`cursor` → that agent's format, `--skills` → all).
+  Additive, zero-dependency, byte-identical when skills are not requested; the only behavior
+  change is that `--agent codex` alone now emits Codex skills.
 - **Measured (2026-07-22):** a real-LLM **N=3** benchmark on an external Vue/Quasar project
   (Claude Opus 4.8) replaced the chars/4 proxy. On a current wiki, an agent answered
   code-comprehension questions at **equal correctness while reading no source**, ~10% fewer

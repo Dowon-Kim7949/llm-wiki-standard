@@ -5,6 +5,31 @@
 `llm-wiki-governance`(옛 `@dowonk-7949/llm-wiki-standard`)의 주요 변경 사항을 기록합니다. 이
 프로젝트는 [유의적 버전(Semantic Versioning)](https://semver.org/)을 따르며, 항목은 최신순입니다.
 
+## 1.23.0 — 2026-07-23
+
+최초 위키 작성 전용 `bootstrap` 스킬/태스크와 Codex 네이티브 스킬 생성을 추가합니다. 부가적·zero-dependency:
+동결된 프로그래매틱 `commands` 맵·`--format json` shape·frontmatter 계약 불변, 스킬 미요청 시 출력 byte-identical.
+
+### Added
+
+- **`bootstrap` 태스크 — `init --write` 뼈대의 반복 가능한 최초 보강.** 스킬(`/llm-wiki-bootstrap`)과
+  `prompt --task bootstrap` 두 표면으로 제공. 생성된 뼈대를 실제 코드 근거 문서로 만든다(`docs/llm-wiki/index.md`
+  먼저 읽기 → 실제 소스 조사 → placeholder 교체 → 도메인 문서 보강 → `source_files`/`evidence` 기록 →
+  `needs_review` 유지, `verified` 자동승격 금지 → `log.md` append → validate/audit/stats 실행). 최초 보강 규칙은
+  단일 소스(`src/task-prompts.js`의 `initialEnrichmentWorkflow`)에서 `handoff` 프롬프트와 공유해 둘이 갈라지지
+  않는다.
+- **Codex 네이티브 스킬 — `.agents/skills/llm-wiki-<task>/SKILL.md`**(`name`/`description` frontmatter).
+  형식 선택은 에이전트 대칭: `--agent codex`는 Codex 형식을, `--agent claude`/`cursor`는 각 형식을, `--skills`는
+  모든 네이티브 형식(Claude + Codex + Cursor + 에이전트-중립 프롬프트)을 생성. 스킬/태스크 집합은 이제
+  bootstrap·feature·fix·docs-sync.
+
+### Unchanged (동결 계약)
+
+- preview-first·`--write`에서만 쓰기·기존 스킬 파일 미덮어씀(kept/skipped 표기)·절대경로/username 미포함·
+  recognize-don't-run. zero-dependency, 동결 `commands` 맵·`--format json` shape·frontmatter 계약 불변.
+  `--agent codex` 단독 선택 시 이제 Codex 스킬을 생성한다(기존엔 아티팩트 0) — 유일한 동작 변경이며 그 에이전트를
+  명시 선택했을 때만.
+
 ## 1.22.0 — 2026-07-22
 
 사람이 읽는 findings **프로즈**의 선택적 한국어화(마지막 외부 피드백 항목 P4). 부가적·zero-dependency:
