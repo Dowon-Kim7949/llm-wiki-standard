@@ -1,4 +1,4 @@
-<title>llm-wiki-governance 팀 발표 (v1.0 → v1.19.0)</title>
+<title>llm-wiki-governance 팀 발표 (v1.0 → v1.22.0)</title>
 <style>
   :root{
     --sans:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic","Segoe UI",system-ui,sans-serif;
@@ -262,7 +262,7 @@
       <h1 class="anim">AI를 위한<br>회사 지식 관리 도구</h1>
       <p class="lead anim" style="color:var(--muted)">우리가 만들고 써 온 <strong>llm-wiki-governance</strong> 이야기 —<br>왜 필요하고, 어떻게 발전했고, 어떻게 잘 쓰는가.</p>
       <div class="titlemeta anim">
-        <span class="versionpill">v1.0.0 &nbsp;→&nbsp; v1.19.0</span>
+        <span class="versionpill">v1.0.0 &nbsp;→&nbsp; v1.22.0</span>
         <span class="metachip">방향키 ← → 로 넘기세요</span>
       </div>
     </div>
@@ -488,17 +488,17 @@
         </div>
         <div class="row">
           <div class="cond">③ 성과를 숫자로 확인해라<span>MEASURE THE IMPACT</span></div>
-          <span class="verdict verdict--next"><b>◐</b> 측정 착수</span>
+          <span class="verdict verdict--done"><b>✔</b> 실측 완료</span>
         </div>
       </div>
-      <p class="callout anim" style="margin-top:1.4rem;color:var(--muted)">세 번째(측정)도 이제 <strong style="color:var(--ink)">측정 도구(벤치)를 만들어 델타를 재기 시작</strong>했습니다. — <span style="font-family:var(--mono);font-size:.85em">BCG ‘AI 전환’ 다큐멘터리 참고</span></p>
+      <p class="callout anim" style="margin-top:1.4rem;color:var(--muted)">세 가지 성공조건을 <strong style="color:var(--ink)">모두</strong> 하고 있고, 세 번째(측정)도 이제 <strong style="color:var(--ink)">실제 LLM 실측(N=3)으로 첫 결과</strong>를 냈습니다 — 뒷부분에서 수치를 봅니다. <span style="font-family:var(--mono);font-size:.85em">BCG ‘AI 전환’ 다큐멘터리 참고</span></p>
     </div>
   </section>
 
   <!-- 6 · TIMELINE -->
   <section class="slide">
     <div class="wrap">
-      <p class="eyebrow anim">발전 스토리 · 1.0 → 1.19.0</p>
+      <p class="eyebrow anim">발전 스토리 · 1.0 → 1.22.0</p>
       <h2 class="anim">한 번에 하나씩, 순서대로 쌓아온 기능</h2>
       <ul class="tl anim">
         <li><span class="ver">1.0</span><span class="desc">안정 선언<small>“사용법을 함부로 안 바꾸겠다”는 약속</small></span></li>
@@ -508,7 +508,8 @@
         <li><span class="ver">1.12 – 1.14</span><span class="desc">더 넓은 지원<small>모바일 · 인프라(도커/쿠버네티스) · 표준 서버 자동 인식</small></span></li>
         <li><span class="ver">1.15</span><span class="desc">스킬 생성<small>AI가 ‘우리 방식’ 워크플로를 직접 실행하도록 자동화 프롬프트 생성</small></span></li>
         <li><span class="ver">1.16</span><span class="desc">표준 → 거버넌스 &amp; 새 이름<small>포지셔닝을 ‘거버넌스 도구’로 · 패키지명 <b>llm-wiki-governance</b></small></span></li>
-        <li class="now"><span class="ver">1.17 – 1.19</span><span class="desc">측정 · 검색 · 감사 &nbsp;— &nbsp;최근 작업<small>영향도 점검 · AI가 위키를 검색 · 근거 단계화 · 작업 실행 감사</small></span></li>
+        <li><span class="ver">1.17 – 1.19</span><span class="desc">측정 · 검색 · 감사<small>영향도 점검 · AI가 위키를 검색 · 근거 단계화 · 작업 실행 감사</small></span></li>
+        <li class="now"><span class="ver">1.20 – 1.22</span><span class="desc">현장 피드백 &amp; 한국어화 &nbsp;— &nbsp;최근 작업<small>프론트엔드 화면 자동 인식 · 근거/체크리스트 사용성 · 한국어 메시지(<b>--lang ko</b>)</small></span></li>
       </ul>
     </div>
   </section>
@@ -694,6 +695,29 @@
     </div>
   </section>
 
+  <!-- NEW · 첫 실측 결과 (real-LLM benchmark, N=3) -->
+  <section class="slide">
+    <div class="wrap">
+      <p class="eyebrow anim">정말 도움이 되나 · 첫 실측 (REAL-LLM · N=3)</p>
+      <h2 class="anim">측정해봤습니다 — 이득은 <span class="nb">속도보다 “정확도”</span></h2>
+      <div class="grid g2 anim" style="align-items:start">
+        <div class="card">
+          <div class="idx">최신(verified) 위키</div>
+          <h3>소스를 안 읽고도 정답</h3>
+          <p style="margin-bottom:.8rem">코드를 전혀 안 열고 <b>위키 조회만으로 정확도 18/18 동률</b>, 토큰도 ~10% 절감(태스크에 따라 다름).</p>
+          <span class="verdict verdict--done"><b>✔</b> 정확도 동률 · 토큰↓</span>
+        </div>
+        <div class="card">
+          <div class="idx">낡은(stale) 위키</div>
+          <h3>자신 있게 “틀린 답”</h3>
+          <p style="margin-bottom:.8rem">낡은 문서를 믿고 <b>보안 관련 오답</b>을 냈다 — 바로 이걸 <span class="mono">drift</span>·사람 검토(<span class="mono">verified</span>)가 막는다.</p>
+          <span class="verdict verdict--next"><b>!</b> 신선도가 정확도를 좌우</span>
+        </div>
+      </div>
+      <p class="callout anim" style="margin-top:1.3rem;color:var(--muted)">진짜 이득은 <strong style="color:var(--ink)">속도가 아니라 ‘신선도에서 오는 정확도’</strong>입니다. <span style="font-family:var(--mono);font-size:.85em">외부 Vue/Quasar 앱 1개 · Claude Opus 4.8 · 태스크 6개 · N=3 · total-token 프록시 — 보편적 속도 주장이 아닌, 스코프가 한정된 결과.</span></p>
+    </div>
+  </section>
+
   <!-- 11 · CLOSING -->
   <section class="slide slide--dark">
     <div class="wrap">
@@ -701,7 +725,7 @@
       <p class="big anim">AI는 단순한 도구가 아니라,<br><em>일하는 방식</em>을 바꾸는 것입니다.</p>
       <p class="closeline anim">정답을 찾기보다 <strong>계속 배우고 시도하며</strong> 현장에서 임팩트를 만든다.<br>우리는 이미 그 길 위에 있습니다 — <strong>안전하게, 한 걸음씩.</strong></p>
       <div class="titlemeta anim">
-        <span class="versionpill">감사합니다 · v1.19.0</span>
+        <span class="versionpill">감사합니다 · v1.22.0</span>
       </div>
     </div>
   </section>
@@ -710,7 +734,7 @@
 
 <div class="nav">
   <button class="navbtn" id="prev" aria-label="이전 슬라이드">‹</button>
-  <span class="counter" id="counter">01 / 21</span>
+  <span class="counter" id="counter">01 / 22</span>
   <button class="navbtn" id="next" aria-label="다음 슬라이드">›</button>
 </div>
 <div class="hint" id="hint">← → · Space · 로 이동</div>

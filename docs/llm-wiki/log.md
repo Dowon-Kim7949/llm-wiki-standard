@@ -6,7 +6,7 @@ tags:
 status: needs_review
 doc_type: change_log
 project: llm-wiki-governance
-last_updated: 2026-07-22
+last_updated: 2026-07-23
 author: cli-generated
 last_edited_by: Claude Code
 wiki_block_version: v1
@@ -23,6 +23,25 @@ contains_sensitive_info: false
 # LLM-WIKI Change Log
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
+
+## 2026-07-23 - 팀 브리핑 덱 v1.19.0 → v1.22.0 갱신
+
+- status: needs_review
+- actor: Claude Code (유저 지시)
+- scope: outputs/team-briefing
+- changed:
+  - outputs/team-briefing/llm-wiki-briefing.html (버전 표기 v1.22.0; 타임라인에 1.20–1.22 항목 추가; BCG '측정' 조건 ◐ 착수 → ✔ 실측 완료; 마무리 직전 '첫 실측 결과(N=3)' 슬라이드 신규 → 21장→22장)
+  - outputs/team-briefing/SPEAKER_NOTES.md (대상 버전·22장; 노트 10/11 갱신; 노트 21 실측 신규·마무리 22로 재번호; 정직 원칙 팁 갱신)
+  - outputs/team-briefing/README.md (대상 버전 v1.22.0·22장; 대응표에 '측정/벤치 결과 변경' 행 추가)
+- summary:
+  - 1.20~1.22 기능(프론트엔드/SPA 도메인 탐지·근거 사용성·enrichment 체크리스트·한국어 메시지 `--lang ko`)과 실제 LLM N=3 실측 결과를 덱에 반영했다.
+  - 실측은 정직 규율대로 스코프 명시(외부 Vue/Quasar 앱 1개·Opus 4.8·태스크 6개·N=3·total-token 프록시)·볼드 헤드라인 금지, '정확도 동률 + 신선도-종속 정확도'를 앞세워 서술했다.
+- evidence:
+  - docs/llm-wiki/BENCHMARK.md
+  - README.md
+  - package.json
+- caveats:
+  - 온라인 Artifact를 같은 링크(claude.ai/code/artifact/13dfc476…)로 재게시해 v1.22.0으로 갱신함(사내 자료, 기본 비공개). outputs/는 npm files allowlist 밖.
 
 ## 2026-07-22 - bench/docs: SDK-path 실측 하네스 scaffolded + 전체 문서 doc-sync
 
