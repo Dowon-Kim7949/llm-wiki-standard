@@ -1541,6 +1541,111 @@ MINOR = `1.24.0` (additive/opt-in command + skill surface).
   `git.js`/`impact` (optional working-change hints). New module `src/commands/guided.js`
   (`onboardCommand`/`prepareCommand`), CLI/API/MCP wiring, `SKILL_TASKS` entries.
 
+## Token-Efficiency: Cheapest-Safe-Path Selection + Compact Retrieval Scope Decision (accepted for 1.25.0 — built)
+
+**Goal.** Reduce the TOTAL tokens spent to reach a correct, verified code change — not
+merely to shorten skill prose. Never trade away accuracy, doc freshness, or human review.
+The core is "pick the cheapest SAFE path", not "use the wiki more". Measured direction from
+the (proxy + N=3 real) bench, re-verified against HEAD before coding: retrieval helps when
+info is spread across files (auth/hazard-style); it costs ~1.17× on tiny 1–2-source tasks
+(routing-style); stale docs cause security-relevant wrong answers and source re-reads.
+
+Accepted for 1.25.0 by the maintainer (Dowon-Kim) directing the release. All items below are
+built and shipping in 1.25.0 EXCEPT the explicitly-deferred paid bench (see Status).
+
+### Accepted scope (in) — additive, opt-in, backward-compatible
+
+- **(A) Task-path selector** (`src/commands/task-path.js`, pure/deterministic, BUILT):
+  `classifyTaskRisk(task)` + `selectTaskPath({task, candidateCount, docStatuses, isCodeChange})`
+  → `{path: source_direct|wiki_first|hybrid, reasonCode, reason, risk[], mustReadSource,
+  unverifiedDocs}`. Inputs are ONLY the task text, the candidate count, and candidate
+  statuses — never answer filenames or internal symbols (bench-leak guard). Safety override:
+  risk work (auth/permission/payment/crypto/privacy/data-deletion/migration/public-API) OR any
+  stale/unknown/`needs_review` candidate OR any code change ⇒ `mustReadSource=true` and never
+  `source_direct`. A verified doc never excuses skipping the real source on a change.
+- **(C) Retrieval token controls** (`src/commands/retrieval.js`, BUILT, all opt-in):
+  `estimateTokens` (chars/4 PROXY, surfaced only as `estimatedTokens` — never a real count) +
+  `clampText` (exact `--max-chars`, clamped AFTER redaction). `selectSections` gains a strict
+  mode (no full-body fallback → `noSectionMatch`, the guard against a failed `--section`
+  ballooning into a whole-doc read) and section-HEADING weighting (a heading hit outranks
+  body frequency). `get-doc` gains `--strict-section`/`--compact`/`--max-chars`; diagnostic
+  size fields appear ONLY when a new option is used, so default output is byte-identical.
+- **(B) Compact context bundle** (`prepare --compact`, `src/commands/guided.js`, BUILT):
+  ONE bounded single-call payload reusing (A)+(C): chosen path + reason, ≤3 candidate docs
+  with status-derived freshness + reason (reuses the doc's own status — no new freshness
+  criterion), ONLY the top doc's most-relevant section (never the corpus, never a silent
+  full-body dump), candidate `source_files`, next-lookup calls to expand, `chars`+
+  `estimatedTokens`, and why-selected. Conservative: top doc's section first, expand on
+  demand. Default (full) `prepare` output unchanged.
+- **(D) Skill simplification + safe refresh** (BUILT in 1.25.0): shrink
+  feature/fix/docs-sync fixed prompt cost — resolve the domain map at RUN time (index/search/
+  prepare) instead of injecting a generation-time snapshot; shorten the governance preamble;
+  gate the API-services checklist to API work (or a one-line contract); state the run-manifest
+  as a field contract, not a full JSON echo. KEEP every safety rule (needs_review, no verified,
+  log append, tests, check-run). Report before/after chars + `estimatedTokens` and TEST that
+  the essential contracts survive. Bootstrap keeps its fuller guidance. A safe `--refresh`:
+  update only package-generated, user-unmodified artifacts (marker: generator version/hash),
+  never touch user-modified files, dry-run distinguishes create/update/conflict, preserve
+  custom skills. Held back because it changes what ships to existing users and touches the
+  never-overwrite contract — deserves its own pass + human review.
+- **(E) Bench split + extension** (DESIGNED; one proxy arm built, all dry / `executed:false`):
+  keep the three existing harnesses and their arm vocabularies SEPARATE (proxy A0/A1/A2/B/B2;
+  real B/B2; whole-task source-only/wiki-retrieval/guided). Add proxy `B3_retrieval_compact`
+  (models §C section-scoped/compact reads; mirrors shipped retrieval like B2 does) and an
+  optional empty-wiki control. Extend the whole-task methodology with a compact-skill arm.
+  No paid runs; results are `chars/4` proxy or human-graded — README headline numbers stay
+  FORBIDDEN until a real multi-project/multi-model run.
+
+### Out of scope (excluded)
+
+- Vector search / embeddings / any network or index dependency; automatic `verified`
+  promotion; forcing every task through the wiki; silent changes to existing CLI default
+  output or to user skills; treating stale docs as verified; a single blended
+  skill+retrieval headline number; fabricated or `chars/4`-as-real performance claims;
+  version bump / npm publish / commit / push / paid bench runs (this pass).
+
+### Invariants (non-negotiable)
+
+- Accuracy and test pass-rate must not drop; security-relevant wrong answers stay at zero.
+- Never rely on a stale/`needs_review` doc for a risky change; risk work and code changes
+  always read the real source and tests. The code is the source of truth; the wiki is a map.
+- Zero runtime dependency; Windows/UTF-8 safe; sensitive-info redaction preserved on every
+  new path (clamp after redaction); frozen `commands` map + `--format json` shapes grow only
+  additively; default output byte-identical when a new option is not used.
+- `estimatedTokens` is always labeled a chars/4 proxy; exact limits use `maxChars`.
+- AI-authored/edited wiki docs stay `needs_review`; no fabricated review or bench metadata.
+
+### Status
+
+- Built pass 1 (staged on `main`, unreleased): (A) full, (C) full, (B) full, +tests, +the
+  `--doc-lang` help-usage gap fix that prompted this work. `validate --strict` = 0.
+- Built pass 2 — "clear the runway, defer paid" (staged on `main`, unreleased):
+  - (E, non-paid) proxy `B3_retrieval_compact` arm BUILT + run (`bench/lib/strategies.js`,
+    surfaced in `bench/run.js` + `bench/results/current.*`): honest chars/4 result B3 vs B2
+    = 0.65× (−34.5%) tokens but grounding 100%→83.3% (evidence in an unselected section on 1/6
+    tasks) — reported, not hidden. Whole-task `guided-compact` arm added (dry). Real-harness B3,
+    the empty-wiki control, and ALL paid runs stay deferred (human budget decision).
+  - MCP completeness BUILT: `get_doc` gains `strictSection`/`compact`/`maxChars`, `prepare`
+    gains `compact`/`maxChars` (`src/mcp/tools.js`). Investigated the content-vs-structuredContent
+    body duplication: get_doc mirrors the body into BOTH `content[0].text` and `structuredContent`
+    (whether a client feeds both to the model is client-dependent and UNMEASURED — not asserted),
+    so the DEFAULT is unchanged and only the opt-in `compact` path keeps the body in
+    structuredContent while the text shows a pointer (no duplication). 317 tests, `validate --strict` = 0.
+- Built pass 3 — (D) skill simplification + safe `--refresh` (staged for 1.25.0): feature/fix/
+  docs-sync assemble the wiki map at RUN TIME (via `prepare --compact`/`onboard`) instead of a
+  generation-time snapshot (fixed body no longer scales with domain count, never stale) and state
+  the run-manifest as a field contract, keeping every safety rule; bootstrap keeps its fuller
+  guidance + snapshot. `--refresh` (init/quickstart) updates only package-generated,
+  content-hash-marked, user-unmodified skills; user/custom skills are never overwritten (conflicts);
+  dry-run distinguishes create/refresh/conflict/up-to-date. Measured skill size: feature/fix/
+  docs-sync are now flat (~3.18k chars, decoupled from domain count; ~−42 at N=0, larger savings as
+  domains grow); bootstrap −124 (manifest compaction). Repo dogfood skills regenerated (now marked).
+- Shipping as 1.25.0 (this release): (A), (B), (C), (D), the non-paid (E) proxy `B3` + whole-task
+  `guided-compact` arm, MCP token controls + compact dedup, and the `--doc-lang` help fix.
+- Still deferred (human decision): real / paid multi-project/multi-model bench (E), the real-harness
+  B3 arm, and the empty-wiki control. "≥20% total-token reduction" stays an internal stretch target
+  only — NOT a product claim until real measurement exists.
+
 ## Release Caveats
 
 - `migrate --apply` was blocked in shipped releases through `1.1.0`. Gate 8 (above)

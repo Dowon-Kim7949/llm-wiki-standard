@@ -161,9 +161,13 @@ export function defaultOptions() {
     apply: false,
     downgrade: false,
     strict: false,
+    strictSection: false,
+    compact: false,
+    maxChars: null,
     minimal: false,
     withAdapters: false,
     skills: false,
+    refresh: false,
     existing: "skip",
     out: null,
     profiles: [],
@@ -276,6 +280,15 @@ export function parseArgs(argv) {
         options.section = value;
         index += 1;
       }
+    } else if (arg === "--max-chars") {
+      usedOptions.add("max-chars");
+      const value = readOptionValue(rest, index, arg, errors);
+      if (value) {
+        const parsed = Number.parseInt(value, 10);
+        if (Number.isInteger(parsed) && parsed > 0) options.maxChars = parsed;
+        else errors.push(`--max-chars must be a positive integer: ${value}`);
+        index += 1;
+      }
     } else if (arg === "--domains") {
       usedOptions.add("domains");
       const value = readOptionValue(rest, index, arg, errors);
@@ -349,6 +362,12 @@ export function parseArgs(argv) {
     } else if (arg === "--strict") {
       usedOptions.add("strict");
       options.strict = true;
+    } else if (arg === "--strict-section") {
+      usedOptions.add("strict-section");
+      options.strictSection = true;
+    } else if (arg === "--compact") {
+      usedOptions.add("compact");
+      options.compact = true;
     } else if (arg === "--changed") {
       usedOptions.add("changed");
       options.changed = true;
@@ -371,6 +390,9 @@ export function parseArgs(argv) {
     } else if (arg === "--skills") {
       usedOptions.add("skills");
       options.skills = true;
+    } else if (arg === "--refresh") {
+      usedOptions.add("refresh");
+      options.refresh = true;
     } else if (arg.startsWith("-")) {
       errors.push(`Unknown option: ${arg}`);
     } else if (command === "explain" && !options.findingRule) {
@@ -410,10 +432,10 @@ const COMMAND_OPTION_RULES = {
   next: new Set(["cwd", "type", "profile", "agent", "strict", "format", "out"]),
   explain: new Set(["format", "out"]),
   audit: new Set(["cwd", "type", "profile", "agent", "strict", "format", "out"]),
-  quickstart: new Set(["cwd", "type", "profile", "agent", "existing", "minimal", "skills", "domains", "dry-run", "write", "format", "out"]),
+  quickstart: new Set(["cwd", "type", "profile", "agent", "existing", "minimal", "skills", "refresh", "domains", "dry-run", "write", "format", "out"]),
   handoff: new Set(["cwd", "type", "profile", "agent", "format", "out"]),
   prompt: new Set(["cwd", "task", "type", "profile", "agent", "format", "out"]),
-  init: new Set(["cwd", "type", "profile", "agent", "existing", "minimal", "skills", "domains", "dry-run", "write", "format", "out", "with-adapters", "no-adapters"]),
+  init: new Set(["cwd", "type", "profile", "agent", "existing", "minimal", "skills", "refresh", "domains", "dry-run", "write", "format", "out", "with-adapters", "no-adapters"]),
   migrate: new Set(["cwd", "type", "profile", "agent", "dry-run", "apply", "format", "out"]),
   fix: new Set(["cwd", "dry-run", "write", "format", "out"]),
   drift: new Set(["cwd", "dry-run", "downgrade", "format", "out"]),
@@ -423,10 +445,10 @@ const COMMAND_OPTION_RULES = {
   stats: new Set(["cwd", "type", "profile", "agent", "strict", "format", "out"]),
   "list-docs": new Set(["cwd", "status", "visibility", "doc-type", "include-sensitive", "format", "out"]),
   "search-docs": new Set(["cwd", "status", "visibility", "doc-type", "include-sensitive", "limit", "format", "out"]),
-  "get-doc": new Set(["cwd", "section", "format", "out"]),
+  "get-doc": new Set(["cwd", "section", "strict-section", "compact", "max-chars", "format", "out"]),
   "get-related": new Set(["cwd", "format", "out"]),
   onboard: new Set(["cwd", "domain", "goal", "type", "profile", "format", "out"]),
-  prepare: new Set(["cwd", "task", "type", "profile", "format", "out"]),
+  prepare: new Set(["cwd", "task", "compact", "max-chars", "type", "profile", "format", "out"]),
   "release-notes": new Set(["cwd", "version", "since", "body-only", "format", "out"]),
   mcp: new Set(["cwd"])
 };
@@ -553,12 +575,12 @@ Usage:
   llm-wiki validate-frontmatter [--cwd <path>] [--strict]
   llm-wiki monorepo [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki audit [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--strict] [--format text|json|markdown|html] [--out <path>]
-  llm-wiki quickstart --write [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--existing skip|overwrite] [--minimal] [--skills] [--domains <a,b,c>] [--format text|json|markdown|html] [--out <path>]
-  llm-wiki quickstart --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--minimal] [--format text|json|markdown|html] [--out <path>]
-  llm-wiki handoff [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--format text|json|markdown|html] [--out <path>]
-  llm-wiki prompt --task <bootstrap|feature|fix|refactor|docs-sync|okf-extract> [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--format text|json|markdown|html] [--out <path>]
-  llm-wiki init --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--minimal] [--format text|json|markdown|html] [--out <path>]
-  llm-wiki init --write [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--existing skip|overwrite] [--minimal] [--skills] [--domains <a,b,c>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki quickstart --write [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--existing skip|overwrite] [--minimal] [--skills] [--refresh] [--domains <a,b,c>] [--doc-lang en|ko] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki quickstart --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--minimal] [--doc-lang en|ko] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki handoff [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--doc-lang en|ko] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki prompt --task <bootstrap|feature|fix|refactor|docs-sync|okf-extract> [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--doc-lang en|ko] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki init --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--minimal] [--doc-lang en|ko] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki init --write [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--existing skip|overwrite] [--minimal] [--skills] [--refresh] [--domains <a,b,c>] [--doc-lang en|ko] [--format text|json|markdown|html] [--out <path>]
   llm-wiki migrate [--dry-run] [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--format text|json|markdown|html] [--out <path>]
   llm-wiki migrate --apply [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--format text|json|markdown|html] [--out <path>]
   llm-wiki fix [--write] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
@@ -569,10 +591,10 @@ Usage:
   llm-wiki stats [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--strict] [--format text|json|markdown|html] [--out <path>]
   llm-wiki list-docs [--status <s>] [--visibility <v>] [--doc-type <t>] [--include-sensitive] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki search-docs <query> [--status <s>] [--visibility <v>] [--doc-type <t>] [--include-sensitive] [--limit <n>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
-  llm-wiki get-doc <path> [--section <terms>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki get-doc <path> [--section <terms>] [--strict-section] [--compact] [--max-chars <n>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki get-related <path> [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki onboard [--domain <name>] [--goal <text>] [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--lang ko|en] [--format text|json|markdown|html] [--out <path>]
-  llm-wiki prepare --task <text> [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--lang ko|en] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki prepare --task <text> [--compact] [--max-chars <n>] [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--lang ko|en] [--format text|json|markdown|html] [--out <path>]
   llm-wiki release-notes [--version <x.y.z>] [--since <git-ref>] [--body-only] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki mcp [--cwd <path>]
 
@@ -580,6 +602,7 @@ Safety:
   init writes only when --write is explicit. Existing wiki docs default to --existing skip.
   quickstart writes only when --write is explicit and prints the next Codex/Claude Code handoff prompt.
   Existing adapter files are never overwritten.
+  Generated skills are never overwritten unless --refresh is set — and even then only package-generated skills you have not edited are updated; your edits and custom skills are preserved (a dry-run distinguishes create / refresh / conflict).
   migrate previews by default and writes only with --apply, reusing the fix scope plus wiki_block_version upgrades; it never edits verified documents' content.
   fix previews by default and writes only with --write. It applies a narrow, accepted autofix scope inside docs/llm-wiki and never edits verified documents' content.
   drift reports evidence.stale drift and, only with --downgrade, flips drifted verified documents to needs_review (status + last_updated). It never promotes to verified.
@@ -661,8 +684,8 @@ JSON (--format json):
   quickstart: `llm-wiki quickstart
 
 Usage:
-  llm-wiki quickstart --write [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--existing skip|overwrite] [--minimal] [--skills] [--domains <a,b,c>] [--format text|json|markdown|html] [--out <path>]
-  llm-wiki quickstart --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--minimal] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki quickstart --write [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--existing skip|overwrite] [--minimal] [--skills] [--refresh] [--domains <a,b,c>] [--doc-lang en|ko] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki quickstart --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--minimal] [--doc-lang en|ko] [--format text|json|markdown|html] [--out <path>]
 
 Purpose:
   Runs doctor, init, optional frontmatter validation, and prints the Codex/Claude Code handoff prompt.
@@ -670,7 +693,7 @@ Purpose:
   handoff: `llm-wiki handoff
 
 Usage:
-  llm-wiki handoff [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki handoff [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--doc-lang en|ko] [--format text|json|markdown|html] [--out <path>]
 
 Purpose:
   Prints the next prompt to run in Codex or Claude Code after CLI setup, with project-type-specific source evidence guidance. Antigravity handoff remains blocked until the adapter contract is confirmed.
@@ -678,7 +701,7 @@ Purpose:
   prompt: `llm-wiki prompt
 
 Usage:
-  llm-wiki prompt --task <bootstrap|feature|fix|refactor|docs-sync|okf-extract> [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki prompt --task <bootstrap|feature|fix|refactor|docs-sync|okf-extract> [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--doc-lang en|ko] [--format text|json|markdown|html] [--out <path>]
 
 Purpose:
   Prints a repeatable agent workflow prompt. Use bootstrap for the first-time enrichment of an init-generated wiki (shares its rules with handoff), feature, fix, or refactor for code-and-doc tasks, docs-sync for stale wiki updates without unrelated code edits, and okf-extract for prompt-assisted OKF v0.1 extraction.
@@ -686,8 +709,8 @@ Purpose:
   init: `llm-wiki init
 
 Usage:
-  llm-wiki init --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--minimal] [--format text|json|markdown|html] [--out <path>]
-  llm-wiki init --write [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--existing skip|overwrite] [--minimal] [--skills] [--domains <a,b,c>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki init --dry-run [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--minimal] [--doc-lang en|ko] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki init --write [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--agent <codex|claude|cursor|copilot|windsurf|gemini|jetbrains|antigravity|all>...] [--existing skip|overwrite] [--minimal] [--skills] [--refresh] [--domains <a,b,c>] [--doc-lang en|ko] [--format text|json|markdown|html] [--out <path>]
 
 Purpose:
   Previews or creates missing LLM-WIKI documents and selected adapter files. Existing adapter files are never overwritten.
@@ -896,7 +919,7 @@ JSON (--format json):
   "get-doc": `llm-wiki get-doc
 
 Usage:
-  llm-wiki get-doc <path> [--section <terms>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki get-doc <path> [--section <terms>] [--strict-section] [--compact] [--max-chars <n>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
 
 Purpose:
   Read-only retrieval. Returns one document's frontmatter and body. <path> may be
@@ -905,10 +928,15 @@ Purpose:
   own visibility/contains_sensitive_info frontmatter is preserved.
   --section <terms> returns only the most relevant ## sections (plus the preamble)
   instead of the full body — a focused read for large docs; it falls back to the
-  full body when there is no ## section or nothing matches.
+  full body when there is no ## section or nothing matches. Token controls (opt-in;
+  default output unchanged): --strict-section withholds the full body when nothing
+  matches (returns no_section_match instead of ballooning into a whole-doc read);
+  --max-chars <n> caps the returned body exactly (clamped after redaction);
+  --compact drops the full frontmatter echo. With any of these, the document carries
+  additive chars/estimatedTokens (chars/4 proxy — diagnostic, not a real count).
 
 JSON (--format json):
-  Top-level keys: schemaVersion, command, result, document, findings[]. document carries path, title, status, docType, visibility, lastUpdated, tags, frontmatter, body, redacted (plus an additive section {query,returned,total} only when --section filtered). A missing path yields result: fail and a retrieval.not_found finding.
+  Top-level keys: schemaVersion, command, result, document, findings[]. document carries path, title, status, docType, visibility, lastUpdated, tags, frontmatter, body, redacted (plus an additive section {query,returned,total} only when --section filtered; section.noSectionMatch:true under --strict-section when nothing matched; chars/estimatedTokens/truncated only when --strict-section/--compact/--max-chars is used; frontmatter omitted under --compact). A missing path yields result: fail and a retrieval.not_found finding.
 `,
   "get-related": `llm-wiki get-related
 
@@ -945,7 +973,7 @@ JSON (--format json):
   prepare: `llm-wiki prepare
 
 Usage:
-  llm-wiki prepare --task <text> [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--lang ko|en] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki prepare --task <text> [--compact] [--max-chars <n>] [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--lang ko|en] [--format text|json|markdown|html] [--out <path>]
 
 Purpose:
   Read-only task-preparation. For a described change (--task, required), scopes the
@@ -957,9 +985,16 @@ Purpose:
   concludes a file is the cause or a change is safe — the code stays the source of
   truth. Hand off to the /llm-wiki-feature or /llm-wiki-fix skill to implement.
   Nothing is written.
+  --compact returns ONE bounded context bundle instead of the full report: a chosen
+  path (source_direct/wiki_first/hybrid) with a reason, at most 3 candidate docs with
+  status-derived freshness, ONLY the top doc's most-relevant section (never the full
+  corpus, never a silent full-body dump), candidate source files, next-lookup calls to
+  expand, and chars/estimatedTokens (chars/4 proxy). --max-chars <n> caps the section
+  body. The default (full) output is unchanged.
 
 JSON (--format json):
-  Top-level keys: schemaVersion, command, result, initialized, task, projectType, relevantDocs[], relatedDocs[], candidateDomains[], candidateSources[], candidateTests[], contextDocs[], invariants[], freshnessWarnings[], workingOverlap[], unknowns[], scopeChecklist[], findings[].
+  Full output — top-level keys: schemaVersion, command, result, initialized, task, projectType, relevantDocs[], relatedDocs[], candidateDomains[], candidateSources[], candidateTests[], contextDocs[], invariants[], freshnessWarnings[], workingOverlap[], unknowns[], scopeChecklist[], findings[].
+  --compact output — keys: schemaVersion, command, result, initialized, compact:true, task, projectType, path, pathReason, risk[], mustReadSource, candidateDocCount, documents[], topSection, candidateSources[], invariants[], freshnessWarnings[], workingOverlap[], nextLookup[], whySelected, searchFailed, chars, estimatedTokens, findings[].
 `,
   "release-notes": `llm-wiki release-notes
 

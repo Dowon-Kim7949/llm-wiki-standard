@@ -321,10 +321,118 @@ export function strategyWikiRetrieval(task, ctx) {
   };
 }
 
+// Mirror of src/commands/retrieval.js#selectSections (heading-weighted, top-N,
+// preamble + matched sections in document order) — the text an agent reads under
+// get-doc --section/--strict-section or prepare --compact. Returns "" when no
+// section matches (models --strict-section: NO full-body fallback). Kept in sync
+// with the shipped selector, like strategyWikiRetrieval mirrors search-docs.
+const SECTION_LIMIT_B3 = 2;
+function selectSectionsText(body, terms, limit = SECTION_LIMIT_B3) {
+  if (terms.length === 0) return body;
+  const lines = body.split("\n");
+  const preamble = [];
+  const sections = [];
+  let current = null;
+  for (const line of lines) {
+    if (/^##\s+/.test(line)) {
+      if (current) sections.push(current);
+      current = [line];
+    } else if (current) {
+      current.push(line);
+    } else {
+      preamble.push(line);
+    }
+  }
+  if (current) sections.push(current);
+  if (sections.length === 0) return body;
+  const scored = sections.map((sec, idx) => {
+    const headingHay = lc(sec[0]);
+    const hay = lc(sec.join("\n"));
+    let score = 0;
+    for (const t of terms) {
+      if (headingHay.includes(t)) score += 5; // heading match ranks above body-only match
+      score += occurrences(hay, t);
+    }
+    return { idx, text: sec.join("\n"), score };
+  });
+  const matching = scored.filter((s) => s.score > 0);
+  if (matching.length === 0) return ""; // strict: no full-body fallback (the token guard)
+  const top = matching
+    .slice()
+    .sort((a, b) => b.score - a.score || a.idx - b.idx)
+    .slice(0, limit)
+    .sort((a, b) => a.idx - b.idx);
+  return [preamble.join("\n").trim(), ...top.map((s) => s.text)].filter(Boolean).join("\n\n");
+}
+
+// B3 — wiki-retrieval-compact: models the SHIPPED compact/section-scoped read
+// (get-doc --section/--strict-section, prepare --compact). Same search + same
+// top-K matched docs as B2, but reads only each doc's top matching SECTIONS
+// (heading-weighted), never the whole body and never a full-body fallback.
+// B3-vs-B2 on the SAME corpus isolates the section-scoping mechanism. Grounding
+// is measured on the SELECTED section text — honestly, so a token win that drops
+// grounding (evidence refs living in an unselected section) shows up, not hidden.
+export function strategyWikiRetrievalCompact(task, ctx) {
+  const terms = task.keywords.map(lc);
+  const getDocs = ctx.retrievalGetDocs ?? DEFAULT_RETRIEVAL_GET_DOCS;
+
+  const docs = ctx.wikiCorpus
+    .filter((f) => !f.relPath.includes("/templates/"))
+    .map((f) => ({ relPath: f.relPath, ...parseWikiDoc(f.content) }));
+
+  const matches = [];
+  for (const d of docs) {
+    if (d.visibility === "restricted" || d.sensitive) continue;
+    const titleHay = lc(d.title);
+    const metaHay = lc(d.tags.join(" "));
+    const bodyHay = lc(d.body);
+    const allPresent =
+      terms.length > 0 &&
+      terms.every((t) => titleHay.includes(t) || metaHay.includes(t) || bodyHay.includes(t));
+    if (!allPresent) continue;
+    let score = 0;
+    for (const t of terms) {
+      if (titleHay.includes(t)) score += 10;
+      if (metaHay.includes(t)) score += 3;
+      score += occurrences(bodyHay, t);
+    }
+    matches.push({ relPath: d.relPath, body: d.body, score, isLog: d.relPath === APPEND_ONLY_LOG });
+  }
+  matches.sort((a, b) => b.score - a.score || a.relPath.localeCompare(b.relPath));
+  const capped = matches.slice(0, SEARCH_LIMIT);
+
+  const searchTokens = capped.reduce((n, m) => n + estimateTokens(retrievalSnippet(m.body, terms)), 0);
+
+  // Section-scoped read: only the top matching sections of each top-K doc.
+  const read = capped
+    .filter((m) => !m.isLog)
+    .slice(0, getDocs)
+    .map((m) => ({ relPath: m.relPath, text: selectSectionsText(m.body, terms) }));
+  const bodyTokens = read.reduce((n, m) => n + estimateTokens(m.text), 0);
+
+  const refs = new Set();
+  for (const m of read) for (const r of srcRefsIn(m.text, ctx.srcByPath)) refs.add(r);
+
+  const targetedTokens = searchTokens + bodyTokens;
+  return {
+    strategy: "B3_retrieval_compact",
+    inputTokens: targetedTokens,
+    filesOpened: read.length,
+    openedFiles: read.map((m) => m.relPath),
+    success: isSubset(task.groundTruth, refs),
+    orientationTokens: 0,
+    targetedTokens,
+    searchTokens,
+    matchCount: matches.length,
+    docsRead: read.length,
+  };
+}
+
 export const STRATEGIES = [
   strategyWholeRepo,
   strategyGrepGuided,
   strategyGrepSnippet,
   strategyWikiGrounded,
   strategyWikiRetrieval,
+  strategyWikiRetrievalCompact,
 ];

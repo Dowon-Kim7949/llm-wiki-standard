@@ -16,6 +16,8 @@ import { FINDING_EXPLANATIONS, applyRuleConfig } from "../src/commands/findings.
 import { localizeFinding, localizeMessage, normalizeLang } from "../src/i18n.js";
 import { buildTaskPrompt, initialEnrichmentWorkflow } from "../src/task-prompts.js";
 import { SKILL_TASKS, selectedSkillFormats } from "../src/commands/skills.js";
+import { selectSections, estimateTokens, clampText } from "../src/commands/retrieval.js";
+import { selectTaskPath, classifyTaskRisk } from "../src/commands/task-path.js";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -2427,6 +2429,118 @@ test("retrieval: get-doc --section returns only matching sections (focused read)
   assert.equal("section" in miss.document, false, "fallback output has no section field");
 });
 
+// ---- Token-efficiency: task-path selection (A) + retrieval token controls (C) ----
+
+test("task-path selector picks the cheapest SAFE path (source_direct/wiki_first/hybrid)", () => {
+  // source_direct: small, well-located edit/question with few candidates.
+  const typo = selectTaskPath({ task: "fix a typo in the log message", candidateCount: 1, docStatuses: ["verified"] });
+  assert.equal(typo.path, "source_direct");
+  assert.equal(typo.mustReadSource, true, "a code change always reads source, even at verified");
+  const route = selectTaskPath({ task: "add a route for hazards", candidateCount: 2, docStatuses: ["verified"] });
+  assert.equal(route.path, "source_direct", "few candidates → straight to source (routing-style)");
+
+  // wiki_first: understanding intent, or many candidates spanning layers.
+  assert.equal(selectTaskPath({ task: "help me understand the auth architecture", candidateCount: 3 }).path, "wiki_first");
+  assert.equal(selectTaskPath({ task: "add a big reporting feature", candidateCount: 6, docStatuses: ["verified"] }).path, "wiki_first");
+
+  // hybrid: an ordinary feature with a moderate spread.
+  assert.equal(selectTaskPath({ task: "add pagination to the orders list", candidateCount: 3, docStatuses: ["verified", "verified", "verified"] }).path, "hybrid");
+});
+
+test("task-path forces source reading on risk-sensitive work and never source_direct", () => {
+  for (const task of ["change password hashing", "delete a user's personal data", "add a payment refund flow", "bump the public API version (breaking change)"]) {
+    const r = selectTaskPath({ task, candidateCount: 1, docStatuses: ["verified"] });
+    assert.ok(r.risk.length > 0, `risk flagged for: ${task}`);
+    assert.notEqual(r.path, "source_direct", `risky task never source_direct: ${task}`);
+    assert.equal(r.mustReadSource, true, `risky task must read source: ${task}`);
+  }
+  // A needs_review candidate forces source reading even for a read-only question.
+  const stale = selectTaskPath({ task: "what does the retry helper do", candidateCount: 1, docStatuses: ["needs_review"], isCodeChange: false });
+  assert.equal(stale.mustReadSource, true, "needs_review candidate → confirm against source");
+  // classifyTaskRisk is bilingual and never uses filenames/symbols (inputs are task text only).
+  assert.ok(classifyTaskRisk("인증 토큰 세션을 변경").includes("auth"), "KO risk keywords match");
+});
+
+test("retrieval: estimateTokens is a chars/4 proxy and clampText is an exact cap", () => {
+  assert.equal(estimateTokens("abcdefgh"), 2);
+  assert.equal(estimateTokens(""), 0);
+  assert.equal(clampText("hello", 10).truncated, false);
+  assert.equal(clampText("hello", 5).truncated, false, "length == maxChars is not truncated");
+  const over = clampText("hello world", 5);
+  assert.equal(over.truncated, true);
+  assert.equal(over.text.length, 5, "never exceeds maxChars");
+  assert.equal(over.chars, 5);
+});
+
+test("retrieval: selectSections strict mode withholds the full body; heading match ranks first", () => {
+  const body = "## Alpha\nApples.\n\n## Beta\nThe widget subsystem.\n\n## Gamma\nGophers.";
+  // Non-strict fallback keeps the full body (backward compatible).
+  const lenient = selectSections(body, "zzznotpresent", 3);
+  assert.equal(lenient.body.includes("Gophers"), true, "non-strict falls back to full body");
+  assert.equal(lenient.noSectionMatch, false);
+  // Strict: no match → empty body + noSectionMatch (the token guard).
+  const strict = selectSections(body, "zzznotpresent", 3, { strict: true });
+  assert.equal(strict.body, "", "strict withholds the full body");
+  assert.equal(strict.noSectionMatch, true);
+  assert.equal(strict.sectioned, false);
+  // Heading match outranks a higher body-only frequency.
+  const b2 = "## widget config\nsettings live here\n\n## other\nwidget widget widget mentioned thrice";
+  assert.ok(selectSections(b2, "widget", 1).body.startsWith("## widget config"), "heading match wins over body frequency");
+});
+
+test("retrieval: get-doc token controls are opt-in and never leak secrets (default output unchanged)", async () => {
+  const cwd = await makeProject("retr-tokens-");
+  await writeFile(path.join(cwd, "package.json"), `${JSON.stringify({ name: "retr" }, null, 2)}\n`, { encoding: "utf8" });
+  await writeVerifiedSourceDoc(cwd, "index.md", "package.json", "2026-07-11");
+  await writeWikiDoc(cwd, "big.md", "Big Doc",
+    "Preamble line.\n\n## Alpha\nApples and oranges.\n\n## Beta\nThe widget subsystem lives here.\n\n## Gamma\nGophers unrelated.");
+
+  // Default: no diagnostic fields; full frontmatter present (byte-identical shape).
+  const def = await getDocCommand({ ...RETR_BASE, cwd, docPath: "big.md" });
+  assert.equal("chars" in def.document, false, "no diagnostic chars by default");
+  assert.equal("estimatedTokens" in def.document, false);
+  assert.ok("frontmatter" in def.document, "frontmatter present by default");
+
+  // --strict-section: nothing matches → no full body, section.noSectionMatch true.
+  const strict = await getDocCommand({ ...RETR_BASE, cwd, docPath: "big.md", section: "zzznotpresent", strictSection: true });
+  assert.equal(strict.document.body.includes("Gophers"), false, "strict-section withholds full body");
+  assert.equal(strict.document.section.noSectionMatch, true);
+  assert.ok("estimatedTokens" in strict.document, "diagnostic present under a new option");
+
+  // --max-chars: exact cap + truncated flag.
+  const capped = await getDocCommand({ ...RETR_BASE, cwd, docPath: "big.md", maxChars: 20 });
+  assert.ok(capped.document.body.length <= 20, "body clamped to max-chars");
+  assert.equal(capped.document.truncated, true);
+  assert.equal(capped.document.chars, capped.document.body.length);
+
+  // --compact: frontmatter omitted, diagnostics present.
+  const compact = await getDocCommand({ ...RETR_BASE, cwd, docPath: "big.md", compact: true });
+  assert.equal("frontmatter" in compact.document, false, "compact omits the frontmatter echo");
+  assert.ok("estimatedTokens" in compact.document);
+
+  // Redaction still applies under the new paths.
+  const secretCwd = await makeRetrievalWiki("retr-tokens-secret-");
+  const sec = await getDocCommand({ ...RETR_BASE, cwd: secretCwd, docPath: "secret.md", compact: true, maxChars: 500 });
+  assert.equal(sec.document.body.includes("supersecretvalue12345"), false, "secret redacted even under compact/max-chars");
+});
+
+test("parseArgs accepts get-doc/prepare token controls and rejects them elsewhere", () => {
+  const g = parseArgs(["get-doc", "GLOSSARY.md", "--strict-section", "--compact", "--max-chars", "500"]);
+  assert.deepEqual(g.errors, []);
+  assert.equal(g.options.strictSection, true);
+  assert.equal(g.options.compact, true);
+  assert.equal(g.options.maxChars, 500);
+  const p = parseArgs(["prepare", "--task", "x", "--compact", "--max-chars", "300"]);
+  assert.deepEqual(p.errors, []);
+  assert.equal(p.options.compact, true);
+  assert.equal(p.options.maxChars, 300);
+  // --max-chars must be a positive integer.
+  assert.ok(parseArgs(["get-doc", "x.md", "--max-chars", "0"]).errors.some((e) => e.includes("--max-chars")));
+  // These are NOT global options — rejected on an unrelated command.
+  assert.ok(parseArgs(["validate", "--compact"]).errors.some((e) => e.includes("--compact")));
+  assert.ok(parseArgs(["search-docs", "q", "--strict-section"]).errors.some((e) => e.includes("--strict-section")));
+});
+
 test("retrieval: get-related returns resolved graph neighbors and reports not_found", async () => {
   const cwd = await makeRetrievalWiki("retr-related-");
   const rel = await getRelatedCommand({ ...RETR_BASE, cwd, docPath: "index.md" });
@@ -3248,7 +3362,7 @@ test("package metadata targets npmjs public publish without committed tokens", a
   const packageJson = JSON.parse(await readFile(path.join(process.cwd(), "package.json"), { encoding: "utf8" }));
 
   assert.equal(packageJson.name, "llm-wiki-governance");
-  assert.equal(packageJson.version, "1.24.0");
+  assert.equal(packageJson.version, "1.25.0");
   assert.equal(packageJson.private, false);
   assert.equal(packageJson.publishConfig, undefined);
   assert.equal(packageJson.repository.url, "git+https://github.com/Dowon-Kim7949/llm-wiki-governance.git");
@@ -4325,6 +4439,10 @@ test("help leads with a bilingual what/why/how orientation + version and @latest
   assert.ok(text.includes("AI 에이전트가 읽는") && text.includes("your AI coding agent reads"), "KO+EN one-liner");
   assert.ok(text.includes("@latest"), "recommends @latest (the npx-cache caveat)");
   assert.ok(text.includes("Usage:"), "still lists usage below the orientation");
+  // Generated-doc language is discoverable from --help, not only from init/quickstart
+  // runtime output: overseas users get English by default and can switch via --doc-lang.
+  assert.ok(/init --write[^\n]*\[--doc-lang en\|ko\]/.test(text), "init --write usage advertises --doc-lang");
+  assert.ok(/quickstart --write[^\n]*\[--doc-lang en\|ko\]/.test(text), "quickstart --write usage advertises --doc-lang");
   const pkgVersion = JSON.parse(await readFile(path.join(process.cwd(), "package.json"), "utf8")).version;
   assert.equal(packageVersion(), pkgVersion, "version matches package.json");
 });
@@ -4371,7 +4489,10 @@ test("skill generation: --skills emits Claude/Cursor/neutral artifacts with an i
   }
   const skill = await readFile(path.join(cwd, ".claude", "skills", "llm-wiki-feature", "SKILL.md"), "utf8");
   assert.ok(skill.includes("name: llm-wiki-feature"), "skill frontmatter name");
-  assert.match(skill, /docs\/llm-wiki\/domains\/\d+_hazard\.md/, "injected domain map from the generated wiki");
+  // Feature/fix/docs-sync now point at the LIVE wiki map at run time (compact
+  // retrieval) instead of baking in a generation-time domain-map snapshot.
+  assert.ok(/RUN TIME/.test(skill) && /llm-wiki prepare/.test(skill), "feature skill assembles the wiki map at run time");
+  assert.equal(/docs\/llm-wiki\/domains\/\d+_hazard\.md/.test(skill), false, "no frozen domain-map snapshot in feature skill");
   assert.ok(skill.includes("needs_review"), "needs_review discipline embedded");
   // Portability/privacy: the generating machine's absolute path (and username) is not baked in.
   assert.ok(!skill.includes(cwd) && !/[A-Za-z]:\\Users\\/.test(skill), "no absolute machine path leaked into the artifact");
@@ -4394,6 +4515,57 @@ test("skill generation: off unless requested, and never overwrites (1.15.0)", as
   const result = await initCommand({ cwd, write: true, minimal: true, withAdapters: false, skills: true, type: "backend", profiles: [], agents: [], existing: "skip" });
   assert.equal(await readFile(path.join(cwd, ".claude", "skills", "llm-wiki-feature", "SKILL.md"), "utf8"), "CUSTOM\n", "existing skill preserved");
   assert.ok(result.skipped.some((l) => l.includes("llm-wiki-feature/SKILL.md") && l.includes("kept existing")), "skip is noted");
+});
+
+test("skill simplification: feature/fix/docs-sync drop the frozen snapshot but keep every safety contract; bootstrap keeps its snapshot", async () => {
+  const cwd = await backendWikiFixture("skills-simplify-");
+  await initCommand({ cwd, write: true, minimal: false, withAdapters: false, skills: true, type: "backend", profiles: [], agents: [], existing: "skip" });
+  const read = (slug) => readFile(path.join(cwd, ".claude", "skills", slug, "SKILL.md"), "utf8");
+  for (const slug of ["llm-wiki-feature", "llm-wiki-fix", "llm-wiki-docs-sync"]) {
+    const body = await read(slug);
+    assert.equal(/Project domain map \(read/.test(body), false, `${slug}: no frozen domain-map snapshot`);
+    assert.ok(/RUN TIME/.test(body), `${slug}: assembles the wiki map at run time`);
+    // Safety contracts must survive the simplification.
+    assert.ok(body.includes("needs_review"), `${slug}: keeps needs_review discipline`);
+    assert.ok(body.includes("check-run") && body.includes("changedSource"), `${slug}: keeps the Gate 26 completion contract`);
+    assert.ok(/verified is human-approved only/.test(body), `${slug}: keeps the no-verified rule`);
+    assert.match(body, /llm-wiki-generated v\S+ [0-9a-f]{16}/, `${slug}: carries a refresh marker`);
+  }
+  // Bootstrap keeps fuller guidance (its generation-time domain snapshot stays).
+  assert.match(await read("llm-wiki-bootstrap"), /docs\/llm-wiki\/domains\/\d+_hazard\.md/, "bootstrap keeps its domain-map snapshot");
+});
+
+test("--refresh updates only managed, unmodified skills; user edits and custom skills are preserved", async () => {
+  const { createHash } = await import("node:crypto");
+  const markerRe = /\n<!-- llm-wiki-generated v\S+ [0-9a-f]{16} -->\n?$/;
+  const cwd = await makeProject("skills-refresh-");
+  await writeFile(path.join(cwd, "requirements.txt"), "fastapi==0.110.0\n", { encoding: "utf8" });
+  await initCommand({ cwd, write: true, minimal: true, withAdapters: false, skills: true, type: "backend", profiles: [], agents: [], existing: "skip" });
+  const featurePath = path.join(cwd, ".claude", "skills", "llm-wiki-feature", "SKILL.md");
+  const original = await readFile(featurePath, "utf8");
+
+  // Managed + unmodified + identical to the current template: --refresh leaves it byte-identical.
+  const r1 = await initCommand({ cwd, write: true, minimal: true, withAdapters: false, skills: true, refresh: true, type: "backend", profiles: [], agents: [], existing: "skip" });
+  assert.ok(r1.skipped.some((l) => l.includes("llm-wiki-feature/SKILL.md") && /up to date/.test(l)), "unchanged managed skill reported up to date");
+  assert.equal(await readFile(featurePath, "utf8"), original, "up-to-date managed skill left byte-identical");
+
+  // Managed + unmodified but STALE (valid marker over an older body): --refresh overwrites it.
+  const olderBody = `${original.replace(markerRe, "")}\nAN OLDER GENERATED LINE\n`;
+  const olderHash = createHash("sha256").update(olderBody, "utf8").digest("hex").slice(0, 16);
+  await writeFile(featurePath, `${olderBody}\n<!-- llm-wiki-generated v1 ${olderHash} -->\n`, { encoding: "utf8" });
+  const r2 = await initCommand({ cwd, write: true, minimal: true, withAdapters: false, skills: true, refresh: true, type: "backend", profiles: [], agents: [], existing: "skip" });
+  assert.ok(r2.created.some((l) => l.includes("llm-wiki-feature/SKILL.md") && /refreshed/.test(l)), "stale managed skill refreshed");
+  assert.equal((await readFile(featurePath, "utf8")).includes("AN OLDER GENERATED LINE"), false, "stale content replaced by the current template");
+
+  // User-modified (no valid marker match): NEVER overwritten, even with --refresh.
+  await writeFile(featurePath, "I EDITED THIS SKILL\n", { encoding: "utf8" });
+  const r3 = await initCommand({ cwd, write: true, minimal: true, withAdapters: false, skills: true, refresh: true, type: "backend", profiles: [], agents: [], existing: "skip" });
+  assert.equal(await readFile(featurePath, "utf8"), "I EDITED THIS SKILL\n", "user-modified skill never overwritten with --refresh");
+  assert.ok(r3.skipped.some((l) => l.includes("llm-wiki-feature/SKILL.md") && /conflict/.test(l)), "user-modified skill reported as a conflict");
+
+  // parseArgs accepts --refresh on init/quickstart, rejects it elsewhere.
+  assert.equal(parseArgs(["init", "--write", "--skills", "--refresh"]).options.refresh, true);
+  assert.ok(parseArgs(["validate", "--refresh"]).errors.some((e) => e.includes("--refresh")));
 });
 
 
@@ -4642,6 +4814,37 @@ test("prepare excludes restricted/sensitive docs from its candidates", async () 
   const result = await prepareCommand({ cwd, task: "zuniquekeyword", type: "backend", profiles: [] });
   const paths = [...result.relevantDocs, ...result.relatedDocs].map((d) => d.path);
   assert.ok(!paths.some((p) => p.includes("restricted-area.md")), "restricted doc excluded from candidates");
+});
+
+test("prepare --compact returns a bounded single-call bundle (default output unchanged)", async () => {
+  const cwd = await backendWikiFixture("prepare-compact-");
+  // Default (non-compact) prepare is unchanged.
+  const full = await prepareCommand({ cwd, task: "add a hazard endpoint field", type: "backend", profiles: [] });
+  assert.ok(Array.isArray(full.relevantDocs), "full output has relevantDocs");
+  assert.equal("compact" in full, false, "full output is not marked compact");
+
+  const compact = await prepareCommand({ cwd, task: "add a hazard endpoint field", type: "backend", profiles: [], compact: true });
+  assert.equal(compact.compact, true);
+  assert.ok(["source_direct", "wiki_first", "hybrid"].includes(compact.path), "a path was chosen");
+  assert.ok(compact.documents.length <= 3, "at most 3 docs in the bundle");
+  assert.equal(typeof compact.estimatedTokens, "number");
+  assert.ok(compact.nextLookup.length >= 1, "how to expand is provided");
+  assert.ok(compact.documents.every((d) => "freshness" in d && "freshnessReason" in d), "per-doc freshness + reason");
+  // The compact bundle's textual payload is smaller than the full report.
+  assert.ok(compact.text.length < full.text.length, "compact bundle is smaller than the full report");
+});
+
+test("prepare --compact forces source reading on risk work and respects --max-chars", async () => {
+  const cwd = await backendWikiFixture("prepare-compact-risk-");
+  const risky = await prepareCommand({ cwd, task: "change the login password hashing", type: "backend", profiles: [], compact: true });
+  assert.equal(risky.mustReadSource, true, "risk work must read source");
+  assert.ok(risky.risk.includes("auth") || risky.risk.includes("crypto"), "risk categories surfaced");
+  assert.notEqual(risky.path, "source_direct", "risky task not source_direct");
+
+  const capped = await prepareCommand({ cwd, task: "add a hazard endpoint field", type: "backend", profiles: [], compact: true, maxChars: 40 });
+  if (capped.topSection && !capped.topSection.noSectionMatch) {
+    assert.ok(capped.topSection.body.length <= 40, "compact section body clamped to max-chars");
+  }
 });
 
 test("onboard/prepare are exposed on the programmatic API and MCP (read-only)", async () => {

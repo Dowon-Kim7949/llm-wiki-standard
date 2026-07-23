@@ -9,10 +9,39 @@
 // is written; restricted/sensitive docs are excluded by default and returned text
 // is redacted. Zero-dependency; a leaf module (no back-dependency on commands.js).
 import { detectProject } from "../detector.js";
-import { applyFilters, loadContentDocs, rankDocsByQuery, redactSensitive } from "./retrieval.js";
+import { applyFilters, clampText, estimateTokens, loadContentDocs, rankDocsByQuery, redactSensitive, selectSections } from "./retrieval.js";
 import { collectWikiGraph } from "./wiki-graph.js";
 import { isExternalSourceReference, parseEvidenceReference } from "./references.js";
+import { selectTaskPath } from "./task-path.js";
 import { withText } from "./findings.js";
+
+// prepare --compact default character cap on the single returned section body.
+// Conservative: one doc's most-relevant section first; the agent expands via the
+// suggested next-lookup calls only if that is not enough.
+const COMPACT_MAX_CHARS = 1500;
+const COMPACT_MAX_DOCS = 3;
+
+// Localized label for a task-path reasonCode (from task-path.js). Keeps the
+// classifier pure (English reasonCode) while honoring --lang for the prose.
+function pathReason(reasonCode, t) {
+  switch (reasonCode) {
+    case "understanding":
+      return t("Understanding/onboarding intent — a wiki map is the cheaper starting point.",
+        "이해·온보딩 목적 — 위키 지도가 더 싼 시작점입니다.");
+    case "risk_sensitive":
+      return t("Risk-sensitive work — orient with the wiki, but confirm the real source before changing anything.",
+        "위험 작업 — 위키로 방향을 잡되, 무엇이든 바꾸기 전에 실제 소스로 확인하세요.");
+    case "localized_small":
+      return t("Small, well-located task with few candidates — go straight to the source; a wiki detour would cost more than it saves.",
+        "후보가 적은 작고 국소적인 작업 — 소스로 바로 가세요; 위키를 거치면 오히려 손해입니다.");
+    case "broad_multi_file":
+      return t("Many candidate docs — the question likely spans files/layers, so a wiki map is the cheaper starting point.",
+        "후보 문서가 많음 — 여러 파일·계층에 걸친 질문일 수 있어 위키 지도가 더 싼 시작점입니다.");
+    default:
+      return t("Ordinary feature/fix — use the wiki to orient, then confirm the change against the source.",
+        "일반 기능/수정 — 위키로 방향을 잡고, 변경은 소스로 확인하세요.");
+  }
+}
 
 const MAX_DOCS = 14;
 const MAX_SOURCES = 20;
@@ -332,6 +361,14 @@ export async function prepareCommand(options) {
     workingOverlap = [];
   }
 
+  // --compact: one bounded context bundle in a single call — the chosen path, at
+  // most COMPACT_MAX_DOCS candidate docs, the top doc's most-relevant section only
+  // (not every match, never the full corpus), size accounting, and how to expand.
+  // The default (full) prepare output below is unchanged.
+  if (options.compact) {
+    return buildCompactBundle({ options, task, detection, ranked, topDocs, sources, tests, invariants, needsReview, workingOverlap, lang, t });
+  }
+
   const unknowns = [];
   if (ranked.length === 0) {
     unknowns.push(t("No wiki document strongly matches this task — the area may be undocumented. Explore from docs/llm-wiki/index.md and the source directly.",
@@ -410,4 +447,146 @@ export async function prepareCommand(options) {
     scopeChecklist,
     findings: []
   }, "LLM-WIKI Prepare", sections);
+}
+
+// The prepare --compact bundle: one bounded, single-call context payload built from
+// the SAME candidates the full prepare computes. Conservative by design — the chosen
+// path (task-path.js), at most COMPACT_MAX_DOCS docs, ONLY the top doc's most-relevant
+// section (never the full corpus, never a silent full-body dump), size accounting, and
+// how to expand. Reuses selectSections/clampText/estimateTokens (retrieval.js) so the
+// section engine and token accounting are not reimplemented.
+function buildCompactBundle({ options, task, detection, ranked, topDocs, sources, invariants, needsReview, workingOverlap, t }) {
+  const maxChars = Number.isInteger(options.maxChars) && options.maxChars > 0 ? options.maxChars : COMPACT_MAX_CHARS;
+  const searchFailed = ranked.length === 0;
+
+  // A — the deterministic cheapest-safe-path selector. isCodeChange defaults true
+  // because prepare precedes an implementation.
+  const decision = selectTaskPath({
+    task,
+    candidateCount: ranked.length,
+    docStatuses: topDocs.map(status),
+    isCodeChange: true
+  });
+
+  // At most COMPACT_MAX_DOCS docs, each with status-derived freshness (no new
+  // freshness criterion — reuses the doc's own status field).
+  const bundleDocs = topDocs.slice(0, COMPACT_MAX_DOCS).map((doc) => {
+    const st = status(doc);
+    const verified = st === "verified";
+    return {
+      path: doc.path,
+      title: title(doc),
+      status: st,
+      freshness: verified ? "verified" : (st ?? "unknown"),
+      freshnessReason: verified
+        ? t("verified by a human — still confirm against the code", "사람 검토됨 — 그래도 코드로 확인")
+        : t(`status ${st ?? "unknown"} — treat as unconfirmed until verified`, `상태 ${st ?? "unknown"} — 검증 전까지 미확정으로 취급`)
+    };
+  });
+
+  // Top doc's most-relevant section only (1–2 sections), redacted, then clamped.
+  // If nothing matches, return an EMPTY body with noSectionMatch — never a silent
+  // full-body dump.
+  const topDoc = topDocs[0] ?? null;
+  let topSection = null;
+  if (topDoc) {
+    const sel = selectSections(topDoc.body, task, 2, { strict: false });
+    const redactedBody = redactSensitive(sel.sectioned ? sel.body : "");
+    const clamped = clampText(redactedBody, maxChars);
+    topSection = {
+      docPath: topDoc.path,
+      returned: sel.returned,
+      total: sel.total,
+      noSectionMatch: !sel.sectioned,
+      body: clamped.text,
+      truncated: clamped.truncated
+    };
+  }
+
+  const sourcesShown = sources.slice(0, 8);
+  const invariantsShown = invariants.slice(0, 4);
+
+  const nextLookup = [];
+  if (topDoc) nextLookup.push(`llm-wiki get-doc ${topDoc.path} --section "<keywords>" --strict-section  (more of the top doc, section-scoped, no full-body fallback)`);
+  if (bundleDocs[1]) nextLookup.push(`llm-wiki get-doc ${bundleDocs[1].path} --compact  (the next candidate doc)`);
+  nextLookup.push(`llm-wiki prepare --task "${task.slice(0, 60)}${task.length > 60 ? "…" : ""}"  (full scope: all matches, graph neighbors, invariants)`);
+  if (searchFailed) nextLookup.push("llm-wiki search-docs \"<other keywords>\"  (no strong match — try different terms, then read the source directly)");
+
+  // Diagnostic size over the ACTUALLY-returned bundle body (chars/4 proxy — never a real token count).
+  const bundleBodyText = [
+    topSection ? topSection.body : "",
+    ...bundleDocs.map((d) => `${d.path} ${d.title ?? ""}`),
+    ...sourcesShown
+  ].filter(Boolean).join("\n");
+  const chars = bundleBodyText.length;
+  const estimatedTokens = estimateTokens(bundleBodyText);
+
+  const whySelected = t(
+    `Showing the top ${bundleDocs.length} of ${ranked.length} candidate doc(s) by keyword relevance, plus the single most-relevant section of the top doc. Minimal safe bundle — expand with the next-lookup calls only if it is not enough.`,
+    `키워드 관련도 상위 후보 ${ranked.length}개 중 ${bundleDocs.length}개와, 최상위 문서의 가장 관련 높은 섹션 하나만 보여줍니다. 최소 안전 번들이며, 부족할 때만 next-lookup 호출로 확장하세요.`
+  );
+
+  const summary = [
+    `task: ${task || "(empty)"}`,
+    `path: ${decision.path}`,
+    `must_read_source: ${decision.mustReadSource}`,
+    `risk: ${decision.risk.length ? decision.risk.join(", ") : "(none flagged)"}`,
+    `candidate_docs: ${ranked.length}`,
+    `docs_shown: ${bundleDocs.length}`,
+    `chars: ${chars}; estimatedTokens~${estimatedTokens} (chars/4 proxy — diagnostic only)`
+  ];
+
+  const sections = [
+    { title: "Summary", body: summary },
+    { title: t("Chosen path", "선택 경로"), body: [
+      `${decision.path} — ${pathReason(decision.reasonCode, t)}`,
+      decision.mustReadSource
+        ? t("You MUST open the real source/tests before changing code — even if the docs are verified.", "코드를 바꾸기 전 실제 소스/테스트를 반드시 열어보세요 — 문서가 verified여도 마찬가지입니다.")
+        : t("Read-only question: source confirmation optional but recommended.", "읽기 전용 질문: 소스 확인은 선택이지만 권장.")
+    ] },
+    { title: t("Documents (most relevant first)", "문서 (관련도 순)"), body: bundleDocs.length
+      ? bundleDocs.map((d) => `${d.path} — ${d.title ?? "(no title)"} [${d.freshness}] — ${d.freshnessReason}`)
+      : [searchFailed ? t("(no strong match — the area may be undocumented; explore the source directly)", "(강한 매칭 없음 — 문서화 안 된 영역일 수 있음; 소스를 직접 탐색)") : t("(none)", "(없음)")] },
+    { title: t("Most relevant section (top doc)", "가장 관련 높은 섹션 (최상위 문서)"), body: topSection
+      ? (topSection.noSectionMatch
+        ? [t(`No section of ${topSection.docPath} matched the task terms — full body withheld. Use the next-lookup calls.`, `${topSection.docPath}에서 작업 용어와 매칭되는 섹션이 없어 전체 본문을 반환하지 않습니다 — next-lookup 호출을 사용하세요.`)]
+        : [topSection.body + (topSection.truncated ? t("\n… [truncated to --max-chars]", "\n… [--max-chars로 잘림]") : "")])
+      : [t("(no candidate doc)", "(후보 문서 없음)")] }
+  ];
+  if (invariantsShown.length) {
+    sections.push({ title: t("Invariants and risks (as recorded in the docs)", "불변 조건·위험 (문서에 기록된 대로)"), body: invariantsShown.map((i) => `${i.text}  (${i.path})`) });
+  }
+  sections.push({ title: t("Candidate source files (verify before editing)", "후보 소스 파일 (수정 전 확인)"), body: sourcesShown.length ? sourcesShown : [t("(none referenced by the matched docs)", "(매칭 문서가 참조하는 소스 없음)")] });
+  if (workingOverlap.length) sections.push({ title: t("In your current working changes", "현재 작업 변경과 겹침"), body: workingOverlap });
+  sections.push(
+    { title: t("Why this selection", "선택 이유"), body: [whySelected] },
+    { title: t("Next lookup (expand only if needed)", "다음 조회 (필요할 때만 확장)"), body: nextLookup },
+    { title: "Caveats", body: [t("Read-only, compact. Candidates come from the existing wiki + keyword search — not conclusions. The code is the source of truth; a verified doc does not excuse skipping the source on a change. Restricted/sensitive docs are excluded; text is redacted.", "읽기 전용, 압축. 후보는 기존 위키+키워드 검색에서 나오며 결론이 아닙니다. 코드가 최종 사실이며 verified 문서라도 변경 시 소스 확인을 생략할 수 없습니다. 제한·민감 문서 제외, 텍스트 가림.")] }
+  );
+
+  return withText({
+    command: "prepare",
+    result: "pass",
+    initialized: true,
+    compact: true,
+    task,
+    projectType: detection.projectType,
+    path: decision.path,
+    pathReason: decision.reasonCode,
+    risk: decision.risk,
+    mustReadSource: decision.mustReadSource,
+    candidateDocCount: ranked.length,
+    documents: bundleDocs,
+    topSection,
+    candidateSources: sourcesShown,
+    invariants: invariantsShown,
+    freshnessWarnings: needsReview,
+    workingOverlap,
+    nextLookup,
+    whySelected,
+    searchFailed,
+    chars,
+    estimatedTokens,
+    findings: []
+  }, "LLM-WIKI Prepare (compact)", sections);
 }

@@ -43,6 +43,9 @@ const goalProp = { type: "string", description: "Optional free-text learning goa
 const taskTextProp = { type: "string", description: "Free-text description of the change you intend to make (feature or fix)." };
 const langProp = { type: "string", enum: ["en", "ko"], description: "Language for human-facing guidance prose (default en)." };
 const sectionProp = { type: "string", description: "Optional focused read: return only the most relevant ## sections (plus the preamble) matching these terms instead of the full body. Falls back to the full body when nothing matches." };
+const strictSectionProp = { type: "boolean", description: "With `section`: withhold the full body when no section matches (returns section.noSectionMatch instead of falling back to a whole-doc read). Token guard; default false." };
+const compactProp = { type: "boolean", description: "Compact result (opt-in). get_doc: omit the frontmatter echo and keep the body only in structuredContent (avoids duplicating it in the text content). prepare: return one bounded context bundle (chosen path, <=3 docs, the top doc's most-relevant section, next-lookup) instead of the full report. Default false." };
+const maxCharsProp = { type: "integer", minimum: 1, description: "Cap the returned body/section to at most this many characters (clamped after redaction). Adds a diagnostic estimatedTokens (chars/4 proxy, not a measured token count)." };
 
 function schema(properties, required = []) {
   return { type: "object", properties, required, additionalProperties: false };
@@ -166,9 +169,9 @@ export const TOOL_DEFS = [
     name: "get_doc",
     title: "Get a wiki document",
     description:
-      "Read-only retrieval. Return one document's frontmatter and body by path. Sensitive-looking body lines are redacted; the document's own visibility/contains_sensitive_info frontmatter is preserved.",
+      "Read-only retrieval. Return one document's frontmatter and body by path. Sensitive-looking body lines are redacted; the document's own visibility/contains_sensitive_info frontmatter is preserved. Opt-in token controls: strictSection (with section, no full-body fallback), maxChars (exact body cap), compact (omit frontmatter echo and keep the body only in structuredContent — avoids duplicating it in the text content).",
     command: "get-doc",
-    inputSchema: schema({ path: docPathProp, section: sectionProp, cwd: cwdProp }, ["path"])
+    inputSchema: schema({ path: docPathProp, section: sectionProp, strictSection: strictSectionProp, compact: compactProp, maxChars: maxCharsProp, cwd: cwdProp }, ["path"])
   },
   {
     name: "get_related",
@@ -192,7 +195,7 @@ export const TOOL_DEFS = [
     description:
       "Read-only task preparation. For a described change, scopes the work before implementing: most-relevant wiki docs (reusing the search ranking), graph neighbors, candidate domains/source/test files, related API/state/screen/config docs, invariants/risks, freshness warnings, unknowns, and a scope checklist. Phrases candidates as candidates and concludes nothing — the code stays the source of truth. Restricted/sensitive docs excluded; text redacted.",
     command: "prepare",
-    inputSchema: schema({ task: taskTextProp, cwd: cwdProp, type: typeProp, profiles: profilesProp, lang: langProp }, ["task"])
+    inputSchema: schema({ task: taskTextProp, compact: compactProp, maxChars: maxCharsProp, cwd: cwdProp, type: typeProp, profiles: profilesProp, lang: langProp }, ["task"])
   }
 ];
 
@@ -216,6 +219,9 @@ export function buildToolOptions(tool, args = {}) {
   if (typeof args.query === "string") options.query = args.query;
   if (typeof args.path === "string") options.docPath = args.path;
   if (typeof args.section === "string") options.section = args.section;
+  if (typeof args.strictSection === "boolean") options.strictSection = args.strictSection;
+  if (typeof args.compact === "boolean") options.compact = args.compact;
+  if (Number.isInteger(args.maxChars)) options.maxChars = args.maxChars;
   if (typeof args.status === "string") options.status = args.status;
   if (typeof args.visibility === "string") options.visibility = args.visibility;
   if (typeof args.docType === "string") options.docType = args.docType;

@@ -11,12 +11,18 @@
 // overwritten. Depends only on the Node stdlib, files.js, encoding.js, frontmatter.js,
 // and task-prompts.js; no back-dependency on commands.js.
 import { mkdir, writeFile, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { pathExists, toPosix } from "../files.js";
 import { readUtf8 } from "../encoding.js";
 import { parseFrontmatter } from "../frontmatter.js";
 import { buildTaskPrompt } from "../task-prompts.js";
 import { normalizeLang } from "../i18n.js";
+
+// Bumped when the generated skill format changes. Recorded in each artifact's
+// trailing marker (informational — refresh detection uses the content hash, not
+// this version). See withGeneratedMarker / isManagedUnmodified.
+const SKILL_ARTIFACT_VERSION = "2";
 
 // The workflows exposed as skills, and their invocable slug/description.
 export const SKILL_TASKS = [
@@ -55,7 +61,9 @@ export function skillsRequested(agents, options) {
 
 // Generation-time snapshot of the project's domain map: the enriched domain docs
 // under docs/llm-wiki/domains (excluding the aggregator overview), by title + path.
-// Best-effort and deterministic; returns [] when there are no domain docs.
+// Retained for the `bootstrap` skill only — first-time enrichment benefits from
+// knowing exactly which skeleton domain docs to fill. Feature/fix/docs-sync use the
+// live run-time map instead (liveWikiMapSection). Best-effort and deterministic.
 async function readDomainMap(cwd) {
   const dir = path.join(cwd, "docs", "llm-wiki", "domains");
   if (!(await pathExists(dir))) return [];
@@ -88,11 +96,50 @@ function domainMapSection(domains) {
   return ["Project domain map (read the relevant one(s) FIRST before editing):", ...domains.map((d) => `- ${d.title} — ${d.rel}`)].join("\n");
 }
 
-// The shared artifact body: the project domain-map snapshot, the reusable
-// wiki-grounded workflow from task-prompts.js, then the Gate 26 completion contract
-// (a run manifest the agent writes so `llm-wiki check-run` can verify the pipeline).
+// For feature/fix/docs-sync (and the read-only guided tasks): instead of baking a
+// generation-time domain-map SNAPSHOT into every skill (which goes stale and
+// inflates the fixed prompt), point the agent at the LIVE wiki map it should
+// assemble at run time — reusing the compact retrieval so the map is always current
+// and the fixed body stays small.
+function liveWikiMapSection(task) {
+  const step = READ_ONLY_TASKS.has(task)
+    ? "`llm-wiki onboard` (add --domain <area>)"
+    : "`llm-wiki prepare --task \"<the task>\" --compact` (or `llm-wiki onboard --domain <area>`)";
+  return `Get the current wiki map at RUN TIME (not a snapshot): run ${step}, then read the docs it points to and confirm against the source.`;
+}
+
+// --- refresh markers -----------------------------------------------------
+// Each generated artifact carries a trailing marker holding the hash of its own
+// body. `--refresh` overwrites an artifact only when it is still an unmodified
+// package-generated file (its body hashes to the value in its marker); a
+// user-edited or foreign file has no matching hash and is never overwritten.
+const GENERATED_MARKER_RE = /\n<!-- llm-wiki-generated v\S+ ([0-9a-f]{16}) -->\n?$/;
+
+function contentHash(text) {
+  return createHash("sha256").update(text, "utf8").digest("hex").slice(0, 16);
+}
+
+function withGeneratedMarker(content) {
+  return `${content}\n<!-- llm-wiki-generated v${SKILL_ARTIFACT_VERSION} ${contentHash(content)} -->\n`;
+}
+
+function stripMarker(content) {
+  return content.replace(GENERATED_MARKER_RE, "");
+}
+
+// True iff `fileContent` is an unmodified package-generated artifact: it carries
+// our marker AND the body-minus-marker hashes to the value stored in the marker.
+function isManagedUnmodified(fileContent) {
+  const match = fileContent.match(GENERATED_MARKER_RE);
+  if (!match) return false;
+  return contentHash(stripMarker(fileContent)) === match[1];
+}
+
+// The shared artifact body: the wiki-map step (a generation-time snapshot for
+// bootstrap; the live run-time map for the rest), the reusable wiki-grounded
+// workflow from task-prompts.js, then the Gate 26 completion contract (a run
+// manifest the agent writes so `llm-wiki check-run` can verify the pipeline).
 async function artifactBody(cwd, task, detection, docLang = "en") {
-  const domains = await readDomainMap(cwd);
   const built = buildTaskPrompt({
     // The artifact is committed to the repo and invoked from its root, so the body
     // must not bake in the generating machine's absolute path (non-portable, and it
@@ -104,8 +151,11 @@ async function artifactBody(cwd, task, detection, docLang = "en") {
     agents: [],
     docLang
   });
+  const mapSection = task === "bootstrap"
+    ? domainMapSection(await readDomainMap(cwd))
+    : liveWikiMapSection(task);
   const closing = READ_ONLY_TASKS.has(task) ? readOnlyNote() : manifestContractSection(task);
-  return `${domainMapSection(domains)}\n\n${forArtifact(built.prompt)}\n\n${closing}\n`;
+  return `${mapSection}\n\n${forArtifact(built.prompt)}\n\n${closing}\n`;
 }
 
 // Closing note for read-only skills (onboard/prepare): no run manifest, no writes.
@@ -118,16 +168,7 @@ function readOnlyNote() {
 // code change was reflected in the wiki (no backticks in the body — the artifact is
 // plain Markdown pasted into an agent). Records intent; never replaces human review.
 function manifestContractSection(task) {
-  return `Completion contract (Gate 26 — enables 'llm-wiki check-run'):
-After finishing, write a run manifest to .llm-wiki/runs/run-${task}-<timestamp>.json recording what this run did, so CI can confirm the wiki stayed in sync with the code. JSON shape:
-{
-  "task": "${task}",
-  "changedSource": ["<source files you edited>"],
-  "touchedDocs": ["<docs/llm-wiki/... documents you updated>"],
-  "logAppended": true,
-  "validated": { "ran": true, "result": "pass" }
-}
-Then run 'llm-wiki check-run': it flags any changed source not referenced by a touched wiki doc, a missing log entry, or an unvalidated state. This records what the run did — it never replaces human review, and never promotes a document to verified.`;
+  return `Completion contract (Gate 26 — enables 'llm-wiki check-run'): after finishing, write .llm-wiki/runs/run-${task}-<timestamp>.json with fields: task="${task}", changedSource[] (source files you edited), touchedDocs[] (docs/llm-wiki/* you updated), logAppended (bool), validated {ran, result}. Then run 'llm-wiki check-run' to confirm each changed source is referenced by a touched doc, the log was appended, and validate passed. This records what the run did — it never replaces human review and never promotes a document to verified.`;
 }
 
 // task-prompts.js is written for one-shot terminal output; strip the two bits that
@@ -168,45 +209,83 @@ function artifactTargets(formats, entry) {
   return targets;
 }
 
-// Dry-run: list what would be created / kept, without writing. Read-only.
+// Dry-run: classify each artifact as create / refresh / keep, without writing.
+// Read-only. Without --refresh, existing files are always kept (byte-identical to
+// the pre-refresh behavior aside from the message wording). With --refresh, a
+// managed-and-unmodified file that has drifted from the current template is
+// planned for refresh; a user-modified or foreign file is kept (conflict).
 export async function planSkillArtifacts(cwd, agents, detection, options) {
   const formats = selectedSkillFormats(agents, options);
   const planned = [];
   const skipped = [];
   if (formats.size === 0) return { planned, skipped };
-  const docLang = normalizeLang(options && options.docLang);
-  for (const entry of SKILL_TASKS) {
-    const body = await artifactBody(cwd, entry.task, detection, docLang);
-    for (const target of artifactTargets(formats, entry)) {
-      if (await pathExists(path.join(cwd, target.path))) {
-        skipped.push(`${target.path} exists; would not overwrite.`);
-      } else {
-        planned.push(`${target.path} would be created (llm-wiki ${entry.task} skill; ${target.format}).`);
-      }
-      void body; // body is computed to fail fast if task-prompts break; content is written in writeSkillArtifacts
-    }
-  }
-  return { planned, skipped };
-}
-
-// Write the artifacts. Never overwrites an existing file. Read-once/write-once;
-// returns created/skipped message lists.
-export async function writeSkillArtifacts(cwd, agents, detection, options) {
-  const formats = selectedSkillFormats(agents, options);
-  const created = [];
-  const skipped = [];
-  if (formats.size === 0) return { created, skipped };
+  const refresh = Boolean(options && options.refresh);
   const docLang = normalizeLang(options && options.docLang);
   for (const entry of SKILL_TASKS) {
     const body = await artifactBody(cwd, entry.task, detection, docLang);
     for (const target of artifactTargets(formats, entry)) {
       const absolutePath = path.join(cwd, target.path);
+      if (!(await pathExists(absolutePath))) {
+        planned.push(`${target.path} would be created (llm-wiki ${entry.task} skill; ${target.format}).`);
+        continue;
+      }
+      if (!refresh) {
+        skipped.push(`${target.path} exists; would not overwrite (use --refresh to update managed skills).`);
+        continue;
+      }
+      const current = await readUtf8(absolutePath);
+      const next = withGeneratedMarker(target.render(entry, body));
+      if (!isManagedUnmodified(current)) {
+        skipped.push(`${target.path} was modified (or is not a managed artifact); would keep it (conflict).`);
+      } else if (stripMarker(current) === stripMarker(next)) {
+        skipped.push(`${target.path} is already up to date.`);
+      } else {
+        planned.push(`${target.path} would be refreshed (managed artifact; llm-wiki ${entry.task} skill; ${target.format}).`);
+      }
+    }
+  }
+  return { planned, skipped };
+}
+
+// Write the artifacts. Without --refresh, an existing file is NEVER overwritten
+// (the original safety contract). With --refresh, an existing file is overwritten
+// ONLY when it is still an unmodified package-generated artifact (its body hashes
+// to the value in its own trailing marker); a user-modified or foreign file is
+// kept and reported as a conflict, and an up-to-date managed file is left
+// unchanged. Every written artifact carries a fresh marker. Returns created/skipped
+// message lists (refreshes are reported under created; conflicts under skipped).
+export async function writeSkillArtifacts(cwd, agents, detection, options) {
+  const formats = selectedSkillFormats(agents, options);
+  const created = [];
+  const skipped = [];
+  if (formats.size === 0) return { created, skipped };
+  const refresh = Boolean(options && options.refresh);
+  const docLang = normalizeLang(options && options.docLang);
+  for (const entry of SKILL_TASKS) {
+    const body = await artifactBody(cwd, entry.task, detection, docLang);
+    for (const target of artifactTargets(formats, entry)) {
+      const absolutePath = path.join(cwd, target.path);
+      const content = withGeneratedMarker(target.render(entry, body));
       if (await pathExists(absolutePath)) {
-        skipped.push(`${target.path} exists; kept existing file and did not overwrite it.`);
+        if (!refresh) {
+          skipped.push(`${target.path} exists; kept existing file and did not overwrite it (use --refresh to update managed skills).`);
+          continue;
+        }
+        const current = await readUtf8(absolutePath);
+        if (!isManagedUnmodified(current)) {
+          skipped.push(`${target.path} was modified (or is not a managed artifact); kept existing file (conflict — remove it and re-run to regenerate).`);
+          continue;
+        }
+        if (stripMarker(current) === stripMarker(content)) {
+          skipped.push(`${target.path} is already up to date; left unchanged.`);
+          continue;
+        }
+        await writeFile(absolutePath, content, { encoding: "utf8" });
+        created.push(`${target.path} refreshed (managed artifact; llm-wiki ${entry.task} skill; ${target.format}).`);
         continue;
       }
       await mkdir(path.dirname(absolutePath), { recursive: true });
-      await writeFile(absolutePath, target.render(entry, body), { encoding: "utf8" });
+      await writeFile(absolutePath, content, { encoding: "utf8" });
       created.push(`${target.path} created (llm-wiki ${entry.task} skill; ${target.format}).`);
     }
   }

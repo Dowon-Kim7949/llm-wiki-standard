@@ -2,7 +2,7 @@
 
 > Paste this prompt into your coding agent (Codex or any other) to run the workflow below. It is an instruction for the agent, not run by the CLI.
 
-Project domain map: none detected yet — read docs/llm-wiki/index.md and browse docs/llm-wiki/domains/ to find the relevant area.
+Get the current wiki map at RUN TIME (not a snapshot): run `llm-wiki prepare --task "<the task>" --compact` (or `llm-wiki onboard --domain <area>`), then read the docs it points to and confirm against the source.
 
 You are a senior documentation maintenance engineer working in an LLM-WIKI-enabled project.
 
@@ -10,6 +10,7 @@ Task:
 Run a docs-sync workflow. The project type is library. Active profiles: core, library.
 
 Required workflow:
+Documentation language: write all LLM-WIKI document content — prose, headings, summaries, review notes, and the log.md entry — in English. Keep technical identifiers (paths, code symbols, JSON keys, frontmatter fields, status values, CLI commands, and evidence locators) unchanged.
 1. Read docs/llm-wiki/index.md first.
 2. Detect changed code and documentation context using git status, git diff, and relevant source files.
 3. Locate affected domain, API, component, architecture, workflow, and decision documents.
@@ -39,13 +40,6 @@ Expected final response:
 - Validation run and results.
 - Remaining stale areas or review items.
 
-Completion contract (Gate 26 — enables 'llm-wiki check-run'):
-After finishing, write a run manifest to .llm-wiki/runs/run-docs-sync-<timestamp>.json recording what this run did, so CI can confirm the wiki stayed in sync with the code. JSON shape:
-{
-  "task": "docs-sync",
-  "changedSource": ["<source files you edited>"],
-  "touchedDocs": ["<docs/llm-wiki/... documents you updated>"],
-  "logAppended": true,
-  "validated": { "ran": true, "result": "pass" }
-}
-Then run 'llm-wiki check-run': it flags any changed source not referenced by a touched wiki doc, a missing log entry, or an unvalidated state. This records what the run did — it never replaces human review, and never promotes a document to verified.
+Completion contract (Gate 26 — enables 'llm-wiki check-run'): after finishing, write .llm-wiki/runs/run-docs-sync-<timestamp>.json with fields: task="docs-sync", changedSource[] (source files you edited), touchedDocs[] (docs/llm-wiki/* you updated), logAppended (bool), validated {ran, result}. Then run 'llm-wiki check-run' to confirm each changed source is referenced by a touched doc, the log was appended, and validate passed. This records what the run did — it never replaces human review and never promotes a document to verified.
+
+<!-- llm-wiki-generated v2 37646fe1e722cecb -->

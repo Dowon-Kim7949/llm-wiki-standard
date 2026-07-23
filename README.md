@@ -82,6 +82,8 @@ Add `--lang ko` (or set `lang` in `llm-wiki.config.json`) to see findings messag
 
 Generated wiki documents are English by default. Add `--doc-lang ko` (or set `docLanguage` in `llm-wiki.config.json`) to generate the wiki content — and the agent doc-writing instructions in the handoff/skill prompts — in Korean instead. `--doc-lang` is independent of `--lang`, and technical identifiers (paths, code symbols, JSON keys, frontmatter fields, status values, evidence locators) are never translated.
 
+Retrieval has opt-in token controls (default output unchanged): `get-doc --strict-section` withholds the full body when nothing matches (instead of falling back to a whole-doc read), `--max-chars <n>` caps the returned body exactly, `--compact` drops the frontmatter echo; and `prepare --compact` returns one bounded context bundle — a chosen path, at most three candidate docs, only the top doc's most-relevant section, and how to expand. These surface a diagnostic `estimatedTokens` (a `chars/4` proxy, not a measured token count).
+
 Full command, option, exit-code, and programmatic-API reference: run `npx llm-wiki help <command>` (offline), or see [PUBLIC_API.md](https://github.com/Dowon-Kim7949/llm-wiki-governance/blob/main/docs/llm-wiki/PUBLIC_API.md).
 
 ## Governance in practice

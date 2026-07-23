@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -202,6 +202,52 @@ test("tools/call get_doc returns document content (read-only retrieval over MCP)
   assert.equal(res.result.structuredContent.result, "pass");
   assert.equal(typeof res.result.structuredContent.document.body, "string");
   assert.ok(res.result.structuredContent.document.body.length > 0);
+});
+
+test("buildToolOptions maps get_doc token controls and prepare --compact", () => {
+  const getDoc = TOOL_DEFS.find((t) => t.name === "get_doc");
+  assert.deepEqual(
+    buildToolOptions(getDoc, { path: "GLOSSARY.md", section: "graph", strictSection: true, compact: true, maxChars: 500 }),
+    { docPath: "GLOSSARY.md", section: "graph", strictSection: true, compact: true, maxChars: 500 }
+  );
+  const prepare = TOOL_DEFS.find((t) => t.name === "prepare");
+  assert.deepEqual(buildToolOptions(prepare, { task: "x", compact: true, maxChars: 300 }), { task: "x", compact: true, maxChars: 300 });
+  assert.ok(getDoc.inputSchema.properties.strictSection && getDoc.inputSchema.properties.compact && getDoc.inputSchema.properties.maxChars, "get_doc advertises the token controls");
+  assert.ok(prepare.inputSchema.properties.compact && prepare.inputSchema.properties.maxChars, "prepare advertises --compact/--max-chars");
+});
+
+test("get_doc --compact keeps the body only in structuredContent (avoids content/structuredContent duplication)", async () => {
+  // Controlled fixture: a distinctive token that lives ONLY in the body (not in
+  // the title/frontmatter), so we can prove where it does and does not appear.
+  const cwd = await mkdtemp(path.join(os.tmpdir(), "mcp-compact-"));
+  await mkdir(path.join(cwd, "docs", "llm-wiki"), { recursive: true });
+  await writeFile(
+    path.join(cwd, "docs", "llm-wiki", "big.md"),
+    "---\ntitle: Big Doc\nstatus: needs_review\ndoc_type: reference\nvisibility: internal\ncontains_sensitive_info: false\nlast_updated: 2026-07-23\n---\n# Big Doc\n\n## Detail\nZZBODYONLYTOKEN lives only in the body here.\n",
+    { encoding: "utf8" }
+  );
+
+  // Default: the body token appears in BOTH the text content and structuredContent
+  // (MCP mirroring) — the duplication a compact-aware client can avoid.
+  const full = await handleMessage(
+    { jsonrpc: "2.0", id: 44, method: "tools/call", params: { name: "get_doc", arguments: { cwd, path: "big.md" } } },
+    {}
+  );
+  assert.ok(full.result.structuredContent.document.body.includes("ZZBODYONLYTOKEN"), "default: body in structuredContent");
+  assert.ok(full.result.content[0].text.includes("ZZBODYONLYTOKEN"), "default: body inline in text content (duplication)");
+  assert.ok("frontmatter" in full.result.structuredContent.document, "default: frontmatter echoed");
+
+  // Compact: body stays in structuredContent, but the text content shows a pointer
+  // instead of the body — so a client feeding both does not receive it twice.
+  const compact = await handleMessage(
+    { jsonrpc: "2.0", id: 45, method: "tools/call", params: { name: "get_doc", arguments: { cwd, path: "big.md", compact: true } } },
+    {}
+  );
+  assert.ok(compact.result.structuredContent.document.body.includes("ZZBODYONLYTOKEN"), "compact: body still in structuredContent");
+  assert.equal(compact.result.content[0].text.includes("ZZBODYONLYTOKEN"), false, "compact: body NOT duplicated in the text content");
+  assert.match(compact.result.content[0].text, /structuredContent|compact/i, "compact: text points to the structured body");
+  assert.equal("frontmatter" in compact.result.structuredContent.document, false, "compact omits the frontmatter echo");
+  assert.ok("estimatedTokens" in compact.result.structuredContent.document, "compact carries the diagnostic estimatedTokens");
 });
 
 // Spawn the MCP server, stream newline-delimited JSON-RPC, and collect messages.

@@ -13,7 +13,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-const ARMS = ["source-only", "wiki-retrieval", "guided"];
+const ARMS = ["source-only", "wiki-retrieval", "guided", "guided-compact"];
 
 function parseArgs(argv) {
   const opts = { dry: false, tasks: "bench/whole-task/tasks.sample.json" };
@@ -42,7 +42,12 @@ function armGuidance(kind, task) {
     "wiki-retrieval": `You may query the wiki (search-docs/get-doc/get-related) but not the guided skills. ${kind === "onboard" ? "Explain the area." : `Scope: ${t}.`}`,
     guided: kind === "onboard"
       ? "Run the /llm-wiki-onboard skill (or `llm-wiki onboard`), then explain from evidence."
-      : `Run the /llm-wiki-prepare skill (or \`llm-wiki prepare --task ${t}\`), then hand off to /llm-wiki-${kind === "prepare-fix" ? "fix" : "feature"}.`
+      : `Run the /llm-wiki-prepare skill (or \`llm-wiki prepare --task ${t}\`), then hand off to /llm-wiki-${kind === "prepare-fix" ? "fix" : "feature"}.`,
+    // Proposed compact/adaptive arm: the token-controlled retrieval path — the
+    // chosen path decides how much wiki to pull, and reads stay section-scoped.
+    "guided-compact": kind === "onboard"
+      ? "Run `llm-wiki onboard`, then read only the section-scoped docs it points to (`get-doc --section <terms> --strict-section`). Explain from evidence."
+      : `Run \`llm-wiki prepare --task ${t} --compact\` (one bounded bundle: chosen path + top docs' relevant sections), expand only as needed with \`get-doc --section --strict-section\`, then hand off to /llm-wiki-${kind === "prepare-fix" ? "fix" : "feature"}.`
   };
 }
 

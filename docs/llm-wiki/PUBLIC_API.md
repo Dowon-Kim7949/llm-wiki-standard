@@ -2,8 +2,8 @@
 title: Public Api
 tags:
   - llm-wiki
-  - verified
-status: verified
+  - needs-review
+status: needs_review
 doc_type: public_api
 project: llm-wiki-governance
 last_updated: 2026-07-23
@@ -75,7 +75,7 @@ contains_sensitive_info: false
 | `quickstart --dry-run\|--write` | doctor+init+frontmatter+handoff 프롬프트 | `--write` 시 |
 | `handoff` | Codex/Claude Code 인수인계 프롬프트 출력 | `--out` 시 |
 | `prompt --task <name>` | 반복 작업 프롬프트(bootstrap/feature/fix/refactor/docs-sync/okf-extract). `bootstrap`은 init 뼈대의 최초 보강용이며 `handoff`와 규칙을 공유 | `--out` 시 |
-| `init --dry-run\|--write` | 누락 wiki 문서·선택 adapter 생성. backend/fullstack(디렉터리/파일 도메인)·frontend/mobile(SPA `pages`/`views`/... 폴더 + vue/react-router 라우트 그룹)은 도메인별 문서(`domains/NN_<name>.md`)도 생성 — 도메인 미탐지 시 침묵하지 않고 명시 안내, `--domains a,b,c`로 수동 지정 가능. 1.15부터 `--skills`(또는 `--agent claude\|codex\|cursor`)로 위키-그라운디드 자동화 프롬프트 아티팩트(Claude 스킬 `.claude/skills/`·Codex 스킬 `.agents/skills/`·Cursor 룰·중립 프롬프트, bootstrap/feature/fix/docs-sync, 도메인 맵 주입; opt-in·미덮어씀) 생성 | `--write` 시 |
+| `init --dry-run\|--write` | 누락 wiki 문서·선택 adapter 생성. backend/fullstack(디렉터리/파일 도메인)·frontend/mobile(SPA `pages`/`views`/... 폴더 + vue/react-router 라우트 그룹)은 도메인별 문서(`domains/NN_<name>.md`)도 생성 — 도메인 미탐지 시 침묵하지 않고 명시 안내, `--domains a,b,c`로 수동 지정 가능. 1.15부터 `--skills`(또는 `--agent claude\|codex\|cursor`)로 위키-그라운디드 자동화 프롬프트 아티팩트(Claude 스킬 `.claude/skills/`·Codex 스킬 `.agents/skills/`·Cursor 룰·중립 프롬프트, bootstrap/feature/fix/docs-sync; opt-in·미덮어씀; 1.25.0부터 bootstrap만 도메인 맵 스냅샷·나머지는 실행 시점 맵, `--refresh`로 사용자 미수정 관리 스킬만 갱신) 생성 | `--write` 시 |
 | `migrate [--apply]` | `wiki_block_version` 업그레이드 리포트 + 계획. `--apply`로 `fix` 범위 재사용해 문서를 현재 계약으로 올림(preview-first, `verified` 보존; GATE_REVIEW Gate 8) | `--apply` 시 |
 | `fix [--write]` | 승인된 범위의 안전한 자동수정(누락 Tier A frontmatter 필드, `## Evidence` 섹션 보완, 깨진 related/링크 `needs_review` 스텁, 수정 문서 `last_updated` 갱신). 기본은 미리보기 | `--write` 시 |
 | `drift [--downgrade]` | `verified` 문서의 `evidence.stale` 드리프트 리포트. `--downgrade`로 드리프트 문서를 `needs_review`로 강등(GATE_REVIEW Gate 9) | `--downgrade` 시 |
@@ -85,10 +85,10 @@ contains_sensitive_info: false
 | `stats` | wiki 헬스 스냅샷(verified%/enrichment%/evidence coverage/staleness/orphan) + 헬스 스코어. 1.19부터 `--format json`에 계산된 `evidenceTiers`(`reference_checked`/`human_verified`)를 additive로 부가(신규 frontmatter 필드/status값 없음) | 없음 |
 | `list-docs` | (읽기전용 retrieval, 1.18) 문서 메타데이터(path/title/status/doc_type/visibility/last_updated/tags) 열거. `--status`/`--visibility`/`--doc-type` 필터. 본문 미반환. restricted/민감 문서는 `--include-sensitive` 없으면 제외 | 없음 |
 | `search-docs <query>` | (읽기전용 retrieval, 1.18) 제목/본문/frontmatter에 대한 **zero-dep 키워드/부분문자열** 검색(semantic 아님). 모든 term이 있어야 매치(AND), 점수순 랭크 + 스니펫. `--limit`(기본 20). restricted/민감 문서 제외(같은 `--include-sensitive`), 스니펫 redact | 없음 |
-| `get-doc <path> [--section <terms>]` | (읽기전용 retrieval, 1.18) 문서 하나의 frontmatter + 본문 반환. `<path>`는 repo-relative/wiki-relative/bare name 허용. 민감 라인 redact. `--section <terms>`는 관련 `##` 섹션(+프리앰블)만 반환하는 집중 읽기(큰 문서용; `##` 섹션이 없거나 매치 없으면 full body로 fallback; 필터 시 additive `document.section` `{query,returned,total}` 부가) | 없음 |
+| `get-doc <path> [--section <terms>] [--strict-section] [--compact] [--max-chars <n>]` | (읽기전용 retrieval, 1.18) 문서 하나의 frontmatter + 본문 반환. `<path>`는 repo-relative/wiki-relative/bare name 허용. 민감 라인 redact. `--section <terms>`는 관련 `##` 섹션(+프리앰블)만 반환하는 집중 읽기(큰 문서용; `##` 섹션이 없거나 매치 없으면 full body로 fallback; 필터 시 additive `document.section` `{query,returned,total}` 부가). **토큰 제어(1.25.0, opt-in)**: `--strict-section`은 매치 없을 때 full body를 반환하지 않고 `document.section.noSectionMatch:true`; `--max-chars <n>`은 반환 본문을 정확히 캡(redaction **후** 클램프); `--compact`는 frontmatter echo 생략. 이 옵션 중 하나라도 쓰면 `document`에 additive `chars`/`estimatedTokens`(chars/4 PROXY)/`truncated`가 붙는다(미사용 시 기본 출력 byte-identical) | 없음 |
 | `get-related <path>` | (읽기전용 retrieval, 1.18) 문서의 해소된 그래프 이웃(outbound/inbound: wiki 링크[이중 대괄호]·related·markdown 링크) 반환 | 없음 |
 | `onboard [--domain <n>] [--goal <t>]` | (읽기전용 guided, 1.24) 신입용 도메인 학습 경로를 기존 위키에서 결정적으로 조립(읽을 문서·소스/테스트 진입점·불변조건/위험·최신성 경고·이해도 점검·다음 단계). CLI는 설명을 창작하지 않음. 도메인 미탐지 시 침묵 대신 사용 가능 목록·생성법 안내. 제한/민감 문서 제외·텍스트 redact | 없음 |
-| `prepare --task <text>` | (읽기전용 guided, 1.24) 구현 전 작업 범위 조사(관련 문서[search-docs 랭킹 재사용]·그래프 이웃·후보 도메인/소스/테스트·API/상태/화면/설정 문서·불변조건·최신성 경고·미확정·범위 점검표). 후보로 표현하며 원인·안전을 단정하지 않음(코드가 최종 사실). /llm-wiki-feature·/llm-wiki-fix로 인계 | 없음 |
+| `prepare --task <text> [--compact] [--max-chars <n>]` | (읽기전용 guided, 1.24) 구현 전 작업 범위 조사(관련 문서[search-docs 랭킹 재사용]·그래프 이웃·후보 도메인/소스/테스트·API/상태/화면/설정 문서·불변조건·최신성 경고·미확정·범위 점검표). 후보로 표현하며 원인·안전을 단정하지 않음(코드가 최종 사실). /llm-wiki-feature·/llm-wiki-fix로 인계. **토큰 제어(1.25.0, opt-in)**: `--compact`는 전체 리포트 대신 한 번의 호출로 선택 경로(`source_direct`/`wiki_first`/`hybrid`)+이유·≤3 문서(+status 기반 freshness)·최상위 문서의 관련 섹션 1개(전체 본문 미덤프)·후보 소스·다음 조회·`chars`/`estimatedTokens`(chars/4 PROXY)를 반환. `--max-chars <n>`으로 섹션 본문 캡. 기본(전체) 출력 불변 | 없음 |
 | `release-notes [--body-only]` | 마지막 `v*` 태그 이후 conventional commit으로 릴리스 노트 문서 생성. `--body-only`는 변경 섹션 본문만 출력(frontmatter/H1/스캐폴드 라인 제외, GitHub Release 본문용)하고 본문 민감정보 스캔에 매치 시 차단(exit 2, 본문 withhold) | `--out` 시 |
 
 ## Key Options
@@ -257,3 +257,5 @@ MCP 클라이언트 등록 예시:
 - 2026-07-23에 Guided Onboarding and Task Preparation(1.24 대상; 읽기 전용 `onboard`/`prepare` 명령·스킬, 검색 랭킹 `rankDocsByQuery` 재사용)을 반영했다. 에이전트(Claude Code) 편집이라 `verified`→`needs_review`로 강등한다 — 사람 검토 전까지 미확정이며 허위 검토 메타를 넣지 않는다. 이번 소스 변경(`src/commands/guided.js` 신규 등)으로 소스를 참조하는 다른 verified 문서도 재검토가 필요하다(그 문서들은 `drift --downgrade`로 정직하게 needs_review 처리).
 - 2026-07-23에 생성 문서 언어 선택(긴급 i18n, 1.24.0)을 반영했다: 전역 `--doc-lang <en|ko>`(Key Options)와 config `docLanguage`(Configuration)를 등재했다 — `init`/`quickstart` 생성 문서와 에이전트 문서 작성 지시 언어를 고르며 `--lang`과 독립, CLI가 config 우선, 잘못된 값은 exit 3. 단일 언어 선택 계층 `src/commands/doc-content.js`, 기술 식별자 미번역, 기본 `en`은 이미 영어였던 문서에 byte-identical. 에이전트(Claude Code) 편집이라 `needs_review` 유지 — 사람 검토 전까지 미확정이며 허위 검토 메타를 넣지 않는다. 307 tests·validate --strict 0.
 - 2026-07-23에 위 1.24.0(doc-language i18n + guided onboarding) 반영분을 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-23)를 거쳐 `verified`로 재승인했다. 옵션·config 표면 서술이 현재 소스(HEAD c7a1a7a, npm dist-tags.latest=1.24.0)와 일치함을 확인했다.
+- 2026-07-23에 토큰 효율 retrieval 토큰 제어(제안, opt-in)를 command 표에 반영했다: `get-doc`에 `--strict-section`/`--compact`/`--max-chars`, `prepare`에 `--compact`/`--max-chars`를 추가했다. 모두 additive·opt-in이라 미사용 시 표면·`--format json` 형태 byte-identical(신규 옵션 사용 시에만 `document`에 `chars`/`estimatedTokens`/`truncated`, prepare compact 페이로드 부가). 동결 프로그래매틱 API 맵의 키 집합·exit code 의미 불변. 에이전트(Claude Code) 편집이라 `verified`→`needs_review`로 강등 — 사람 검토 후 재승인 예정.
+- 2026-07-23(1.25.0 릴리스)에 `init`/`quickstart`의 부가 옵션 `--refresh`(사용자 미수정 관리 스킬만 갱신; 사용자·커스텀 스킬 미덮어씀)를 command 표에 반영하고, MCP `get_doc`/`prepare`에 토큰 제어 옵션(`strictSection`/`compact`/`maxChars`)이 노출됨을 기록했다. 모두 additive·opt-in이라 미사용 시 표면·`--format json`·동결 맵 불변. 에이전트 편집이라 `needs_review` 유지 — 사람 재검토 후 `verified` 예정.

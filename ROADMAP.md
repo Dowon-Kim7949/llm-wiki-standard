@@ -477,7 +477,21 @@ zero-dependency, backend/fullstack byte-identical.
   symmetrically (`--agent codex`/`claude`/`cursor` → that agent's format, `--skills` → all).
   Additive, zero-dependency, byte-identical when skills are not requested; the only behavior
   change is that `--agent codex` alone now emits Codex skills.
-- **1.24 (planned, on `main`, not yet released) — Guided onboarding & task preparation.** Two
+- **1.25 (released) — Token efficiency: pick the cheapest safe path.** Additive, opt-in,
+  zero-dependency work to cut the tokens spent reaching a correct, verified change without
+  trading away accuracy, freshness, or human review. A deterministic task-path selector
+  (`source_direct`/`wiki_first`/`hybrid`) from the task text + candidate count + doc statuses only
+  (never answer filenames), with a hard safety override for risk work / stale docs / code changes.
+  Retrieval token controls: `get-doc --strict-section` (no full-body fallback), `--max-chars`
+  (exact clamp after redaction), `--compact`; a `prepare --compact` bounded context bundle;
+  section-heading-weighted ranking. Simpler feature/fix/docs-sync skills (run-time wiki map, not a
+  frozen snapshot; every safety rule kept; bootstrap keeps its fuller guidance) plus a safe
+  `--refresh` that updates only unmodified package-generated skills. MCP token controls + a
+  compact path that avoids content/structuredContent body duplication. A proxy bench arm
+  `B3_retrieval_compact` (chars/4 only). Deferred (human decision): real/paid multi-project /
+  multi-model measurement. Scope: `GATE_REVIEW.md` (Token-Efficiency: Cheapest-Safe-Path Selection
+  + Compact Retrieval).
+- **1.24 (released) — Guided onboarding & task preparation.** Two
   read-only commands that put a human/agent workflow on top of the governance core: `onboard`
   assembles a domain learning path (docs, source/test entrypoints, invariants, freshness
   warnings, comprehension checks) for a newcomer; `prepare --task` scopes a change (relevant docs,

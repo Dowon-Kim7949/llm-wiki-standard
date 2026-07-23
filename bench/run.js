@@ -77,10 +77,13 @@ function run() {
   const sessionBTargeted = perTask.reduce((n, p) => n + p.byName.B_wiki_grounded.targetedTokens, 0);
   const sessionB = orientationTokens + sessionBTargeted;
   const sessionB2 = perTask.reduce((n, p) => n + p.byName.B2_retrieval.inputTokens, 0);
+  // B3 (retrieval-compact): section-scoped reads of the same top-K matched docs.
+  const sessionB3 = perTask.reduce((n, p) => n + p.byName.B3_retrieval_compact.inputTokens, 0);
 
   const a1Success = perTask.filter((p) => p.byName.A1_grep_guided.success).length;
   const bSuccess = perTask.filter((p) => p.byName.B_wiki_grounded.success).length;
   const b2Success = perTask.filter((p) => p.byName.B2_retrieval.success).length;
+  const b3Success = perTask.filter((p) => p.byName.B3_retrieval_compact.success).length;
 
   const elapsedMs = Date.now() - startedAt;
 
@@ -109,6 +112,7 @@ function run() {
       A2_grep_snippet: sliceResult(p.byName.A2_grep_snippet),
       B_wiki_grounded: sliceResult(p.byName.B_wiki_grounded),
       B2_retrieval: sliceResult(p.byName.B2_retrieval),
+      B3_retrieval_compact: sliceResult(p.byName.B3_retrieval_compact),
     })),
     session: {
       taskCount: T,
@@ -121,9 +125,12 @@ function run() {
       B_amortized_per_task_tokens: Math.round(orientationTokens / T + sessionBTargeted / T),
       B2_retrieval_tokens: sessionB2,
       B2_amortized_per_task_tokens: Math.round(sessionB2 / T),
+      B3_retrieval_compact_tokens: sessionB3,
+      B3_amortized_per_task_tokens: Math.round(sessionB3 / T),
       A1_success_rate: a1Success / T,
       B_success_rate: bSuccess / T,
       B2_success_rate: b2Success / T,
+      B3_success_rate: b3Success / T,
       B_vs_A1_session: sessionB / sessionA1,
       B_vs_A2_session: sessionB / sessionA2,
       B_vs_A0_session: sessionB / sessionA0,
@@ -131,6 +138,8 @@ function run() {
       B2_vs_A2_session: sessionB2 / sessionA2,
       B2_vs_A0_session: sessionB2 / sessionA0,
       B2_vs_B_session: sessionB2 / sessionB,
+      B3_vs_B2_session: sessionB2 ? sessionB3 / sessionB2 : 0,
+      B3_vs_A2_session: sessionB3 / sessionA2,
     },
     harnessComputeMs: elapsedMs,
   };
@@ -207,12 +216,15 @@ function printReport(s, perTask) {
   L.push(`     = ${fmt(s.session.B_orientation_once_tokens)} orientation (once) + ${fmt(s.session.B_targeted_tokens)} targeted reads`);
   L.push(`  B2 wiki-retrieval   : ${fmt(s.session.B2_retrieval_tokens)} tokens   success ${pct(s.session.B2_success_rate)}   (Gate 24: search + doc bodies, no source)`);
   L.push(`  B2 amortized / task : ${fmt(s.session.B2_amortized_per_task_tokens)} tokens`);
+  L.push(`  B3 retrieval-compact: ${fmt(s.session.B3_retrieval_compact_tokens)} tokens   success ${pct(s.session.B3_success_rate)}   (proposed: search + section-scoped reads, no full body)`);
   L.push("");
   L.push(`  B  vs A2 (session)  : ${ratioNote(s.session.B_wiki_grounded_tokens, s.session.A2_grep_snippet_tokens)}  (pre-retrieval wiki vs conservative floor)`);
   L.push(`  B2 vs B  (session)  : ${ratioNote(s.session.B2_retrieval_tokens, s.session.B_wiki_grounded_tokens)}  <- RETRIEVAL delta (same corpus, drift cancelled)`);
   L.push(`  B2 vs A2 (session)  : ${ratioNote(s.session.B2_retrieval_tokens, s.session.A2_grep_snippet_tokens)}  <- retrieval vs conservative code-only floor`);
   L.push(`  B2 vs A1 (session)  : ${ratioNote(s.session.B2_retrieval_tokens, s.session.A1_grep_guided_tokens)}`);
   L.push(`  B2 vs A0 (session)  : ${ratioNote(s.session.B2_retrieval_tokens, s.session.A0_whole_repo_tokens)}`);
+  L.push(`  B3 vs B2 (session)  : ${ratioNote(s.session.B3_retrieval_compact_tokens, s.session.B2_retrieval_tokens)}  <- COMPACT delta (section-scoped vs full doc bodies, same corpus)`);
+  L.push(`  B3 vs A2 (session)  : ${ratioNote(s.session.B3_retrieval_compact_tokens, s.session.A2_grep_snippet_tokens)}`);
   L.push("");
   L.push("Honest verdict (auto-computed):");
   for (const line of verdict(s)) L.push("  " + line);
@@ -267,6 +279,22 @@ function verdict(s) {
       ? `B2 grounding success: ${pct(sess.B2_success_rate)} — for every task the top matched wiki doc bodies referenced all ground-truth source files, so retrieval pointed the agent at the right code without opening it.`
       : `B2 grounding success: ${pct(sess.B2_success_rate)} — on some tasks the top matched doc bodies did NOT reference every ground-truth file (keyword ranking or evidence-pointer gap); a real, honest limit of zero-dep keyword retrieval.`
   );
+
+  // B3 — the COMPACT retrieval mechanism (section-scoped reads). B3-vs-B2 on the
+  // same corpus isolates section-scoping from full-body reading. Grounding is the
+  // honesty check: a token win that drops grounding (evidence in an unselected
+  // section) must be reported, not hidden.
+  const b3WinB2 = sess.B3_retrieval_compact_tokens < sess.B2_retrieval_tokens;
+  out.push(
+    b3WinB2
+      ? `COMPACT delta (B3 vs B2, same corpus): reading only the top matching SECTIONS of each matched doc costs ${ratioNote(sess.B3_retrieval_compact_tokens, sess.B2_retrieval_tokens)} of reading the full doc bodies. This models get-doc --section/--strict-section and prepare --compact.`
+      : `COMPACT delta (B3 vs B2, same corpus): section-scoped reads cost MORE than full doc bodies (${ratioNote(sess.B3_retrieval_compact_tokens, sess.B2_retrieval_tokens)} of B2) — UNFAVORABLE on this corpus (docs shorter than the section-selection overhead), reported as required.`
+  );
+  out.push(
+    sess.B3_success_rate >= sess.B2_success_rate
+      ? `B3 grounding success: ${pct(sess.B3_success_rate)} (vs B2 ${pct(sess.B2_success_rate)}) — section-scoped reading kept grounding while cutting tokens; the ground-truth source refs survived in the selected sections.`
+      : `B3 grounding success: ${pct(sess.B3_success_rate)} DROPPED vs B2 ${pct(sess.B2_success_rate)} — section-scoping saved tokens but lost some ground-truth refs (evidence lived in an unselected section). HONEST trade-off: prefer B2 (or --section without --strict) when grounding matters more than tokens.`
+  );
   out.push(
     "Caveat: token counts are a chars/4 proxy; wall-clock + answer-quality need the deferred LLM run. Wiki authoring/maintenance is a real cost not charged per-task (disclosed as the corpus figure). B2 models the shipped search-docs + get-doc (excludes the append-only log from get-doc reads; top-K disclosed); it measures the retrieval/orientation context cost, not the final-edit read. No token/speed claim ships in the README until a measured result supports it (METHODOLOGY §10)."
   );
@@ -310,6 +338,7 @@ function renderMarkdown(s) {
   M.push(`- **A2 grep-snippet** — code-only, conservative: same grep hits, but count only +/-${s.snippetWindowLines} lines around each match (a disciplined agent reading match context). This is the LEAST wiki-favorable code-only baseline.`);
   M.push("- **B wiki-grounded** — read the wiki orientation docs, then follow the evidence pointers they surface for the query, reading the pointed-to **source** in full. This is the **pre-retrieval** wiki model.");
   M.push("- **B2 wiki-retrieval** *(Gate 24)* — query the wiki: run the shipped `search-docs` (zero-dep keyword/AND-semantics, same scoring as `src/commands/retrieval.js`), then `get-doc` the top-" + s.retrievalGetDocs + " matched **doc bodies** — no source re-read. The append-only `log.md` is searched but never get-doc'd (a changelog, not a subsystem explanation). **B2-vs-B runs on the same corpus, so it isolates the retrieval mechanism from corpus drift.**");
+  M.push("- **B3 wiki-retrieval-compact** *(proposed)* — same search + same top-K matched docs as B2, but reads only each doc's top matching **sections** (heading-weighted, no full-body fallback) — models the shipped `get-doc --section`/`--strict-section` and `prepare --compact`. **B3-vs-B2 (same corpus) isolates the section-scoping mechanism**; grounding is measured on the selected sections so a token win that drops grounding is visible.");
   M.push("");
   M.push("## Per-task input tokens");
   M.push("");
@@ -337,13 +366,17 @@ function renderMarkdown(s) {
   M.push(`| — targeted reads | ${fmt(s.session.B_targeted_tokens)} |`);
   M.push(`| **B2 wiki-retrieval total (Gate 24)** | **${fmt(s.session.B2_retrieval_tokens)}** |`);
   M.push(`| B2 amortized / task | ${fmt(s.session.B2_amortized_per_task_tokens)} |`);
+  M.push(`| B3 wiki-retrieval-compact total (proposed) | ${fmt(s.session.B3_retrieval_compact_tokens)} |`);
   M.push(`| B locating success | ${pct(s.session.B_success_rate)} |`);
   M.push(`| B2 grounding success | ${pct(s.session.B2_success_rate)} |`);
+  M.push(`| B3 grounding success | ${pct(s.session.B3_success_rate)} |`);
   M.push(`| B vs A2 (session, pre-retrieval) | ${ratioNote(s.session.B_wiki_grounded_tokens, s.session.A2_grep_snippet_tokens)} |`);
   M.push(`| **B2 vs B (session — RETRIEVAL delta, drift cancelled)** | **${ratioNote(s.session.B2_retrieval_tokens, s.session.B_wiki_grounded_tokens)}** |`);
   M.push(`| **B2 vs A2 (session — vs conservative floor)** | **${ratioNote(s.session.B2_retrieval_tokens, s.session.A2_grep_snippet_tokens)}** |`);
   M.push(`| B2 vs A1 (session) | ${ratioNote(s.session.B2_retrieval_tokens, s.session.A1_grep_guided_tokens)} |`);
   M.push(`| B2 vs A0 (session) | ${ratioNote(s.session.B2_retrieval_tokens, s.session.A0_whole_repo_tokens)} |`);
+  M.push(`| **B3 vs B2 (session — COMPACT delta, section-scoped)** | **${ratioNote(s.session.B3_retrieval_compact_tokens, s.session.B2_retrieval_tokens)}** |`);
+  M.push(`| B3 vs A2 (session) | ${ratioNote(s.session.B3_retrieval_compact_tokens, s.session.A2_grep_snippet_tokens)} |`);
   M.push("");
   M.push(`> Wiki authoring/maintenance cost (disclosed, not charged per-task): the full wiki corpus is ${fmt(s.corpus.wikiCorpusDocs)} docs / ${fmt(s.corpus.wikiCorpusTokens)} tokens.`);
   M.push("");

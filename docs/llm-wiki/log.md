@@ -24,6 +24,74 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-23 - 1.25.0 릴리스: D(스킬 간소화 + 안전한 --refresh) + 문서 현행화 + 버전 범프
+- changed:
+  - src/commands/skills.js (feature/fix/docs-sync 런타임 맵[liveWikiMapSection]·manifest 압축·bootstrap 스냅샷 유지; content-hash 마커[withGeneratedMarker/isManagedUnmodified, node:crypto]; --refresh 로직)
+  - src/cli.js (--refresh 플래그·init/quickstart 배선·help usage·Safety 노트)
+  - tests/verification.test.js (스킬 간소화 계약 보존 + --refresh 동작 테스트; 버전 어서션 1.25.0; 신규 도메인맵 assertion을 런타임 지시로 갱신)
+  - package.json (1.24.0 → 1.25.0)
+  - CHANGELOG.md·CHANGELOG.ko.md (1.25.0 항목)
+  - ROADMAP.md·ROADMAP.ko.md (1.25 항목 + 1.24 상태 released 현행화)
+  - GATE_REVIEW.md (토큰 효율 게이트 accepted for 1.25.0 — built)
+  - docs/llm-wiki/ARCHITECTURE_CONVENTIONS.md·DOMAIN_FEATURES.md·PUBLIC_API.md (제안→1.25.0 현행화 + 릴리스 Review Note; needs_review 유지)
+  - .claude/.agents/.cursor/.llm-wiki 스킬 아티팩트 재생성(간소화 본문 + 마커; onboard/prepare 신규)
+- summary:
+  - 유지보수자(Dowon-Kim) 지시로 D를 구축하고 토큰 효율 게이트를 1.25.0으로 수용·배포한다. feature/fix/docs-sync 스킬은 생성 시점 도메인맵 스냅샷 대신 실행 시점(prepare --compact/onboard)에 맵을 조립해 고정 본문이 도메인 수와 무관해지고 stale되지 않으며(bootstrap은 최초 보강용이라 스냅샷 유지), manifest는 필드 계약으로 압축했다(안전 규칙 전부 유지). content-hash 마커 기반 --refresh는 사용자 미수정 관리 스킬만 갱신하고 사용자·커스텀 스킬은 절대 덮어쓰지 않는다(dry-run이 create/refresh/conflict/up-to-date 구분).
+  - 실측 스킬 크기: feature 3224→3182·fix 3186→3144·docs-sync 2853→2811(소규모 −42, 도메인 수와 무관하게 평탄; 도메인 많을수록 예전 대비 큰 절감), bootstrap 4075→3951(manifest 압축). 저장소 dogfood 스킬을 마커 포함해 재생성.
+  - additive·opt-in·zero-dep(node:crypto는 내장)·Windows/UTF-8·1.0.0 계약 불변. 319 tests·validate --strict 0.
+- evidence:
+  - src/commands/skills.js#symbol:writeSkillArtifacts
+  - src/commands/skills.js#symbol:isManagedUnmodified
+  - src/cli.js#symbol:parseArgs
+- caveats:
+  - 벤치 수치는 chars/4 PROXY(진단)이며 README 헤드라인 금지 유지. real/유료 벤치 미실행(executed:false) — 사람 결정 대기.
+  - 이 릴리스에 편집된 wiki 문서는 에이전트 편집이라 needs_review로 배포하며, 사람 재검토 후 별도 커밋으로 verified 승격 예정(1.24.0과 동일 패턴). 허위 검토 메타 미기입.
+
+## 2026-07-23 - 토큰 효율 후속(패스 2): 벤치 B3 arm + whole-task guided-compact + MCP compact/dedup (비유료, 유료 보류)
+- changed:
+  - bench/lib/strategies.js (신규 strategyWikiRetrievalCompact = B3_retrieval_compact)
+  - bench/run.js (B3 롤업·세션뷰·verdict·renderMarkdown 배선; A/B/B2 출력 불변)
+  - bench/results/current.json·current.md (B3 포함 재생성; baseline.*는 frozen 유지)
+  - bench/whole-task/runner.js (arm에 guided-compact 추가, dry)
+  - src/mcp/tools.js (get_doc에 strictSection/compact/maxChars, prepare에 compact/maxChars 배선)
+  - src/commands/retrieval.js (getDocCommand compact 시 text 리포트 Body는 포인터, 본문은 structuredContent/JSON에만 — MCP 중복 회피)
+  - tests/mcp.test.js (신규 2: buildToolOptions 토큰 제어 매핑, get_doc --compact dedup)
+  - GATE_REVIEW.md·docs/llm-wiki/ARCHITECTURE_CONVENTIONS.md·BENCHMARK.md (상태·근거 반영)
+- summary:
+  - "유료는 최대한 보류, 나머지 비유료 clearing 작업 진행" 지시에 따라 활주로를 치웠다. (E-비유료) proxy 벤치에 B3(compact/section-scoped 읽기) arm을 추가·실행: B3 vs B2 −34.5% 토큰이나 grounding 100%→83.3%(evidence가 미선택 섹션) — verdict가 정직하게 보고. whole-task에 guided-compact arm(dry). (MCP) get_doc/prepare에 토큰 제어 옵션 배선 + content/structuredContent 본문 중복 조사: 기본 불변, opt-in compact에서만 본문을 structuredContent에만 두어 중복 회피.
+  - 모든 벤치 수치는 chars/4 PROXY(진단)라 README 헤드라인 금지 유지. 실제 유료 실행 없음(executed:false). real 하네스 B3·empty-wiki 통제·D(스킬 간소화·refresh)는 사람 결정·검토 대기.
+- evidence:
+  - bench/lib/strategies.js#symbol:strategyWikiRetrievalCompact
+  - src/mcp/tools.js#symbol:buildToolOptions
+  - src/commands/retrieval.js#symbol:getDocCommand
+- caveats:
+  - MCP 클라이언트가 content와 structuredContent를 둘 다 모델 입력에 넣는지는 이 저장소에서 측정 불가 — 단정하지 않았고 기본 동작을 바꾸지 않았다. compact는 opt-in.
+  - 미릴리스(main 작업 트리). 커밋/푸시/버전/배포/유료 벤치 안 함. 에이전트 편집 → 관련 문서 needs_review 유지.
+
+## 2026-07-23 - 토큰 효율: 가장 싼 안전한 경로 + compact retrieval (제안·부분 구축) + --doc-lang help 갭 수정
+- changed:
+  - src/cli.js (--doc-lang을 init/quickstart/handoff/prompt usage에 노출; 신규 opt-in 플래그 --strict-section/--compact/--max-chars 파싱·검증·help)
+  - src/commands/task-path.js (신규 순수 leaf: classifyTaskRisk·selectTaskPath)
+  - src/commands/retrieval.js (estimateTokens[chars/4 PROXY]·clampText·selectSections strict 모드·섹션 제목 가중·getDocCommand opt-in strictSection/compact/maxChars)
+  - src/commands/guided.js (prepareCommand의 opt-in --compact 번들)
+  - tests/verification.test.js (신규 8: 경로 선택기 2·retrieval 토큰 제어 3·prepare compact 2·parseArgs 1; help --doc-lang 어서션)
+  - docs/llm-wiki/ARCHITECTURE_CONVENTIONS.md·DOMAIN_FEATURES.md·PUBLIC_API.md (기능·근거 반영, verified→needs_review 강등)
+  - docs/llm-wiki/BENCHMARK.md (벤치 arm 설계 추가, executed:false)
+  - GATE_REVIEW.md (Token-Efficiency Scope Decision, proposed)
+  - README.md·README.ko.md (토큰 제어 옵션 안내)
+- summary:
+  - 목표는 스킬 문장 축소가 아니라 "올바른·검증된 코드 변경까지의 총토큰" 축소이며 정확도·문서 최신성·사람 검토를 희생하지 않는다. A(경로 선택기: 작업 텍스트·후보 수·status만으로 source_direct/wiki_first/hybrid, 위험·stale·코드변경이면 mustReadSource·source_direct 금지), C(get-doc/selectSections 토큰 제어: strict no-fallback·제목 가중·정확 maxChars·compact·chars/estimatedTokens), B(prepare --compact 단일 번들)을 구현했다. D(스킬 간소화·안전한 --refresh)·E(벤치 B3/compact arm 분리, dry)는 설계만 기록.
+  - 모두 additive·opt-in·zero-dep·Windows/UTF-8. 신규 옵션 미사용 시 기본 출력 byte-identical. redaction 후 클램프로 잘린 꼬리에도 비밀 미노출. 경로 선택에 정답 파일명·내부 심볼 미사용(벤치 누출 가드).
+- evidence:
+  - src/commands/task-path.js#symbol:selectTaskPath
+  - src/commands/retrieval.js#symbol:selectSections
+  - src/commands/guided.js#symbol:prepareCommand
+  - src/cli.js#symbol:helpText
+- caveats:
+  - estimatedTokens는 chars/4 PROXY(진단용)일 뿐 실제 토큰이 아니다 — README 성능 헤드라인 금지. 실제 유료 벤치 미실행(executed:false).
+  - 에이전트(Claude Code) 편집이라 관련 verified 문서를 needs_review로 강등했다. 사람 검토 후 재승인 필요. D·E 및 실제 다중 프로젝트·다중 모델 벤치는 사람 결정 대기.
+  - 미릴리스(main 작업 트리 스테이징). 커밋/푸시/버전 범프/배포 안 함.
+
 ## 2026-07-23 - 생성 문서 언어 선택 (--doc-lang / config docLanguage, 긴급 i18n, 1.24.0)
 
 - status: needs_review

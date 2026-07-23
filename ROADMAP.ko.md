@@ -354,7 +354,17 @@ enrichment 린팅(→ 1.8, 토글 가능한 `content.thin_body` 규칙으로).
   (`.agents/skills/llm-wiki-<task>/SKILL.md`)을 더하고, `selectedSkillFormats`가 형식을 대칭 선택한다
   (`--agent codex`/`claude`/`cursor` → 해당 형식, `--skills` → 전부). 부가적·zero-dependency, 스킬 미요청 시
   byte-identical이며, 유일한 동작 변경은 `--agent codex` 단독 선택 시 Codex 스킬이 생성되는 것.
-- **1.24 (계획, `main`에 있음, 미배포) — guided 온보딩·작업 준비.** 거버넌스 코어 위에 사람/에이전트
+- **1.25 (배포됨) — 토큰 효율: 가장 싼 안전한 경로 선택.** 정확도·최신성·사람 검토를 희생하지 않으면서
+  올바른·검증된 변경까지의 토큰을 줄이는 부가적·opt-in·zero-dependency 작업. 작업 텍스트+후보 수+문서
+  status만으로(정답 파일명 미사용) `source_direct`/`wiki_first`/`hybrid`를 고르는 결정적 경로 선택기
+  (위험 작업·stale 문서·코드 변경엔 안전 오버라이드). retrieval 토큰 제어: `get-doc --strict-section`
+  (전체 본문 fallback 없음)·`--max-chars`(redaction 후 정확 클램프)·`--compact`, `prepare --compact`
+  최소 문맥 번들, 섹션 제목 가중 랭킹. 더 간결한 feature/fix/docs-sync 스킬(런타임 위키 맵, 스냅샷
+  아님; 안전 규칙 전부 유지; bootstrap은 더 풍부한 안내 유지) + 사용자 미수정 관리 스킬만 갱신하는
+  안전한 `--refresh`. MCP 토큰 제어 + content/structuredContent 본문 중복을 피하는 compact 경로. proxy
+  벤치 arm `B3_retrieval_compact`(chars/4 전용). 보류(사람 결정): real/유료 다중 프로젝트·다중 모델
+  측정. 범위: `GATE_REVIEW.md`(Token-Efficiency: Cheapest-Safe-Path Selection + Compact Retrieval).
+- **1.24 (배포됨) — guided 온보딩·작업 준비.** 거버넌스 코어 위에 사람/에이전트
   워크플로를 얹는 읽기 전용 명령 2개: `onboard`는 신입용 도메인 학습 경로(문서·소스/테스트 진입점·불변조건·
   최신성 경고·이해도 점검)를, `prepare --task`는 구현 전 작업 범위(관련 문서·후보 소스/테스트·위험)를
   조립하며 단정이 아닌 후보로 표현한다. retrieval 랭킹(`rankDocsByQuery`)·그래프 재사용, CLI/API/MCP, 신규

@@ -6,6 +6,64 @@ All notable changes to `llm-wiki-governance` (formerly `@dowonk-7949/llm-wiki-st
 are documented here. This project follows [Semantic Versioning](https://semver.org/).
 Entries are newest-first.
 
+## 1.25.0 — 2026-07-23
+
+**Token efficiency: pick the cheapest safe path.** Additive, opt-in, zero-dependency changes
+that reduce the tokens spent reaching a correct, verified change — without trading away
+accuracy, doc freshness, or human review. Default output is unchanged; `1.0.0` command /
+`--format json` / frontmatter contracts are preserved. The `--doc-lang` help-usage gap is also
+fixed. Diagnostic token figures are a `chars/4` proxy only — no measured performance claim ships.
+
+### Added
+
+- **`get-doc` token controls (opt-in):** `--strict-section` withholds the full body when no
+  section matches (instead of falling back to a whole-document read), `--max-chars <n>` caps the
+  returned body exactly (clamped after redaction), and `--compact` drops the frontmatter echo. With
+  any of these the document carries a diagnostic `estimatedTokens` (a `chars/4` proxy). Also wired
+  to the MCP `get_doc` tool.
+- **`prepare --compact`:** one bounded context bundle in a single call — a chosen path
+  (`source_direct` / `wiki_first` / `hybrid`) with a reason, at most three candidate docs with
+  status-derived freshness, only the top doc's most-relevant section (never the full corpus, never a
+  silent full-body dump), candidate source files, and next-lookup calls to expand. Also on MCP.
+- **Deterministic task-path selection** (internal, reused by `prepare --compact`): from the task
+  text, candidate count, and doc statuses only — never answer filenames or symbols. Risk-sensitive
+  work (auth / permission / payment / crypto / privacy / data-deletion / migration / public-API),
+  stale/`needs_review` candidates, and any code change force reading the real source and are never
+  `source_direct`.
+- **Section-heading-weighted retrieval ranking** and an exact-character clamp (`clampText`),
+  clamped after redaction so a truncated tail can never expose a secret.
+- **Safe skill `--refresh`** for `init`/`quickstart`: updates only package-generated skills you have
+  not edited (verified by a content-hash marker embedded in each generated artifact); user-modified
+  and custom skills are never overwritten (reported as conflicts), and a dry-run distinguishes
+  create / refresh / conflict / up-to-date.
+
+### Changed
+
+- **Simpler `feature`/`fix`/`docs-sync` skills:** they now assemble the wiki map at run time (via
+  `prepare --compact` / `onboard`) instead of baking in a generation-time domain-map snapshot, so
+  the fixed prompt no longer grows with the domain count and never goes stale; the run-manifest
+  contract is stated as a field list instead of a full JSON echo. Every safety rule is retained
+  (`needs_review`, no self-`verified`, log append, tests, `check-run`). The `bootstrap` skill keeps
+  its fuller first-time-enrichment guidance and domain-map snapshot.
+- **MCP:** investigated the `content` vs `structuredContent` body duplication (`get_doc` mirrors the
+  body into both); the default is unchanged, and only the opt-in `compact` path keeps the body in
+  `structuredContent` with a pointer in the text content to avoid duplication.
+- **`--help`:** `init`/`quickstart`/`handoff`/`prompt` usage now advertises `--doc-lang en|ko`; the
+  generated-doc language was previously discoverable only from the README and from runtime output.
+
+### Fixed
+
+- A failed `get-doc --section` no longer silently balloons into a whole-document read when
+  `--strict-section` is set.
+
+### Benchmark (proxy only — not a shipped claim)
+
+- New proxy arm `B3_retrieval_compact` (`bench/`) models compact/section-scoped reads: on this
+  self-referential corpus it costs ~34% fewer tokens than `B2` but drops grounding from 100% to
+  83.3% (evidence in an unselected section) — reported honestly, so `--strict-section`/compact is an
+  opt-in trade-off. A whole-task `guided-compact` arm was added (dry). All figures are a `chars/4`
+  proxy; real / paid measurement remains deferred.
+
 ## 1.24.0 — 2026-07-23
 
 Two additive, zero-dependency changes ship together: **English-first documentation language

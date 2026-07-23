@@ -12,6 +12,7 @@ Enrich the freshly initialized LLM-WIKI (created by 'llm-wiki init --write') so 
 Preconditions: this runs after init has generated docs/llm-wiki/index.md, the core/profile documents, and (when detected) docs/llm-wiki/domains/*.md.
 
 Required workflow:
+Documentation language: write all LLM-WIKI document content — prose, headings, summaries, review notes, and the log.md entry — in English. Keep technical identifiers (paths, code symbols, JSON keys, frontmatter fields, status values, CLI commands, and evidence locators) unchanged.
 1. Read the nearest AGENTS.md (or your agent's instruction file) and docs/llm-wiki/index.md first.
 2. Review the init-generated documents and their source_files to see what still needs grounding.
 3. Investigate the actual code, config, routing, public APIs, data models, and key workflows before making any claim.
@@ -45,13 +46,6 @@ Expected final response:
 - validate / audit / stats run and results.
 - Areas with thin or missing evidence, and items a human must review before verified.
 
-Completion contract (Gate 26 — enables 'llm-wiki check-run'):
-After finishing, write a run manifest to .llm-wiki/runs/run-bootstrap-<timestamp>.json recording what this run did, so CI can confirm the wiki stayed in sync with the code. JSON shape:
-{
-  "task": "bootstrap",
-  "changedSource": ["<source files you edited>"],
-  "touchedDocs": ["<docs/llm-wiki/... documents you updated>"],
-  "logAppended": true,
-  "validated": { "ran": true, "result": "pass" }
-}
-Then run 'llm-wiki check-run': it flags any changed source not referenced by a touched wiki doc, a missing log entry, or an unvalidated state. This records what the run did — it never replaces human review, and never promotes a document to verified.
+Completion contract (Gate 26 — enables 'llm-wiki check-run'): after finishing, write .llm-wiki/runs/run-bootstrap-<timestamp>.json with fields: task="bootstrap", changedSource[] (source files you edited), touchedDocs[] (docs/llm-wiki/* you updated), logAppended (bool), validated {ran, result}. Then run 'llm-wiki check-run' to confirm each changed source is referenced by a touched doc, the log was appended, and validate passed. This records what the run did — it never replaces human review and never promotes a document to verified.
+
+<!-- llm-wiki-generated v2 305af44b1fb257ac -->

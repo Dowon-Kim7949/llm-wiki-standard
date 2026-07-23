@@ -178,6 +178,39 @@ append-only `log.md`는 검색은 되지만 get-doc하지 않는다(체인지로
   계속 금지(프록시이지 실측 아님).
 - 이 문서는 에이전트(Claude Code)가 작성했으므로 `needs_review`다 — 사람 검토 후 `verified`.
 
+## 토큰-효율 벤치 확장 (설계, executed:false)
+
+목표는 스킬 문장 축소가 아니라 **올바른·검증된 코드 변경까지의 총토큰**을 줄이는 것이다. 이를
+측정하려면 두 벤치를 **분리 유지**하고(어휘 혼용 금지), 각각에 arm을 **추가**한다. 아래는 설계이며
+이번 패스에서는 **실측하지 않았다(`executed:false`)** — chars/4는 프록시라 진단용이고, 실제 다중
+프로젝트·다중 모델 실측 전에는 README 헤드라인 수치로 쓰지 않는다.
+
+- **retrieval 벤치(proxy `bench/run.js`, chars/4) — B3 arm 구축 완료(비유료)**: 기존 A0/A1/A2/B/B2에
+  `B3_retrieval_compact`를 추가했다(`bench/lib/strategies.js#symbol:strategyWikiRetrievalCompact`).
+  §Token-Efficiency의 compact/section-scoped 읽기를 모델링한다: `search-docs` 후 상위-K 문서의
+  **관련 섹션만**(get-doc `--section`/`--strict-section` 의미; 매칭 실패 시 전체 본문 미덤프) 읽고
+  제목 가중 랭킹을 반영한다(B2가 shipped retrieval을 미러하듯 B3도 미러). B3 vs B2(동일 코퍼스)가
+  **section-scoping 메커니즘**을 격리한다. **정직한 결과(chars/4 PROXY, 진단용)**: 이 dogfood 코퍼스
+  6-task에서 B3는 B2 대비 **0.65× (−34.5%)** 토큰이지만 grounding이 **100%→83.3%로 하락**했다(1개
+  태스크에서 evidence가 미선택 섹션에 있었음). verdict는 이를 숨기지 않고 보고하며 "grounding이
+  토큰보다 중요하면 B2 또는 `--section`(비-strict)을 쓰라"고 안내한다 — 즉 compact/strict는 **opt-in
+  트레이드오프**다. `bench/results/current.md`에 반영. **README 헤드라인 금지(chars/4 프록시).**
+  - `B2_empty_wiki` 통제 arm과 **real 하네스 B3**(유료 SDK 드라이버가 get_doc의 섹션 옵션을 지원해야 함)는
+    **유료 후속으로 보류**(`bench/REAL_LLM_METHODOLOGY.md` §6 위협 #3).
+- **전체-작업 벤치(`bench/whole-task/`, dry 스캐폴드) — `guided-compact` arm 추가(dry, 비유료)**: 기존
+  `source-only`/`wiki-retrieval`/`guided`에 `guided-compact`(`prepare --compact` + `get-doc
+  --strict-section` 경유 compact/adaptive 경로)를 추가했다. 러너는 드라이버 없으면 계속 **수치를
+  조작하지 않고 exit**하고 `--dry`로 4-arm 계획만 출력한다. 폐기 가능한 복사본/worktree에서 실제
+  기능 추가·버그 수정·문서 동기화를 수행하도록 설계하되 **실행은 유료 후속**이다. 평가 항목:
+  요구사항 충족·테스트 통과·회귀·환각·위키 갱신·log append·needs_review 유지·run manifest/check-run·
+  첫 시도 성공률·재시도 수·누적 입력/출력/캐시 토큰·시간·도구 호출·읽은 소스/문서 크기·중복 문맥.
+  평균만이 아니라 태스크별·중앙값·범위(p90)를 보고한다.
+- **누출 방지·공정성(유지)**: 프롬프트에 정답 파일명·내부 심볼을 넣지 않는다(`buildPrompt`가 유일
+  프롬프트 소스; groundTruth/rubric는 채점 전용). 동일 모델·설정·깨끗한 세션·동일 태스크.
+- **장기 공개 주장 조건**: frontend/backend/library ≥3종 · Claude·GPT ≥2 에이전트 · arm·task당
+  N≥5 · 정확도/테스트 하락 0 · 보안 오답 0 · 불리 결과도 공개 · 유지·작성 비용 별도 공개.
+- retrieval 결과와 전체-작업 결과는 **별도 파일·별도 표**로 보고하며 하나의 수치로 합치지 않는다.
+
 ## Evidence
 
 - `bench/run.js` — harness 오케스트레이터(5개 arm 실행·세션 집계·정직 verdict; current.* 기록, baseline.*는 frozen).
@@ -191,4 +224,10 @@ append-only `log.md`는 검색은 되지만 get-doc하지 않는다(체인지로
 
 - 2026-07-22에 Gate 22 베이스라인 + Gate 24 재측정(정직/불리) + B2 retrieval 델타를 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-22)를 거쳐 `verified`로 승인했다(최초 verified 승격). **핵심 불변 조건**: 이 문서의 모든 수치(특히 B2 −81.5%/−80.5%)는 `chars/4` **프록시**이지 실제 LLM 실행 결과가 아니다. 따라서 README·런치 카피에 토큰/속도/생산성 수치를 싣는 것은 **여전히 금지**이며, 실측(`bench/real/` 실행)이 뒷받침될 때까지 이 규율을 유지한다. 실측 방법은 `bench/REAL_LLM_METHODOLOGY.md` 참조.
 - 2026-07-22에 **실제 LLM N=3 실측**(외부 프로젝트 `csap-roadkeeper-frontend`@`aws-global`, Opus 4.8)을 반영했다: "실측 · Real-LLM measurement" 섹션 추가(최신 위키에서 B2 −10% 토큰·−5% wall·정확도 18/18 동률·소스 fallback 0; stale 위키는 보안 오답 → 신선도-종속 정확도가 핵심)와 규율 갱신(스코프 명시 정직 수치 허용, 볼드 헤드라인·`chars/4` 프록시 수치는 계속 금지). 원자료: `bench/results/real-driver-csap-aws-global-pilot-2026-07-22.md`. 에이전트(Claude Code) 편집이라 `needs_review`로 강등 — 사람 검토 후 재승인 예정.
+- 2026-07-23에 토큰-효율 벤치 확장의 **비유료 부분을 구축**했다(유료는 보류): proxy 하네스에
+  `B3_retrieval_compact` arm(`strategyWikiRetrievalCompact`)을 추가·실행(chars/4)해 B3 vs B2
+  **−34.5% 토큰 / grounding 100%→83.3%**의 정직한 트레이드오프를 `current.*`에 기록했고, whole-task
+  러너에 `guided-compact` arm(dry)을 추가했다. real 하네스 B3·`B2_empty_wiki` 통제·실제 유료 실행은
+  **보류**(사람 예산 결정). 모든 수치는 chars/4 PROXY(진단용)이라 README 헤드라인 금지 규율을 유지한다.
+  fabricated 수치 없음. 에이전트(Claude Code) 편집이라 `needs_review` 유지.
 - 2026-07-22에 실측 후속 엄밀성 하네스를 **scaffolded**(미실행)했다: SDK 경로 드라이버 `bench/real/agent.js`(Anthropic SDK tool_runner; read/grep + 읽기 전용 `llm-wiki` retrieval 툴; env로 target-agnostic; 읽기 전용)가 서브에이전트 경로에 없던 **input/output 토큰 분리**를 제공한다. `bench/tasks-csap.json`(6 태스크 재현), `bench/real/package.json`(SDK를 bench-local dep로 격리 → 배포 패키지 zero-dep 불변), `runner.js`의 `BENCH_TASKS` 오버라이드, `DRIVER_RUNBOOK.md` § SDK path 실행법을 함께 추가했다. `--dry`로 배선 검증(모델 호출·비용 0). **유료 실행과 교차 에이전트(GPT) 드라이버는 보류**(유저 지시). 커밋되는 재현 산출물은 tasks-csap.json·package.json·runner.js·runbook이며 `agent.js`는 설계상 git-ignore(SDK dep 격리)다. 에이전트 편집이라 `needs_review` 유지.

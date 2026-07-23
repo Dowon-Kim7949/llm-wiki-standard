@@ -4,11 +4,11 @@
 > The frozen Gate 22 **before-retrieval** reference is [`baseline.md`](baseline.md); this file is the current run and adds the **B2 retrieval** arm (Gate 24).
 > See [`../METHODOLOGY.md`](../METHODOLOGY.md) for what is measured and the honesty caveats.
 
-- generated: `2026-07-21T07:12:11.968Z`
+- generated: `2026-07-23T09:35:55.316Z`
 - token estimator: chars/4 (see bench/lib/tokens.js)
-- source scanned: 30 files, 91,555 tokens
-- wiki orientation read (once/session): 6 docs, 14,441 tokens
-- full wiki corpus (author + maintain): 50 docs, 77,175 tokens
+- source scanned: 34 files, 127,681 tokens
+- wiki orientation read (once/session): 6 docs, 23,484 tokens
+- full wiki corpus (author + maintain): 50 docs, 98,936 tokens
 
 ## Strategies
 
@@ -17,6 +17,7 @@
 - **A2 grep-snippet** — code-only, conservative: same grep hits, but count only +/-40 lines around each match (a disciplined agent reading match context). This is the LEAST wiki-favorable code-only baseline.
 - **B wiki-grounded** — read the wiki orientation docs, then follow the evidence pointers they surface for the query, reading the pointed-to **source** in full. This is the **pre-retrieval** wiki model.
 - **B2 wiki-retrieval** *(Gate 24)* — query the wiki: run the shipped `search-docs` (zero-dep keyword/AND-semantics, same scoring as `src/commands/retrieval.js`), then `get-doc` the top-2 matched **doc bodies** — no source re-read. The append-only `log.md` is searched but never get-doc'd (a changelog, not a subsystem explanation). **B2-vs-B runs on the same corpus, so it isolates the retrieval mechanism from corpus drift.**
+- **B3 wiki-retrieval-compact** *(proposed)* — same search + same top-K matched docs as B2, but reads only each doc's top matching **sections** (heading-weighted, no full-body fallback) — models the shipped `get-doc --section`/`--strict-section` and `prepare --compact`. **B3-vs-B2 (same corpus) isolates the section-scoping mechanism**; grounding is measured on the selected sections so a token win that drops grounding is visible.
 
 ## Per-task input tokens
 
@@ -24,12 +25,12 @@ B reads full pointed-to source; B2 reads matched wiki doc bodies. `B2 vs B` is t
 
 | task | A1 grep-full (files) | A2 grep-snip (files) | B wiki (files) | B2 retr (docs) | B found | B2 found | B2 vs B | B2 vs A2 |
 | --- | ---: | ---: | ---: | ---: | :---: | :---: | ---: | ---: |
-| `type-detection-mobile` | 69,812 (15) | 43,306 (15) | 43,524 (6) | 11,209 (2) | yes | yes | 0.26x (-74.2%) | 0.26x (-74.1%) |
-| `audit-pipeline` | 83,094 (21) | 66,299 (21) | 77,300 (11) | 10,264 (2) | yes | yes | 0.13x (-86.7%) | 0.15x (-84.5%) |
-| `config-merge` | 83,415 (21) | 55,959 (21) | 78,210 (13) | 11,093 (2) | yes | yes | 0.14x (-85.8%) | 0.20x (-80.2%) |
-| `rule-toggle` | 75,876 (17) | 51,876 (17) | 69,551 (10) | 5,735 (2) | yes | yes | 0.08x (-91.8%) | 0.11x (-88.9%) |
-| `skill-generation` | 53,277 (11) | 33,588 (11) | 49,962 (5) | 5,981 (2) | yes | yes | 0.12x (-88.0%) | 0.18x (-82.2%) |
-| `mcp-tools` | 59,664 (11) | 29,036 (11) | 48,441 (8) | 10,304 (2) | yes | yes | 0.21x (-78.7%) | 0.35x (-64.5%) |
+| `type-detection-mobile` | 95,874 (17) | 58,051 (17) | 66,536 (8) | 20,279 (2) | yes | yes | 0.30x (-69.5%) | 0.35x (-65.1%) |
+| `audit-pipeline` | 116,462 (24) | 88,931 (24) | 120,753 (16) | 20,279 (2) | yes | yes | 0.17x (-83.2%) | 0.23x (-77.2%) |
+| `config-merge` | 115,515 (24) | 79,444 (24) | 121,121 (19) | 16,143 (2) | yes | yes | 0.13x (-86.7%) | 0.20x (-79.7%) |
+| `rule-toggle` | 104,934 (19) | 69,827 (19) | 101,951 (12) | 9,800 (2) | yes | yes | 0.10x (-90.4%) | 0.14x (-86.0%) |
+| `skill-generation` | 81,280 (14) | 48,788 (14) | 76,336 (7) | 20,399 (2) | yes | yes | 0.27x (-73.3%) | 0.42x (-58.2%) |
+| `mcp-tools` | 88,875 (15) | 35,585 (15) | 101,770 (13) | 16,143 (2) | yes | yes | 0.16x (-84.1%) | 0.45x (-54.6%) |
 
 ## Session view (6 tasks)
 
@@ -37,30 +38,36 @@ A0/A1/A2 re-read source per task; B pays the orientation read once, then targete
 
 | metric | value |
 | --- | ---: |
-| A0 whole-repo total | 549,330 |
-| A1 grep-full total | 425,138 |
-| A2 grep-snippet total (conservative floor) | 280,064 |
-| B wiki-grounded total (pre-retrieval) | 294,783 |
-| — orientation (once) | 14,441 |
-| — targeted reads | 280,342 |
-| **B2 wiki-retrieval total (Gate 24)** | **54,586** |
-| B2 amortized / task | 9,098 |
+| A0 whole-repo total | 766,086 |
+| A1 grep-full total | 602,940 |
+| A2 grep-snippet total (conservative floor) | 380,626 |
+| B wiki-grounded total (pre-retrieval) | 471,047 |
+| — orientation (once) | 23,484 |
+| — targeted reads | 447,563 |
+| **B2 wiki-retrieval total (Gate 24)** | **103,043** |
+| B2 amortized / task | 17,174 |
+| B3 wiki-retrieval-compact total (proposed) | 67,878 |
 | B locating success | 100.0% |
 | B2 grounding success | 100.0% |
-| B vs A2 (session, pre-retrieval) | 1.05x (+5.3%) |
-| **B2 vs B (session — RETRIEVAL delta, drift cancelled)** | **0.19x (-81.5%)** |
-| **B2 vs A2 (session — vs conservative floor)** | **0.19x (-80.5%)** |
-| B2 vs A1 (session) | 0.13x (-87.2%) |
-| B2 vs A0 (session) | 0.10x (-90.1%) |
+| B3 grounding success | 83.3% |
+| B vs A2 (session, pre-retrieval) | 1.24x (+23.8%) |
+| **B2 vs B (session — RETRIEVAL delta, drift cancelled)** | **0.22x (-78.1%)** |
+| **B2 vs A2 (session — vs conservative floor)** | **0.27x (-72.9%)** |
+| B2 vs A1 (session) | 0.17x (-82.9%) |
+| B2 vs A0 (session) | 0.13x (-86.5%) |
+| **B3 vs B2 (session — COMPACT delta, section-scoped)** | **0.66x (-34.1%)** |
+| B3 vs A2 (session) | 0.18x (-82.2%) |
 
-> Wiki authoring/maintenance cost (disclosed, not charged per-task): the full wiki corpus is 50 docs / 77,175 tokens.
+> Wiki authoring/maintenance cost (disclosed, not charged per-task): the full wiki corpus is 50 docs / 98,936 tokens.
 
 ## Honest verdict (auto-computed)
 
-- Vs A1 (grep, read whole matching files): across a 6-task session the governed wiki costs FEWER input tokens (0.69x (-30.7%) of A1).
-- Vs A2 (grep snippet-only, the conservative floor): the wiki costs MORE than a disciplined snippet-reading grep (1.05x (+5.3%) of A2) — an HONEST limit: the token win holds only against whole-file reading, not against careful snippet reading.
+- Vs A1 (grep, read whole matching files): across a 6-task session the governed wiki costs FEWER input tokens (0.78x (-21.9%) of A1).
+- Vs A2 (grep snippet-only, the conservative floor): the wiki costs MORE than a disciplined snippet-reading grep (1.24x (+23.8%) of A2) — an HONEST limit: the token win holds only against whole-file reading, not against careful snippet reading.
 - Locating success: wiki 100.0% vs grep 100.0% — on this repo grep also found the target code, so the wiki's demonstrated advantage here is CONTEXT SIZE, not locating. (A cold grep with no symbol names could miss; not shown by these tasks.)
-- RETRIEVAL delta (B2 vs B, same corpus — drift cancelled): querying the wiki (search + reading matched doc bodies) costs 0.19x (-81.5%) of re-reading the full source the wiki points to. This is the retrieval mechanism's own effect, isolated from corpus growth.
-- Vs the conservative floor (B2 vs A2): retrieval costs 0.19x (-80.5%) of a disciplined snippet-grep — the wiki win now survives against snippet-only code reading, which the pre-retrieval arm (B) did not.
+- RETRIEVAL delta (B2 vs B, same corpus — drift cancelled): querying the wiki (search + reading matched doc bodies) costs 0.22x (-78.1%) of re-reading the full source the wiki points to. This is the retrieval mechanism's own effect, isolated from corpus growth.
+- Vs the conservative floor (B2 vs A2): retrieval costs 0.27x (-72.9%) of a disciplined snippet-grep — the wiki win now survives against snippet-only code reading, which the pre-retrieval arm (B) did not.
 - B2 grounding success: 100.0% — for every task the top matched wiki doc bodies referenced all ground-truth source files, so retrieval pointed the agent at the right code without opening it.
+- COMPACT delta (B3 vs B2, same corpus): reading only the top matching SECTIONS of each matched doc costs 0.66x (-34.1%) of reading the full doc bodies. This models get-doc --section/--strict-section and prepare --compact.
+- B3 grounding success: 83.3% DROPPED vs B2 100.0% — section-scoping saved tokens but lost some ground-truth refs (evidence lived in an unselected section). HONEST trade-off: prefer B2 (or --section without --strict) when grounding matters more than tokens.
 - Caveat: token counts are a chars/4 proxy; wall-clock + answer-quality need the deferred LLM run. Wiki authoring/maintenance is a real cost not charged per-task (disclosed as the corpus figure). B2 models the shipped search-docs + get-doc (excludes the append-only log from get-doc reads; top-K disclosed); it measures the retrieval/orientation context cost, not the final-edit read. No token/speed claim ships in the README until a measured result supports it (METHODOLOGY §10).

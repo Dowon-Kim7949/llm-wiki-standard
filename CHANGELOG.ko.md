@@ -5,6 +5,53 @@
 `llm-wiki-governance`(옛 `@dowonk-7949/llm-wiki-standard`)의 주요 변경 사항을 기록합니다. 이
 프로젝트는 [유의적 버전(Semantic Versioning)](https://semver.org/)을 따르며, 항목은 최신순입니다.
 
+## 1.25.0 — 2026-07-23
+
+**토큰 효율: 가장 싼 안전한 경로 선택.** 정확도·문서 최신성·사람 검토를 희생하지 않으면서 올바른·검증된
+변경까지의 토큰을 줄이는 부가적·opt-in·zero-dependency 변경. 기본 출력은 불변이고 `1.0.0` 명령·
+`--format json`·frontmatter 계약이 보존된다. `--doc-lang` help 노출 갭도 함께 수정했다. 진단용 토큰
+수치는 `chars/4` **프록시**일 뿐 실측 성능 주장이 아니다.
+
+### Added
+
+- **`get-doc` 토큰 제어(opt-in):** `--strict-section`은 매칭 없을 때 전체 본문으로 되돌아가지 않고 보류,
+  `--max-chars <n>`은 반환 본문을 정확히 캡(redaction 후 클램프), `--compact`는 frontmatter echo 생략.
+  이들 사용 시 문서에 진단 `estimatedTokens`(`chars/4` 프록시)가 붙는다. MCP `get_doc` 툴에도 배선.
+- **`prepare --compact`:** 한 번의 호출로 최소 문맥 번들 — 선택 경로(`source_direct`/`wiki_first`/
+  `hybrid`)+이유, 최대 3개 후보 문서(status 기반 freshness), 최상위 문서의 관련 섹션 1개(전체 본문
+  미덤프), 후보 소스, 확장용 next-lookup. MCP에도 노출.
+- **결정적 작업 경로 선택기**(내부, `prepare --compact`가 재사용): 작업 텍스트·후보 수·문서 status만
+  사용(정답 파일명·심볼 미사용). 위험 작업(auth/permission/payment/crypto/privacy/data-deletion/
+  migration/public-API)·stale/`needs_review` 후보·코드 변경은 실제 소스를 읽게 강제하며 절대
+  `source_direct`가 아니다.
+- **섹션 제목 가중 검색 랭킹**과 정확한 문자 클램프(`clampText`, redaction 후 클램프라 잘린 꼬리로도 비밀 미노출).
+- **안전한 스킬 `--refresh`**(`init`/`quickstart`): 사용자가 수정하지 않은 패키지 생성 스킬만 갱신(각
+  아티팩트에 내장된 content-hash 마커로 검증). 사용자 수정·커스텀 스킬은 절대 덮어쓰지 않고(conflict로
+  보고), dry-run이 create/refresh/conflict/up-to-date를 구분.
+
+### Changed
+
+- **더 간결한 `feature`/`fix`/`docs-sync` 스킬:** 생성 시점 도메인맵 스냅샷을 박아넣는 대신 실행 시점에
+  (`prepare --compact`/`onboard`로) 위키 맵을 조립한다 — 고정 프롬프트가 도메인 수에 비례해 커지지 않고
+  stale되지 않는다. run manifest 계약은 전체 JSON echo 대신 필드 목록으로 축약. 안전 규칙은 모두 유지
+  (`needs_review`, self-`verified` 금지, log append, 테스트, `check-run`). `bootstrap` 스킬은 최초 보강용
+  이라 더 풍부한 안내와 도메인맵 스냅샷을 유지.
+- **MCP:** `content` vs `structuredContent` 본문 중복을 조사(`get_doc`이 본문을 양쪽에 미러). 기본은
+  불변이고 opt-in `compact` 경로에서만 본문을 `structuredContent`에 두고 text엔 포인터를 둬 중복을 피한다.
+- **`--help`:** `init`/`quickstart`/`handoff`/`prompt` usage가 이제 `--doc-lang en|ko`를 노출한다(이전엔
+  README와 실행 출력에서만 발견 가능).
+
+### Fixed
+
+- `--strict-section` 사용 시 실패한 `get-doc --section`이 더 이상 조용히 전체 문서 읽기로 부풀지 않는다.
+
+### Benchmark (프록시 전용 — 배포 주장 아님)
+
+- 신규 proxy arm `B3_retrieval_compact`(`bench/`)가 compact/section-scoped 읽기를 모델링: 이 자기참조
+  코퍼스에서 B2 대비 약 34% 적은 토큰이지만 grounding이 100%→83.3%로 하락(evidence가 미선택 섹션) —
+  정직하게 보고하므로 `--strict-section`/compact는 opt-in 트레이드오프. whole-task `guided-compact`
+  arm(dry) 추가. 모든 수치는 `chars/4` 프록시이며 실측·유료 측정은 보류.
+
 ## 1.24.0 — 2026-07-23
 
 두 가지 부가적·zero-dependency 변경을 함께 배포한다: **영어 우선 문서 언어 선택**(긴급 국제화 수정)과

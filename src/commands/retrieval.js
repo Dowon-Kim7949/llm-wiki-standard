@@ -166,16 +166,41 @@ export async function searchDocsCommand(options) {
   ]);
 }
 
+// Diagnostic-only token estimate (chars/4). This is a PROXY, never a real token
+// count — surface it as `estimatedTokens` so nobody mistakes it for a measured
+// figure. Use clampText/maxChars for any limit that must be exact.
+export function estimateTokens(text) {
+  return Math.ceil((text ? String(text).length : 0) / 4);
+}
+
+// Exact character clamp. Returns { text, chars, truncated }; text.length is
+// guaranteed <= maxChars. Clamp AFTER redaction so a truncated tail can never
+// expose a secret. A non-positive/absent maxChars is a no-op.
+export function clampText(text, maxChars) {
+  const value = text ?? "";
+  if (!Number.isInteger(maxChars) || maxChars <= 0 || value.length <= maxChars) {
+    return { text: value, chars: value.length, truncated: false };
+  }
+  const cut = value.slice(0, maxChars);
+  return { text: cut, chars: cut.length, truncated: true };
+}
+
 // Focused read: split a markdown body into a preamble (before the first "## "
 // heading) and level-2 sections, then return the preamble plus the top-`limit`
-// sections that match the query terms (by term-occurrence score), in document
-// order. Falls back to the FULL body when there is no query, no "## " section,
-// or no section matches — so a caller always gets a usable answer. This lets a
-// retrieval agent read only the relevant part of a large doc instead of the
-// whole body. Zero-dep, deterministic.
-export function selectSections(body, query, limit = DEFAULT_SECTION_LIMIT) {
+// sections that match the query terms, in document order. A term hit in a section
+// HEADING outweighs body hits (a heading match is a stronger relevance signal).
+//
+// Non-strict (default, backward-compatible): falls back to the FULL body when there
+// is no query, no "## " section, or no section matches — so a caller always gets a
+// usable answer. Strict ({ strict: true }): when sections exist but none match (or
+// there are no sections to match against a real query), returns an EMPTY body with
+// noSectionMatch:true instead of the full body — this is the token guard that stops
+// a failed --section from silently ballooning into a whole-document read. Zero-dep,
+// deterministic. Return shape (superset): { body, sectioned, returned, total,
+// noSectionMatch }.
+export function selectSections(body, query, limit = DEFAULT_SECTION_LIMIT, { strict = false } = {}) {
   const terms = (typeof query === "string" ? query : "").toLowerCase().split(/\s+/).filter(Boolean);
-  if (terms.length === 0) return { body, sectioned: false, returned: 0, total: 0 };
+  if (terms.length === 0) return { body, sectioned: false, returned: 0, total: 0, noSectionMatch: false };
   const lines = body.split("\n");
   const preamble = [];
   const sections = [];
@@ -191,15 +216,26 @@ export function selectSections(body, query, limit = DEFAULT_SECTION_LIMIT) {
     }
   }
   if (current) sections.push(current);
-  if (sections.length === 0) return { body, sectioned: false, returned: 0, total: 0 };
+  if (sections.length === 0) {
+    // Strict has no section to focus on and must not return the whole body.
+    if (strict) return { body: "", sectioned: false, returned: 0, total: 0, noSectionMatch: true };
+    return { body, sectioned: false, returned: 0, total: 0, noSectionMatch: false };
+  }
   const scored = sections.map((sec, idx) => {
+    const headingHay = sec[0].toLowerCase();
     const hay = sec.join("\n").toLowerCase();
     let score = 0;
-    for (const term of terms) score += occurrences(hay, term);
+    for (const term of terms) {
+      if (headingHay.includes(term)) score += 5; // heading match ranks above body-only match
+      score += occurrences(hay, term);
+    }
     return { idx, text: sec.join("\n"), score };
   });
   const matching = scored.filter((sec) => sec.score > 0);
-  if (matching.length === 0) return { body, sectioned: false, returned: 0, total: sections.length };
+  if (matching.length === 0) {
+    if (strict) return { body: "", sectioned: false, returned: 0, total: sections.length, noSectionMatch: true };
+    return { body, sectioned: false, returned: 0, total: sections.length, noSectionMatch: false };
+  }
   const top = matching
     .slice()
     .sort((left, right) => right.score - left.score || left.idx - right.idx)
@@ -208,7 +244,7 @@ export function selectSections(body, query, limit = DEFAULT_SECTION_LIMIT) {
   const assembled = [preamble.join("\n").trim(), ...top.map((sec) => sec.text)]
     .filter(Boolean)
     .join("\n\n");
-  return { body: assembled, sectioned: true, returned: top.length, total: sections.length };
+  return { body: assembled, sectioned: true, returned: top.length, total: sections.length, noSectionMatch: false };
 }
 
 export async function getDocCommand(options) {
@@ -217,15 +253,41 @@ export async function getDocCommand(options) {
   if (!doc) return notFound("get-doc", "LLM-WIKI Document", options.docPath);
 
   const query = typeof options.section === "string" ? options.section.trim() : "";
+  // Additive, opt-in token controls (defaults keep the pre-existing output identical):
+  //   strictSection — a failed --section returns no_section_match instead of the full body.
+  //   maxChars      — exact character cap on the returned body (clamped after redaction).
+  //   compact       — omit the full frontmatter echo (metadata + body only).
+  const strict = Boolean(options.strictSection) && query.length > 0;
+  const maxChars = Number.isInteger(options.maxChars) && options.maxChars > 0 ? options.maxChars : null;
+  const compact = Boolean(options.compact);
+  const usedNewOption = strict || compact || maxChars !== null;
+
   const selection = query
-    ? selectSections(doc.body, query, DEFAULT_SECTION_LIMIT)
-    : { body: doc.body, sectioned: false, returned: 0, total: 0 };
-  const bodyRedacted = redactSensitive(selection.body);
-  const redacted = bodyRedacted !== selection.body;
+    ? selectSections(doc.body, query, DEFAULT_SECTION_LIMIT, { strict })
+    : { body: doc.body, sectioned: false, returned: 0, total: 0, noSectionMatch: false };
+
+  const noSectionMatch = strict && selection.noSectionMatch;
+  const selectedBody = selection.body;
+  const redactedBody = redactSensitive(selectedBody);
+  const redacted = redactedBody !== selectedBody;
+  const clamped = clampText(redactedBody, maxChars);
+  const bodyOut = clamped.text;
+
   const meta = docSummary(doc);
-  const document = { ...meta, frontmatter: doc.frontmatter, body: bodyRedacted, redacted };
+  const document = compact
+    ? { ...meta, body: bodyOut, redacted }
+    : { ...meta, frontmatter: doc.frontmatter, body: bodyOut, redacted };
   // Additive: only present when --section actually filtered (default output unchanged).
   if (selection.sectioned) document.section = { query, returned: selection.returned, total: selection.total };
+  else if (noSectionMatch) document.section = { query, returned: 0, total: selection.total, noSectionMatch: true };
+  // Diagnostic size fields only appear when a new option was used, so the default
+  // get-doc output stays byte-identical for existing consumers.
+  if (usedNewOption) {
+    document.chars = clamped.chars;
+    document.estimatedTokens = estimateTokens(bodyOut);
+    if (clamped.truncated) document.truncated = true;
+  }
+
   const summary = [
     `path: ${doc.path}`,
     `title: ${meta.title ?? "(no title)"}`,
@@ -235,7 +297,20 @@ export async function getDocCommand(options) {
   ];
   if (selection.sectioned) {
     summary.push(`section: ${selection.returned}/${selection.total} sections matching "${query}" (omit --section for the full body)`);
+  } else if (noSectionMatch) {
+    summary.push(`section: no match for "${query}" — full body withheld (--strict-section). Retry with different terms or omit --strict-section.`);
   }
+  if (usedNewOption) summary.push(`chars: ${clamped.chars}${clamped.truncated ? ` (truncated to --max-chars ${maxChars})` : ""}; estimatedTokens~${document.estimatedTokens} (chars/4 proxy)`);
+
+  // Compact keeps the body ONLY in the structured payload (document.body) and
+  // shows a pointer in the human-readable report — so an MCP client that feeds
+  // both content.text and structuredContent to the model does not receive the
+  // body twice. Default (non-compact) output is unchanged: the body stays inline.
+  const bodyTextSection = compact
+    ? (bodyOut
+      ? `(compact: body in structuredContent/JSON — ${clamped.chars} chars${clamped.truncated ? ", truncated" : ""}; omitted from this text to avoid duplication)`
+      : (noSectionMatch ? "(no matching section; full body withheld — --strict-section)" : "(empty)"))
+    : (bodyOut || (noSectionMatch ? "(no matching section; full body withheld — --strict-section)" : "(empty)"));
   return withText({
     command: "get-doc",
     result: "pass",
@@ -243,7 +318,7 @@ export async function getDocCommand(options) {
     findings: []
   }, "LLM-WIKI Document", [
     { title: "Summary", body: summary },
-    { title: "Body", body: bodyRedacted || "(empty)" },
+    { title: "Body", body: bodyTextSection },
     { title: "Caveats", body: ["Read-only. Sensitive-looking lines are redacted; frontmatter visibility/contains_sensitive_info are preserved so a caller can see the doc's own declaration."] }
   ]);
 }
