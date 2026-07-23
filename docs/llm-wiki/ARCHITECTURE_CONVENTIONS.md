@@ -3,7 +3,7 @@ title: Architecture Conventions
 tags:
   - llm-wiki
   - verified
-status: needs_review
+status: verified
 doc_type: architecture_conventions
 project: llm-wiki-governance
 last_updated: 2026-07-23
@@ -180,3 +180,4 @@ contains_sensitive_info: false
 - 2026-07-23에 위 bootstrap/Codex 반영분을 release-prep 1.23.0의 일부로 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-23)를 거쳐 `verified`로 재승인했다. 1.23.0 `package.json` 범프로 생긴 evidence.stale 드리프트도 reviewed_at 갱신으로 함께 해소했다(284 tests·validate --strict 0).
 - 2026-07-23에 Guided Onboarding and Task Preparation(1.24 대상; 읽기 전용 `onboard`/`prepare` 명령·스킬, 검색 랭킹 `rankDocsByQuery` 재사용)을 반영했다. 에이전트(Claude Code) 편집이라 `verified`→`needs_review`로 강등한다 — 사람 검토 전까지 미확정이며 허위 검토 메타를 넣지 않는다. 이번 소스 변경(`src/commands/guided.js` 신규 등)으로 소스를 참조하는 다른 verified 문서도 재검토가 필요하다(그 문서들은 `drift --downgrade`로 정직하게 needs_review 처리).
 - 2026-07-23에 생성 문서 언어 선택(긴급 i18n, 1.24.0)을 반영했다: 신규 leaf 모듈 `src/commands/doc-content.js`(생성 문서 본문의 단일 언어 선택 계층)를 Module Layout에 추가하고, `doc-templates.js#docMetadata`가 `docLang`을 받아 본문을 위임하도록 기술했다. `task-prompts.js`의 `documentLanguageDirective`가 handoff/bootstrap/feature/fix/docs-sync/okf-extract에 문서 작성 언어를 주입하고, `config-file.js`가 `lang`/`docLanguage`를 로드·병합한다(CLI 우선). 헤딩·제목·코드·경로·식별자는 미번역(섹션 정렬·enrichment 체크리스트·title 링크 해석 보호), 기본 `en`은 이미 영어였던 문서에 byte-identical. 에이전트(Claude Code) 편집이라 `needs_review` 유지 — 사람 검토 후 재승인 예정. 307 tests·validate --strict 0.
+- 2026-07-23에 위 1.24.0(doc-language i18n + guided onboarding) 반영분을 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-23)를 거쳐 `verified`로 재승인했다. Module Layout의 `doc-content.js`·`docMetadata` `docLang` 위임·`documentLanguageDirective` 서술이 현재 소스(HEAD c7a1a7a)와 일치함을 확인했다.
