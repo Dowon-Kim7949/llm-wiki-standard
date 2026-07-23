@@ -24,6 +24,16 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-23 - 옛 PPTX(outputs/llm-wiki-team-introduction-v1.5.1.pptx) 삭제
+
+- status: needs_review
+- actor: Claude Code (유저 지시)
+- scope: outputs
+- changed:
+  - outputs/llm-wiki-team-introduction-v1.5.1.pptx 삭제
+- summary:
+  - v1.5.1 시절 팀 소개 PPTX. 현재는 유지관리되는 HTML 덱(`outputs/team-briefing/`, v1.23.0)으로 대체된 구자료라 제거. git 이력에 남아 복구 가능. `outputs/`엔 이제 `audits/`·`team-briefing/`만 남는다.
+
 ## 2026-07-23 - 배포 킷(outputs/distribution/) 삭제
 
 - status: needs_review
