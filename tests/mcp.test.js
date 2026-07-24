@@ -204,6 +204,26 @@ test("tools/call get_doc returns document content (read-only retrieval over MCP)
   assert.ok(res.result.structuredContent.document.body.length > 0);
 });
 
+test("tools/call review exposes only the read-only list surface (no approve over MCP)", async () => {
+  const review = TOOL_DEFS.find((t) => t.name === "review");
+  assert.ok(review, "review tool is registered");
+  // The MCP schema advertises ONLY cwd + includeSensitive — never approve/approve-all/reviewer.
+  assert.deepEqual(Object.keys(review.inputSchema.properties).sort(), ["cwd", "includeSensitive"]);
+  // buildToolOptions never copies approve fields, so the tool can only ever run list mode.
+  const opts = buildToolOptions(review, { cwd: repoRoot, includeSensitive: true, approve: ["x"], approveAll: true, reviewer: "X" });
+  assert.equal(opts.approve, undefined);
+  assert.equal(opts.approveAll, undefined);
+  assert.equal(opts.reviewer, undefined);
+
+  const res = await handleMessage(
+    { jsonrpc: "2.0", id: 55, method: "tools/call", params: { name: "review", arguments: { cwd: repoRoot } } },
+    {}
+  );
+  assert.equal(res.result.isError, false);
+  assert.equal(res.result.structuredContent.command, "review");
+  assert.equal(res.result.structuredContent.mode, "list");
+});
+
 test("buildToolOptions maps get_doc token controls and prepare --compact", () => {
   const getDoc = TOOL_DEFS.find((t) => t.name === "get_doc");
   assert.deepEqual(

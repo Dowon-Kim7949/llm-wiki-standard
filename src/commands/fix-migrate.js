@@ -523,6 +523,19 @@ export function replaceFrontmatterScalar(inner, key, value) {
   return inner.replace(pattern, `$1 ${value}`);
 }
 
+// Set a scalar key: replace it in place when present, otherwise append it at the
+// end of the frontmatter block. Unlike replaceFrontmatterScalar (which returns
+// null when the key is absent), this always returns updated inner text. Used by
+// `review --approve` to stamp reviewed_by/reviewed_at, which a needs_review
+// document may not carry yet. YAML key order is not significant, so appending is
+// safe.
+export function upsertFrontmatterScalar(inner, key, value, eol = "\n") {
+  const replaced = replaceFrontmatterScalar(inner, key, value);
+  if (replaced !== null) return replaced;
+  const trimmed = inner.replace(/[\r\n]+$/, "");
+  return `${trimmed}${eol}${key}: ${value}`;
+}
+
 export function reconcileEvidenceSection(body, frontmatterEvidence, eol) {
   const section = extractMarkdownSection(body, "Evidence");
 

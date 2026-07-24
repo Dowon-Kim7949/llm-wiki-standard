@@ -38,6 +38,7 @@ import {
   promptCommand,
   quickstartCommand,
   releaseNotesCommand,
+  reviewCommand,
   searchDocsCommand,
   statsCommand,
   statusCommand,
@@ -74,6 +75,10 @@ import { TOOL_DEFS as MCP_TOOLS } from "./mcp/tools.js";
  * @property {boolean} write         init/quickstart/fix write toggle.
  * @property {boolean} apply         migrate apply toggle.
  * @property {boolean} downgrade     drift downgrade toggle.
+ * @property {string[]} approve      review: needs_review doc paths to promote to verified.
+ * @property {boolean} approveAll    review: promote every approvable needs_review doc (requires `yes`).
+ * @property {boolean} yes           review: explicit confirmation for `--approve-all`.
+ * @property {string|null} reviewer  review: reviewer name for `reviewed_by` (else config / git user.name).
  * @property {boolean} dryRun        Explicit preview toggle.
  * @property {boolean} minimal       Minimal doc set for init/quickstart.
  * @property {boolean} changed       validate --changed scope.
@@ -138,6 +143,7 @@ export const commands = Object.freeze({
   drift: driftCommand,
   impact: impactCommand,
   "check-run": checkRunCommand,
+  review: reviewCommand,
   graph: graphCommand,
   stats: statsCommand,
   "list-docs": listDocsCommand,
@@ -215,6 +221,7 @@ export {
   promptCommand,
   quickstartCommand,
   releaseNotesCommand,
+  reviewCommand,
   searchDocsCommand,
   statsCommand,
   statusCommand,

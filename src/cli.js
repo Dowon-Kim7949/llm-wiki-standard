@@ -1,7 +1,7 @@
 import path from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { audit, checkRunCommand, doctor, driftCommand, explainCommand, fixCommand, getDocCommand, getRelatedCommand, graphCommand, handoffCommand, impactCommand, initCommand, listDocsCommand, migrateCommand, monorepoCommand, nextCommand, onboardCommand, prepareCommand, promptCommand, quickstartCommand, releaseNotesCommand, searchDocsCommand, statsCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "./commands.js";
+import { audit, checkRunCommand, doctor, driftCommand, explainCommand, fixCommand, getDocCommand, getRelatedCommand, graphCommand, handoffCommand, impactCommand, initCommand, listDocsCommand, migrateCommand, monorepoCommand, nextCommand, onboardCommand, prepareCommand, promptCommand, quickstartCommand, releaseNotesCommand, reviewCommand, searchDocsCommand, statsCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "./commands.js";
 import { printResult } from "./report.js";
 import { loadProjectConfig, mergeConfigIntoOptions } from "./config-file.js";
 import { startMcpServer } from "./mcp/server.js";
@@ -25,6 +25,7 @@ const COMMANDS = new Map([
   ["drift", driftCommand],
   ["impact", impactCommand],
   ["check-run", checkRunCommand],
+  ["review", reviewCommand],
   ["graph", graphCommand],
   ["stats", statsCommand],
   ["list-docs", listDocsCommand],
@@ -160,6 +161,10 @@ export function defaultOptions() {
     write: false,
     apply: false,
     downgrade: false,
+    approve: [],
+    approveAll: false,
+    yes: false,
+    reviewer: null,
     strict: false,
     strictSection: false,
     compact: false,
@@ -241,6 +246,20 @@ export function parseArgs(argv) {
       const value = readOptionValue(rest, index, arg, errors);
       if (value) {
         options.run = value;
+        index += 1;
+      }
+    } else if (arg === "--approve") {
+      usedOptions.add("approve");
+      const value = readOptionValue(rest, index, arg, errors);
+      if (value) {
+        for (const doc of value.split(",").map((name) => name.trim()).filter(Boolean)) options.approve.push(doc);
+        index += 1;
+      }
+    } else if (arg === "--reviewer") {
+      usedOptions.add("reviewer");
+      const value = readOptionValue(rest, index, arg, errors);
+      if (value) {
+        options.reviewer = value;
         index += 1;
       }
     } else if (arg === "--status") {
@@ -359,6 +378,12 @@ export function parseArgs(argv) {
     } else if (arg === "--downgrade") {
       usedOptions.add("downgrade");
       options.downgrade = true;
+    } else if (arg === "--approve-all") {
+      usedOptions.add("approve-all");
+      options.approveAll = true;
+    } else if (arg === "--yes") {
+      usedOptions.add("yes");
+      options.yes = true;
     } else if (arg === "--strict") {
       usedOptions.add("strict");
       options.strict = true;
@@ -441,6 +466,7 @@ const COMMAND_OPTION_RULES = {
   drift: new Set(["cwd", "dry-run", "downgrade", "format", "out"]),
   impact: new Set(["cwd", "since", "strict", "format", "out"]),
   "check-run": new Set(["cwd", "run", "strict", "format", "out"]),
+  review: new Set(["cwd", "approve", "approve-all", "yes", "reviewer", "include-sensitive", "format", "out"]),
   graph: new Set(["cwd", "format", "out"]),
   stats: new Set(["cwd", "type", "profile", "agent", "strict", "format", "out"]),
   "list-docs": new Set(["cwd", "status", "visibility", "doc-type", "include-sensitive", "format", "out"]),
@@ -471,7 +497,7 @@ function validateCommandOptions(command, usedOptions, errors) {
     }
   }
 
-  for (const [left, right] of [["dry-run", "write"], ["dry-run", "apply"], ["write", "apply"], ["dry-run", "downgrade"]]) {
+  for (const [left, right] of [["dry-run", "write"], ["dry-run", "apply"], ["write", "apply"], ["dry-run", "downgrade"], ["approve", "approve-all"]]) {
     if (usedOptions.has(left) && usedOptions.has(right)) {
       errors.push(`Options --${left} and --${right} cannot be used together.`);
     }
@@ -587,6 +613,7 @@ Usage:
   llm-wiki drift [--downgrade] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki impact [--since <git-ref>] [--strict] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki check-run [--run <path>] [--strict] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki review [--approve <path>]... [--approve-all --yes] [--reviewer <name>] [--include-sensitive] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
   llm-wiki graph [--format text|json|mermaid|dot] [--cwd <path>] [--out <path>]
   llm-wiki stats [--cwd <path>] [--type <project-type>] [--profile <profile>...] [--strict] [--format text|json|markdown|html] [--out <path>]
   llm-wiki list-docs [--status <s>] [--visibility <v>] [--doc-type <t>] [--include-sensitive] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
@@ -606,6 +633,7 @@ Safety:
   migrate previews by default and writes only with --apply, reusing the fix scope plus wiki_block_version upgrades; it never edits verified documents' content.
   fix previews by default and writes only with --write. It applies a narrow, accepted autofix scope inside docs/llm-wiki and never edits verified documents' content.
   drift reports evidence.stale drift and, only with --downgrade, flips drifted verified documents to needs_review (status + last_updated). It never promotes to verified.
+  review is read-only by default: it risk-ranks the needs_review backlog for human spot-checking. --approve <path> (or --approve-all --yes) stamps ONLY status: verified + reviewed_by + reviewed_at; it refuses docs with blocking/structural findings and never auto-verifies. verified stays a human decision.
   graph is read-only: it emits the wiki knowledge graph (documents + resolved doc-to-doc links) as text, JSON, Mermaid, or Graphviz DOT.
   stats is read-only: it reports a wiki health snapshot (verified %, enrichment %, evidence coverage, staleness, orphans).
   list-docs/search-docs/get-doc/get-related are read-only retrieval: they return document content (not governance reports). search-docs is keyword/substring only (not semantic). Restricted/sensitive docs are excluded from list/search unless --include-sensitive, and returned bodies/snippets redact sensitive-looking lines.
@@ -852,6 +880,35 @@ Strict / CI (see GATE_REVIEW.md "Agent Update Runner ... Scope Decision", Gate 2
   - Toggle/override per project via llm-wiki.config.json rules
     ("run.doc_gap": "off"|"error"|...). File-level; proves the pipeline ran, not
     that the prose is correct.
+`,
+  review: `llm-wiki review
+
+Usage:
+  llm-wiki review [--include-sensitive] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki review --approve <path> [--approve <path>]... [--reviewer <name>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+  llm-wiki review --approve-all --yes [--reviewer <name>] [--cwd <path>] [--format text|json|markdown|html] [--out <path>]
+
+Purpose:
+  Supports the human review -> verified step (Gate 20). Read-only by default: it
+  risk-ranks the needs_review content documents (never-enriched / thin body /
+  missing ## Evidence / broken links / no-evidence first) with a per-doc quality +
+  evidence summary so a human can spot-check the backlog quickly. Restricted/
+  sensitive docs are excluded from the list unless --include-sensitive.
+
+Approve (writes ONLY the review stamp; see GATE_REVIEW.md "Review Workflow Scope Decision", Gate 20):
+  - --approve <path> promotes the named needs_review docs to verified, stamping
+    status: verified + reviewed_by + reviewed_at. Repeatable, and a value may be a
+    comma-separated list. --approve-all promotes every approvable needs_review doc
+    but REQUIRES an explicit --yes confirmation.
+  - reviewed_by resolves --reviewer > llm-wiki.config.json "reviewer" > git
+    user.name; the command REFUSES to stamp (never blank/fabricated) when none
+    resolves.
+  - It NEVER auto-verifies, refuses any doc with blocking/structural findings
+    (blocked/error severity such as frontmatter.required or sensitive-info), and
+    never edits body, source_files, evidence, or last_updated. verified is human-only.
+
+JSON (--format json):
+  Top-level keys: schemaVersion, command, result, mode, needsReview, documents[] (list mode) or approved[]/refused[]/reviewer (approve mode), findingSummary, findings[]. documents[] items carry path, title, docType, visibility, lastUpdated, evidenceBacked, riskScore, approvable, findingCount, findingsBySeverity, topFindings[].
 `,
   graph: `llm-wiki graph
 

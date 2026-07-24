@@ -6,7 +6,7 @@ tags:
 status: verified
 doc_type: public_api
 project: llm-wiki-governance
-last_updated: 2026-07-23
+last_updated: 2026-07-24
 author: cli-generated
 last_edited_by: Claude Code
 reviewed_by: Dowon-Kim
@@ -81,6 +81,7 @@ contains_sensitive_info: false
 | `drift [--downgrade]` | `verified` 문서의 `evidence.stale` 드리프트 리포트. `--downgrade`로 드리프트 문서를 `needs_review`로 강등(GATE_REVIEW Gate 9) | `--downgrade` 시 |
 | `impact [--since <ref>] [--strict]` | (읽기전용, 1.17) diff 기준 reverse-impact: 참조 소스가 현재 diff(working tree, 또는 `--since <ref>` PR/CI 기준)에서 바뀌었는데 문서 자신은 안 바뀐 `verified` 문서를 flag. date 기준 `evidence.stale`(drift)의 pre-merge 보완. 기본 warning, `--strict`로 CI 실패(GATE_REVIEW Gate 23) | 없음 |
 | `check-run [--run <path>] [--strict]` | (읽기전용, 1.19) `.llm-wiki/runs/`의 최신(또는 `--run <path>`) run manifest를 읽어 스킬(`/llm-wiki-<task>`) 실행이 주장한 파이프라인을 검증한다: 바뀐 소스마다 그걸 참조하는 위키 문서가 touch됐는지(`run.doc_gap`), 로그 append 여부(`run.log_missing`), validate 통과 여부(`run.unvalidated`). `impact`(diff-앵커)의 intent-앵커 보완. 기본 warning, `--strict`로 CI 실패. 쓰기 없음(매니페스트는 에이전트가 작성)(GATE_REVIEW Gate 26) | 없음 |
+| `review [--approve <path>]... [--approve-all --yes] [--reviewer <name>] [--include-sensitive]` | (읽기전용 기본, Gate 20) needs_review 문서를 위험도 정렬(never-enriched/thin/no-evidence/broken-link 우선)해 문서별 품질·evidence 요약과 함께 나열(사람 spot-check용). `--approve <path>`(반복·쉼표구분 가능) 또는 `--approve-all --yes`로 지정 문서에 **`status: verified` + `reviewed_by` + `reviewed_at`만** 스탬프 — 자동 승격 절대 없음, blocking/구조적 finding(blocked/error) 문서는 거부, body/source_files/evidence/last_updated 미변경. reviewed_by는 `--reviewer` > config `reviewer` > git `user.name` 순 해소, 없으면 스탬프 거부(공란/날조 금지). `--approve-all`은 `--yes` 없으면 거부하고 승격 예정 수만 보고. MCP는 LIST만 노출 | `--approve`/`--approve-all --yes` 시 |
 | `graph` | 지식 그래프(문서 + 해소된 문서→문서 링크)를 출력. `--format text\|json\|mermaid\|dot`(graph 전용 토큰) | 없음 |
 | `stats` | wiki 헬스 스냅샷(verified%/enrichment%/evidence coverage/staleness/orphan) + 헬스 스코어. 1.19부터 `--format json`에 계산된 `evidenceTiers`(`reference_checked`/`human_verified`)를 additive로 부가(신규 frontmatter 필드/status값 없음) | 없음 |
 | `list-docs` | (읽기전용 retrieval, 1.18) 문서 메타데이터(path/title/status/doc_type/visibility/last_updated/tags) 열거. `--status`/`--visibility`/`--doc-type` 필터. 본문 미반환. restricted/민감 문서는 `--include-sensitive` 없으면 제외 | 없음 |
@@ -98,7 +99,7 @@ contains_sensitive_info: false
 - `--lang <en|ko>`(전역 옵션, 1.22, 기본 `en`) — 사람이 읽는 findings **프로즈**(finding `message` + `explain`의 meaning/why/remediation)를 한국어로 지역화한다. config `lang`으로도 설정 가능(CLI 우선). rule ID·`--format json` 키/shape·CLI 명령·경로는 항상 영어; `--format json`의 `message`는 `--lang ko`에서만 한국어가 되고 `rule` 키·shape는 불변(소비자는 `rule`로 매칭). 기본 `en`은 모든 포맷에서 byte-identical.
 - `--doc-lang <en|ko>`(전역 옵션, 1.24, 기본 `en`) — `init`/`quickstart`이 **생성하는 위키 문서 본문**과 handoff/`prompt`/생성 스킬의 **에이전트 문서 작성 지시** 언어를 고른다. config `docLanguage`로도 설정 가능(CLI 우선). `--lang`과 독립적이다(하나는 findings 언어, 하나는 생성 문서 언어). 잘못된 값은 usage error(exit 3). 기술 식별자(경로·코드 심볼·JSON 키·frontmatter 필드·status 값·CLI 명령·evidence locator)는 두 언어 모두 번역하지 않는다. `init`/`quickstart` 결과는 선택된 문서 언어를 `docLanguage` 필드(및 텍스트)로 표시한다. 기본 `en`은 이미 영어였던 문서에 대해 byte-identical.
 - `--domain <name>`·`--goal <text>` (onboard — 학습할 업무 영역/목표), `--task <text>` (prepare/prompt — 필수).
-- `--write`, `--dry-run`, `--apply` (migrate), `--downgrade` (drift), `--existing <skip|overwrite>`, `--version <x.y.z>`, `--since <git-ref>` (release-notes/validate/impact), `--body-only` (release-notes), `--changed` (validate), `--run <path>` (check-run — 특정 run manifest 지정; 생략 시 `.llm-wiki/runs/`의 최신), `--domains <a,b,c>` (init/quickstart — 도메인 수동 지정). `--strict`는 warning을 exit 1로 승격한다(대부분의 명령; `impact --strict`·`check-run --strict`는 CI 실패로 만든다).
+- `--write`, `--dry-run`, `--apply` (migrate), `--downgrade` (drift), `--existing <skip|overwrite>`, `--version <x.y.z>`, `--since <git-ref>` (release-notes/validate/impact), `--body-only` (release-notes), `--changed` (validate), `--run <path>` (check-run — 특정 run manifest 지정; 생략 시 `.llm-wiki/runs/`의 최신), `--domains <a,b,c>` (init/quickstart — 도메인 수동 지정), `--approve <path>` (review — 반복·쉼표구분 가능; 지정 needs_review 문서를 verified로 승격), `--approve-all`+`--yes` (review — 승격 가능한 모든 needs_review 문서를 승격, `--yes` 없으면 거부), `--reviewer <name>` (review — `reviewed_by` 소스; 미지정 시 config `reviewer` → git `user.name`, 없으면 스탬프 거부), `--include-sensitive` (list-docs/search-docs/review — 제한/민감 문서 포함). `--strict`는 warning을 exit 1로 승격한다(대부분의 명령; `impact --strict`·`check-run --strict`는 CI 실패로 만든다).
 
 ## Exit Codes
 
@@ -182,7 +183,7 @@ MCP 클라이언트 등록 예시:
 
 ### 노출 툴 (모두 읽기 전용)
 
-`validate` · `audit` · `next` · `status` · `doctor` · `stats` · `graph` · `explain` · `handoff` · `prompt` · `list_docs` · `search_docs` · `get_doc` · `get_related`(뒤 4개는 1.18 읽기 전용 retrieval — 거버넌스 리포트가 아니라 문서 **본문**을 반환; MCP 툴 이름은 snake_case, CLI 명령은 kebab-case `list-docs` 등). **쓰기/변경 명령(init/fix/migrate/drift/quickstart)은 MCP로 노출하지 않는다** — 에이전트는 위키를 조회·점검할 뿐 바꾸지 않는다(`annotations.readOnlyHint: true`). 각 툴 인자는 `inputSchema`(JSON Schema)로 검증되며 `cwd`(기본=서버 실행 위치)·`type`·`profiles`·`strict`, retrieval 툴은 `query`/`path`/`status`/`visibility`/`docType`/`includeSensitive`/`limit` 등을 받는다.
+`validate` · `audit` · `next` · `status` · `doctor` · `stats` · `graph` · `explain` · `handoff` · `prompt` · `list_docs` · `search_docs` · `get_doc` · `get_related` · `onboard` · `prepare` · `review`(`list_docs`/`search_docs`/`get_doc`/`get_related`는 1.18 읽기 전용 retrieval — 거버넌스 리포트가 아니라 문서 **본문**을 반환; `onboard`/`prepare`는 1.24 guided; `review`는 Gate 20 needs_review 백로그의 **LIST만** 노출. MCP 툴 이름은 snake_case, CLI 명령은 kebab-case `list-docs` 등). **쓰기/변경 명령(init/fix/migrate/drift/quickstart)과 `review`의 승격(`--approve`)은 MCP로 노출하지 않는다** — 에이전트는 위키를 조회·점검할 뿐 바꾸지 않는다(`annotations.readOnlyHint: true`); `verified` 승격은 사람의 CLI 액션으로만 일어난다. 각 툴 인자는 `inputSchema`(JSON Schema)로 검증되며 `cwd`(기본=서버 실행 위치)·`type`·`profiles`·`strict`, retrieval 툴은 `query`/`path`/`status`/`visibility`/`docType`/`includeSensitive`/`limit` 등을 받는다.
 
 ### 툴 결과 형태
 
@@ -231,6 +232,7 @@ MCP 클라이언트 등록 예시:
 - `src/commands.js#symbol:checkRunCommand` — `check-run` 명령: `.llm-wiki/runs/` run manifest로 스킬 실행 파이프라인(changedSource↔touchedDocs·log·validate)을 검증(read-only; `run.*` findings; Gate 26, 1.19).
 - `src/commands/retrieval.js` — read-only retrieval 4개 핸들러(`listDocsCommand`/`searchDocsCommand`/`getDocCommand`/`getRelatedCommand`): 문서 본문 반환, visibility 존중 + sensitive-info redaction, zero-dep 키워드 검색(Gate 24, 1.18).
 - `src/git.js#symbol:changedFiles` — 변경집합 프리미티브(working tree / `--since <ref>`); `impact`와 `validate --changed`가 공유.
+- `src/commands.js#symbol:reviewCommand` — `review` 명령: needs_review 백로그를 위험도 정렬해 나열(read-only)하고 `--approve`/`--approve-all --yes`로 지정 문서에 `status: verified`+`reviewed_by`+`reviewed_at`만 스탬프(자동 승격 없음; blocking/구조적 finding 문서 거부; `drift --downgrade`의 역방향). reviewed_by는 `--reviewer`>config>`gitUserName`. seam 재사용: `src/git.js#symbol:gitUserName`·`src/commands/fix-migrate.js#symbol:upsertFrontmatterScalar`·`src/commands/findings.js`의 `review.reviewer_unresolved`/`review.confirmation_required` 규칙(Gate 20).
 
 ## Review Notes
 
@@ -260,3 +262,4 @@ MCP 클라이언트 등록 예시:
 - 2026-07-23에 토큰 효율 retrieval 토큰 제어(제안, opt-in)를 command 표에 반영했다: `get-doc`에 `--strict-section`/`--compact`/`--max-chars`, `prepare`에 `--compact`/`--max-chars`를 추가했다. 모두 additive·opt-in이라 미사용 시 표면·`--format json` 형태 byte-identical(신규 옵션 사용 시에만 `document`에 `chars`/`estimatedTokens`/`truncated`, prepare compact 페이로드 부가). 동결 프로그래매틱 API 맵의 키 집합·exit code 의미 불변. 에이전트(Claude Code) 편집이라 `verified`→`needs_review`로 강등 — 사람 검토 후 재승인 예정.
 - 2026-07-23(1.25.0 릴리스)에 `init`/`quickstart`의 부가 옵션 `--refresh`(사용자 미수정 관리 스킬만 갱신; 사용자·커스텀 스킬 미덮어씀)를 command 표에 반영하고, MCP `get_doc`/`prepare`에 토큰 제어 옵션(`strictSection`/`compact`/`maxChars`)이 노출됨을 기록했다. 모두 additive·opt-in이라 미사용 시 표면·`--format json`·동결 맵 불변. 에이전트 편집이라 `needs_review` 유지 — 사람 재검토 후 `verified` 예정.
 - 2026-07-24에 위 1.25.0 반영분(command 표의 `get-doc --strict-section`/`--compact`/`--max-chars`·`prepare --compact`/`--max-chars`·`init`/`quickstart --refresh`, MCP `get_doc`/`prepare` 토큰 제어 옵션)을 사람 검토(reviewed_by: Dowon-Kim, reviewed_at: 2026-07-24)를 거쳐 `verified`로 재승인했다. command 표·옵션 표면이 현재 소스(HEAD 5fe3aff, npm dist-tags.latest=1.25.0)와 일치하고 동결 프로그래매틱 API 맵의 키 집합·`--format json` 형태가 불변임을 확인했다(319 tests·validate --strict 0).
+- 2026-07-24에 Gate 20 read-only `review` 워크플로(GATE_REVIEW "Review Workflow Scope Decision", accepted 2026-07-24)를 반영했다: Commands 표에 `review [--approve <path>]... [--approve-all --yes] [--reviewer <name>] [--include-sensitive]` 행을, Key Options에 `--approve`/`--approve-all`/`--yes`/`--reviewer`/`--include-sensitive`를, MCP 노출 툴 목록에 `review`(LIST만; 승격은 CLI 전용)을, Evidence에 `src/commands.js#symbol:reviewCommand` 포인터를 등재했다. needs_review 백로그를 위험도 정렬해 나열(read-only)하고 명시적 `--approve`/`--approve-all --yes`로만 `status: verified`+`reviewed_by`+`reviewed_at`을 스탬프하며 자동 승격은 절대 없다(blocking/구조적 finding 문서 거부; reviewed_by 미해소 시 스탬프 거부). 동결 프로그래매틱 API `commands` 맵에 `review` 키를 additive로 추가(`src/index.js`). additive·`1.0.0` 계약·`--format json` shape·zero-dep 불변. 319 tests·validate --strict 0. 에이전트(Claude Code) 편집이라 `verified`→`needs_review`로 강등 — 사람 검토 후 재승인 예정, 허위 검토 메타 미기입.

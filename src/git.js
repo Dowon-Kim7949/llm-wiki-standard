@@ -47,6 +47,20 @@ export function isPathIgnored(cwd, relPath) {
   }
 }
 
+// Best-effort git identity of the person running the command: `git config
+// user.name`. Used by `review --approve` (Gate 20) to source reviewed_by when no
+// explicit --reviewer / config reviewer is given. Returns the trimmed name, or
+// null when git is unavailable or user.name is unset (callers then refuse to
+// stamp a blank/fabricated reviewer rather than guessing).
+export function gitUserName(cwd) {
+  try {
+    const name = runGit(cwd, ["config", "user.name"]).trim();
+    return name || null;
+  } catch {
+    return null;
+  }
+}
+
 // Repo-relative paths (posix, relative to the git root) that differ from the
 // baseline. With <sinceRef>, every change from that ref to the working tree;
 // without it, uncommitted tracked changes plus untracked files (the pre-commit

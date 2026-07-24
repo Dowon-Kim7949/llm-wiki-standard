@@ -13,7 +13,7 @@ import { scanSensitiveInfo } from "./sensitive-info.js";
 import { renderTemplate, renderWikiDocumentTemplate, todayIsoDate } from "./template-renderer.js";
 import { buildTaskPrompt, evidenceFocus, initialEnrichmentWorkflow } from "./task-prompts.js";
 import { buildReleaseNotes, buildReleaseNotesBody, collectCommits } from "./release-notes.js";
-import { fileChangedSince, lineRangeChangedSince, changedFiles, isPathIgnored } from "./git.js";
+import { fileChangedSince, lineRangeChangedSince, changedFiles, gitUserName, isPathIgnored } from "./git.js";
 import { localizeExplanation, normalizeLang } from "./i18n.js";
 import { buildDomainContext, emptyDomainContext } from "./commands/domains.js";
 import { docMetadata } from "./commands/doc-templates.js";
@@ -36,6 +36,7 @@ import {
   applyRuleConfig,
   FINDING_EXPLANATIONS,
   findingCategory,
+  formatCountMap,
   formatEnrichmentChecklist,
   formatFinding,
   formatFindingSummary,
@@ -85,8 +86,12 @@ import {
   blockedApply,
   buildUpgradeReport,
   needsWriteFlag,
-  runMechanicalRemediation
+  replaceFrontmatterScalar,
+  runMechanicalRemediation,
+  splitFrontmatter,
+  upsertFrontmatterScalar
 } from "./commands/fix-migrate.js";
+import { applyFilters, loadContentDocs } from "./commands/retrieval.js";
 import { planSkillArtifacts, writeSkillArtifacts } from "./commands/skills.js";
 export { detectDomainDirectories, domainDisplayName, normalizeDomainSlug, planDomainDocs } from "./commands/domains.js";
 export { driftTargets, evidenceTier, scanUngroundedVerified } from "./commands/scans.js";
@@ -933,6 +938,298 @@ function finishCheckRun(options, relManifest, findings, extra = {}) {
     { title: "Caveats", body: [
       "Read-only: check-run verifies a skill run's manifest under .llm-wiki/runs/; it never writes. The manifest is authored by the agent during its own run.",
       "Default warning; use --strict (for CI) to fail, or set \"run.*\" in llm-wiki.config.json rules. File-level — it proves the pipeline ran, not that the prose is correct."
+    ] }
+  ]);
+}
+
+// ---- review command (Gate 20 human review -> verified) -----------------
+// Supports the weakest, most manual part of the loop: reviewing the needs_review
+// backlog and promoting good docs to verified. LIST mode (default) is READ-ONLY —
+// it risk-ranks needs_review content docs (never-enriched / thin body / missing
+// ## Evidence / broken links / no-evidence first) with a per-doc quality + evidence
+// summary so a human can spot-check quickly. APPROVE mode (--approve <path>... or
+// --approve-all --yes) stamps ONLY status: verified + reviewed_by + reviewed_at on
+// the named docs; it NEVER auto-verifies, refuses any doc with blocking/structural
+// findings (blocked/error severity), and never edits body / source_files / evidence /
+// last_updated. reviewed_by resolves explicit --reviewer > config reviewer > git
+// user.name, and the command refuses to stamp (never blank/fabricated) when none
+// resolves. Scope: GATE_REVIEW.md ("Review Workflow Scope Decision", Gate 20). MCP
+// exposes the LIST surface only (buildToolOptions copies no approve fields).
+const REVIEW_RISK_WEIGHTS = {
+  "content.not_enriched": 40,
+  "content.thin_body": 30,
+  "related.missing": 20,
+  "markdown_link.missing": 20,
+  "evidence.ungrounded": 20,
+  "evidence.section_missing": 15,
+  "evidence.section_empty": 15,
+  "wiki_link.missing": 15,
+  "evidence.section_unlisted": 10
+};
+
+export async function reviewCommand(options) {
+  const cwd = options.cwd;
+  const wikiRoot = path.join(cwd, "docs", "llm-wiki");
+  const approvePaths = Array.isArray(options.approve)
+    ? options.approve.filter((entry) => typeof entry === "string" && entry.trim())
+    : [];
+  const approveAll = options.approveAll === true;
+  const approving = approvePaths.length > 0 || approveAll;
+
+  if (!(await pathExists(wikiRoot))) {
+    return withText({
+      command: "review",
+      result: "pass",
+      mode: approving ? "approve" : "list",
+      needsReview: 0,
+      documents: [],
+      findings: []
+    }, "LLM-WIKI Review", [
+      { title: "Summary", body: [`mode: ${approving ? "approve" : "list"}`, "wiki: not initialized"] },
+      { title: "Caveats", body: ["docs/llm-wiki is not initialized; run init --write first. Nothing to review."] }
+    ]);
+  }
+
+  // One audit run supplies per-document findings for both risk ranking and the
+  // promotion gate (a doc with any blocked/error finding cannot be approved).
+  const auditResult = await audit(options);
+  const findingsByPath = new Map();
+  for (const finding of auditResult.findings) {
+    if (!finding.path || finding.path === ".") continue;
+    if (!findingsByPath.has(finding.path)) findingsByPath.set(finding.path, []);
+    findingsByPath.get(finding.path).push(finding);
+  }
+
+  const docs = await loadContentDocs(cwd);
+  const { kept } = applyFilters(docs, { includeSensitive: options.includeSensitive });
+  const needsReviewDocs = kept.filter((doc) => doc.frontmatter.status === "needs_review" && !isAppendOnlyLog(doc.path));
+  const reviewed = needsReviewDocs
+    .map((doc) => buildReviewEntry(doc, findingsByPath.get(doc.path) ?? []))
+    .sort((left, right) => right.riskScore - left.riskScore || left.path.localeCompare(right.path));
+
+  if (!approving) return renderReviewList(reviewed, docs.length, options.includeSensitive);
+  return approveReview(options, { cwd, reviewed, docs, findingsByPath, approvePaths, approveAll });
+}
+
+function reviewDocType(frontmatter) {
+  if (typeof frontmatter.doc_type === "string" && frontmatter.doc_type.trim()) return frontmatter.doc_type;
+  if (typeof frontmatter.type === "string" && frontmatter.type.trim()) return frontmatter.type;
+  return null;
+}
+
+function buildReviewEntry(doc, findings) {
+  const blocking = findings.filter((finding) => finding.severity === "blocked" || finding.severity === "error");
+  const findingsBySeverity = {};
+  for (const finding of findings) {
+    findingsBySeverity[finding.severity] = (findingsBySeverity[finding.severity] ?? 0) + 1;
+  }
+  const evidenceBacked =
+    (Array.isArray(doc.frontmatter.source_files) && doc.frontmatter.source_files.some((value) => typeof value === "string" && value.trim()))
+    || (Array.isArray(doc.frontmatter.evidence) && doc.frontmatter.evidence.some((value) => typeof value === "string" && value.trim()));
+  let riskScore = blocking.length * 100;
+  for (const finding of findings) riskScore += REVIEW_RISK_WEIGHTS[finding.rule] ?? 5;
+  if (!evidenceBacked) riskScore += 25;
+  return {
+    path: doc.path,
+    title: typeof doc.frontmatter.title === "string" ? doc.frontmatter.title : null,
+    docType: reviewDocType(doc.frontmatter),
+    visibility: doc.visibility,
+    lastUpdated: typeof doc.frontmatter.last_updated === "string" ? doc.frontmatter.last_updated : null,
+    evidenceBacked,
+    riskScore,
+    approvable: blocking.length === 0,
+    blockingFindings: blocking.map((finding) => `${finding.rule}: ${finding.message}`),
+    findingCount: findings.length,
+    findingsBySeverity,
+    topFindings: findings.slice(0, 6).map((finding) => ({ severity: finding.severity, rule: finding.rule }))
+  };
+}
+
+function renderReviewList(reviewed, totalScanned, includeSensitive) {
+  const approvableCount = reviewed.filter((doc) => doc.approvable).length;
+  const blockedCount = reviewed.length - approvableCount;
+  const summary = [
+    `needs_review: ${reviewed.length}`,
+    `approvable: ${approvableCount}`,
+    `blocked_by_findings: ${blockedCount}`,
+    `total_docs_scanned: ${totalScanned}${includeSensitive ? " (restricted/sensitive included)" : ""}`
+  ];
+  if (reviewed.length === 0) summary.push("No needs_review documents. Nothing to review.");
+  const docLines = reviewed.map((doc) => {
+    const flags = [];
+    if (!doc.approvable) flags.push("BLOCKED");
+    if (!doc.evidenceBacked) flags.push("no-evidence");
+    const severity = doc.findingCount ? ` (${formatCountMap(doc.findingsBySeverity)})` : "";
+    return `${doc.path} — ${doc.title ?? "(no title)"} [risk ${doc.riskScore}${flags.length ? `, ${flags.join(", ")}` : ""}] findings: ${doc.findingCount}${severity}`;
+  });
+  return withText({
+    command: "review",
+    result: "pass",
+    mode: "list",
+    needsReview: reviewed.length,
+    approvable: approvableCount,
+    documents: reviewed,
+    findings: []
+  }, "LLM-WIKI Review", [
+    { title: "Summary", body: summary },
+    { title: "Needs Review (risk-ranked)", body: docLines.length ? docLines : ["none"] },
+    { title: "Caveats", body: [
+      "Read-only list. Risk-ranks needs_review docs (never-enriched / thin / no-evidence / broken-link first) for fast spot-checking. Restricted/sensitive docs are excluded unless --include-sensitive.",
+      "Promotion to verified is human-only: run review --approve <path> (or review --approve-all --yes) to stamp verified + reviewed_by + reviewed_at. Docs with blocking/structural findings are refused until fixed; verified is never set automatically."
+    ] }
+  ]);
+}
+
+// Resolve the reviewer name for a stamp: explicit --reviewer (or config reviewer,
+// merged into options.reviewer with CLI winning) beats the git identity; when none
+// resolves, returns null and the caller refuses to stamp.
+function resolveReviewer(options, cwd) {
+  if (typeof options.reviewer === "string" && options.reviewer.trim()) return options.reviewer.trim();
+  return gitUserName(cwd);
+}
+
+function resolveContentDocPath(docs, given) {
+  const clean = toPosix(String(given ?? "").trim().replace(/^\.\//, "").replace(/^\/+/, ""));
+  if (!clean) return null;
+  const withMd = clean.endsWith(".md") ? clean : `${clean}.md`;
+  const candidates = new Set([clean, withMd, `docs/llm-wiki/${clean}`, `docs/llm-wiki/${withMd}`]);
+  const exact = docs.find((doc) => candidates.has(doc.path));
+  if (exact) return exact.path;
+  return docs.find((doc) => doc.path.endsWith(`/${clean}`) || doc.path.endsWith(`/${clean}.md`))?.path ?? null;
+}
+
+// Stamp status: verified + reviewed_by + reviewed_at on one document. Mirrors the
+// drift --downgrade discipline in reverse: touches ONLY those three fields, never
+// body / source_files / evidence / last_updated. Skips mojibake and re-scans the
+// result for sensitive content (blocking the write if it matches), like fix/drift.
+async function stampVerified(cwd, rel, reviewer, today) {
+  const abs = path.join(cwd, rel);
+  const original = await readUtf8(abs);
+  if (findMojibakeIndicators(original).length > 0) {
+    return { changed: false, blocked: false, reason: "possible mojibake; approval skipped" };
+  }
+  const split = splitFrontmatter(original);
+  if (!split) return { changed: false, blocked: false, reason: "could not locate frontmatter block" };
+
+  let inner = replaceFrontmatterScalar(split.inner, "status", "verified");
+  if (inner === null) inner = upsertFrontmatterScalar(split.inner, "status", "verified", split.eol);
+  inner = upsertFrontmatterScalar(inner, "reviewed_by", reviewer, split.eol);
+  inner = upsertFrontmatterScalar(inner, "reviewed_at", today, split.eol);
+
+  const newContent = `${split.bom}${split.open}${inner}${split.close}${split.body}`;
+  if (newContent === original) return { changed: false, blocked: false, reason: "no change (already verified with this reviewer)" };
+  if (scanSensitiveInfo(newContent).length > 0) {
+    return {
+      changed: false,
+      blocked: true,
+      reason: "resulting content matched sensitive-info rules",
+      finding: { severity: "blocked", rule: "sensitive.redacted", path: rel, message: "Approval skipped: resulting content matched sensitive-info rules." }
+    };
+  }
+  await writeUtf8(abs, newContent);
+  return { changed: true, blocked: false };
+}
+
+async function approveReview(options, { cwd, reviewed, docs, findingsByPath, approvePaths, approveAll }) {
+  const reviewer = resolveReviewer(options, cwd);
+  if (!reviewer) {
+    const findings = applyRuleConfig([{
+      severity: "error",
+      rule: "review.reviewer_unresolved",
+      path: ".",
+      message: "Cannot stamp reviewed_by: no reviewer resolved. Set git user.name, add \"reviewer\" to llm-wiki.config.json, or pass --reviewer <name>."
+    }], options);
+    return finishReview(reviewed, { mode: "approve", approved: [], refused: [], reviewer: null, findings });
+  }
+
+  // --approve-all is a broad sign-off; require an explicit --yes confirmation.
+  if (approveAll && options.yes !== true) {
+    const eligible = reviewed.filter((doc) => doc.approvable).length;
+    const findings = applyRuleConfig([{
+      severity: "error",
+      rule: "review.confirmation_required",
+      path: ".",
+      message: `review --approve-all would promote ${eligible} needs_review document(s) to verified. Re-run with --yes to confirm.`
+    }], options);
+    return finishReview(reviewed, { mode: "approve", approved: [], refused: [], reviewer, findings });
+  }
+
+  const byPath = new Map(docs.map((doc) => [doc.path, doc]));
+  const reviewByPath = new Map(reviewed.map((entry) => [entry.path, entry]));
+  const targets = approveAll
+    ? reviewed.filter((doc) => doc.approvable).map((doc) => doc.path)
+    : approvePaths.map((given) => resolveContentDocPath(docs, given) ?? given);
+
+  const approved = [];
+  const refused = [];
+  const blockedFindings = [];
+  const today = todayIsoDate();
+
+  for (const rel of targets) {
+    const doc = byPath.get(rel);
+    if (!doc) { refused.push({ path: rel, reason: "not found under docs/llm-wiki" }); continue; }
+    const status = doc.frontmatter.status;
+    if (status === "verified") { refused.push({ path: doc.path, reason: "already verified" }); continue; }
+    if (status !== "needs_review") {
+      refused.push({ path: doc.path, reason: `status is ${status ?? "unset"} (only needs_review can be approved)` });
+      continue;
+    }
+    // Blocking gate: reuse the risk entry when present; otherwise (a doc named
+    // explicitly but excluded from the list, e.g. sensitive) compute it directly.
+    const entry = reviewByPath.get(doc.path);
+    const blocking = entry
+      ? entry.blockingFindings
+      : (findingsByPath.get(doc.path) ?? [])
+          .filter((finding) => finding.severity === "blocked" || finding.severity === "error")
+          .map((finding) => `${finding.rule}: ${finding.message}`);
+    if (blocking.length > 0) {
+      refused.push({ path: doc.path, reason: `blocking findings: ${blocking.join("; ")}` });
+      continue;
+    }
+    const stamp = await stampVerified(cwd, doc.path, reviewer, today);
+    if (stamp.blocked) { blockedFindings.push(stamp.finding); refused.push({ path: doc.path, reason: stamp.reason }); continue; }
+    if (!stamp.changed) { refused.push({ path: doc.path, reason: stamp.reason ?? "no change" }); continue; }
+    approved.push(doc.path);
+  }
+
+  return finishReview(reviewed, { mode: "approve", approved, refused, reviewer, findings: applyRuleConfig(blockedFindings, options) });
+}
+
+function finishReview(reviewed, { mode, approved, refused, reviewer, findings }) {
+  const result = findings.some((finding) => finding.severity === "blocked")
+    ? "blocked"
+    : findings.some((finding) => finding.severity === "error")
+      ? "fail"
+      : findings.some((finding) => finding.severity === "warning")
+        ? "warning"
+        : "pass";
+  const findingSummary = summarizeFindings(findings);
+  const summary = [
+    `result: ${result}`,
+    `mode: ${mode}`,
+    `reviewer: ${reviewer ?? "(unresolved)"}`,
+    `approved: ${approved.length}`,
+    `refused: ${refused.length}`,
+    `needs_review_remaining: ${Math.max(0, reviewed.length - approved.length)}`
+  ];
+  return withText({
+    command: "review",
+    result,
+    mode,
+    reviewer,
+    approved,
+    refused,
+    needsReview: reviewed.length,
+    findingSummary,
+    findings
+  }, "LLM-WIKI Review", [
+    { title: "Summary", body: summary },
+    { title: "Approved (-> verified)", body: approved.length ? approved.map((rel) => `${rel}: verified (reviewed_by ${reviewer})`) : ["none"] },
+    { title: "Refused", body: refused.length ? refused.map((entry) => `${entry.path}: ${entry.reason}`) : ["none"] },
+    { title: "Findings", body: findings.length ? findings.map(formatFinding) : ["none"] },
+    { title: "Caveats", body: [
+      "review --approve stamps ONLY status: verified + reviewed_by + reviewed_at; it never edits body, source_files, evidence, or last_updated.",
+      "verified is a human decision: the tool refuses any doc with blocking/structural findings and never auto-verifies. Run validate --strict to confirm."
     ] }
   ]);
 }

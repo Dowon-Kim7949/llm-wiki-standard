@@ -24,6 +24,59 @@ contains_sensitive_info: false
 
 이 문서는 append-only 변경 로그입니다. 기존 항목은 수정하지 말고 새 변경 사항을 위에 추가합니다.
 
+## 2026-07-24 - post-1.25 "Harden & Adopt" 라인 인세션 구축 완료 (Gate 20 review + Track A 위생 + Track C 도입 문서)
+- changed:
+  - (Track B/Gate 20 review 명령 — 아래 Gate 20 항목의 정정·보강) src/commands.js(`reviewCommand` + REVIEW_RISK_WEIGHTS + buildReviewEntry/renderReviewList/approveReview/stampVerified/resolveReviewer/finishReview), src/git.js(`gitUserName`), src/commands/fix-migrate.js(`upsertFrontmatterScalar`), src/commands/findings.js(`review.reviewer_unresolved`/`review.confirmation_required`), src/config-file.js(`reviewer`/`reviewedBy` 키), src/cli.js·src/index.js·src/mcp/tools.js(3표면 배선; MCP는 LIST만), tests/verification.test.js(+6)·tests/mcp.test.js(+1). GATE_REVIEW.md(Gate 20 `proposed`→`accepted`, 미해결 3문항 표준안 확정)
+  - (Track A 위생/공급망, docs/llm-wiki 밖) .github/actions/validate/action.yml(version 기본 `latest`→`1.25` 핀), .github/workflows/ci.yml(Node 내장 커버리지 잡 + `node --check` lint 게이트), .github/workflows/codeql.yml(신규), .github/workflows/bench.yml(신규; workflow_dispatch+주간, 비차단, chars/4 프록시 명시), .github/CODEOWNERS(신규), MAINTAINERS.md(신규), .editorconfig(신규), scripts/lint-syntax.mjs(신규), package.json(lint/test:coverage/sbom/bench 스크립트), CONTRIBUTING.md·CONTRIBUTING.ko.md(품질 게이트·zero-dep 입장 섹션)
+  - (Track C 도입 문서, docs/llm-wiki 밖) SECURITY.md·SECURITY.ko.md(MCP 서버 신뢰 모델 섹션), docs/OPERATIONS.md(신규; 규모별 운영 가이드), examples/README.md(신규; init→enrich→validate→review end-to-end 워크스루 + 진짜 quickstart 출력 스냅샷), README.md·README.ko.md(`## How it works` mermaid 파이프라인+샘플 audit, MCP 툴 목록 정확화+신뢰모델 포인터, OPERATIONS 링크)
+- summary:
+  - 외부 심층분석 기반 post-1.25 로드맵을 인세션에서 구축했다. 유지보수자가 3개 결정을 권장안으로 확정(커버리지=Node 내장, lint=zero-dep, Gate 20 수용). Gate 20 `review`는 `/llm-wiki-feature`로 도그푸딩 구축했다.
+  - **정정**: 아래 Gate 20 항목은 "319 tests"로 기록했으나 실제 신규 테스트는 review 6개 + MCP 1개 = 총 **326 tests**다. review 구현은 아래 항목이 서술한 index.js 배선 하나뿐 아니라 `reviewCommand` 본체·CLI/MCP 배선·findings/config/git/stamp seam 전부를 포함한다(그 항목은 병렬 fork가 좁게 기록).
+  - Track A는 zero-runtime-dep AND zero-devDep을 보존한다(커버리지=Node 내장, lint=`node --check`, 나머지 GitHub 네이티브·npm 스크립트). Track C 문서는 전부 docs/llm-wiki 밖이라 검증 대상이 아니고 EN/KO 쌍을 유지한다.
+- verification:
+  - 326 tests·validate --strict 0·validate-frontmatter 0·check-run --strict pass(8 changedSource ⊆ 3 touchedDocs)·`npm run lint` OK(46파일)·bench `--against baseline` 실행 정상(프록시).
+- evidence:
+  - src/commands.js#symbol:reviewCommand · src/git.js#symbol:gitUserName · src/commands/fix-migrate.js#symbol:upsertFrontmatterScalar · GATE_REVIEW.md(Review Workflow Scope Decision, accepted 2026-07-24)
+- caveats:
+  - Gate 20만 신규 게이트(accepted). Track A/C는 위생·문서라 게이트 불요.
+  - 커밋/푸시/버전/배포 없음 — 전부 main 스테이징, 유지보수자 검토 대기.
+  - PUBLIC_API/ARCHITECTURE_CONVENTIONS/DOMAIN_FEATURES는 에이전트 편집이라 needs_review로 강등 — 사람 재검토 후 verified 재승인 필요(허위 검토 메타 미기입). 새 `review` 명령이 이 백로그 처리 도구다.
+  - README 성능 헤드라인 여전히 금지(bench는 chars/4 프록시). bench CI 잡은 비차단·정보용(게이트 아님).
+
+## 2026-07-24 - Gate 20: read-only `review` 워크플로 완성 (프로그래매틱 API 배선 + 검증 + 문서 반영)
+- changed:
+  - src/index.js (동결 프로그래매틱 `commands` 맵·import·export에 `review` 추가; Options typedef에 approve/approveAll/yes/reviewer)
+  - docs/llm-wiki/PUBLIC_API.md·ARCHITECTURE_CONVENTIONS.md·DOMAIN_FEATURES.md (review 명령·기능·Evidence 반영; verified→needs_review 강등 + 2026-07-24 Review Note)
+  - (이 세션 이전 스테이징된 seam은 유지: src/commands.js `reviewCommand`·src/cli.js 배선·src/commands/{findings,fix-migrate}.js·src/config-file.js·src/git.js·src/mcp/tools.js)
+- summary:
+  - GATE_REVIEW "Review Workflow Scope Decision"(accepted 2026-07-24, Dowon-Kim 인세션)의 read-only `review` 명령을 완성했다. 대부분 구현(`reviewCommand` + CLI 배선 + MCP LIST 툴 + findings/config/git/stamp seam)은 이미 스테이징돼 있었고, 누락된 것은 프로그래매틱 API 배선(`src/index.js`의 동결 `commands` 맵에 `review` 키) 하나뿐이라 CLI↔API 명령집합 일치 테스트가 실패(318/319)하고 있었다 — 이를 배선해 319/319로 복구했다.
+  - `review`는 needs_review 백로그를 `audit` findings로 위험도 정렬(never-enriched/thin/no-evidence/broken-link 우선)해 문서별 품질·evidence 요약과 함께 나열(list, read-only)하고, 명시적 `--approve <path>`/`--approve-all --yes`로만 `status: verified`+`reviewed_by`+`reviewed_at`만 스탬프한다. 자동 승격 없음, blocking/구조적 finding(blocked/error) 문서 거부, body/source_files/evidence/last_updated 미변경(`drift --downgrade`의 역방향). reviewed_by는 `--reviewer`>config `reviewer`>git `user.name`, 미해소 시 스탬프 거부(공란/날조 금지). `--approve-all`은 `--yes` 필수. MCP는 LIST만 노출(승격은 CLI 전용).
+  - 스모크 검증(실 저장소, 쓰기 없음): `review` list = needs_review 33건·모두 approvable; `review --approve-all`(--yes 없음) → `review.confirmation_required`로 거부·0건 스탬프·reviewer=Dowon-Kim(git 해소); `review --approve <없는경로>` → not-found 거부. 319 tests·validate --strict 0·validate-frontmatter 0.
+- evidence:
+  - src/index.js#symbol:commands (동결 맵에 `review` — CLI `COMMANDS`와 1:1)
+  - src/commands.js#symbol:reviewCommand
+  - src/git.js#symbol:gitUserName · src/commands/fix-migrate.js#symbol:upsertFrontmatterScalar · src/commands/findings.js (`review.reviewer_unresolved`/`review.confirmation_required`)
+  - GATE_REVIEW.md ("Review Workflow Scope Decision", accepted 2026-07-24)
+- caveats:
+  - 위키 문서 3건(PUBLIC_API/ARCHITECTURE/DOMAIN_FEATURES)은 에이전트 편집이라 verified→needs_review로 강등했다 — 사람 검토 후 재승인 필요(허위 검토 메타 미기입).
+  - 이 세션에서 실 저장소의 어떤 문서도 verified로 승격하지 않았다(`review --approve` 미실행). verified 승격은 사람의 CLI 액션이다.
+  - 커밋/푸시/버전 범프/배포는 사용자 지시 대기(미릴리스, main 한정).
+
+## 2026-07-24 - ROADMAP: post-1.25 "Harden & Adopt" 라인 작성 (외부 심층분석 기반, 제안·미승인)
+- changed:
+  - ROADMAP.md·ROADMAP.ko.md (신규 "Release Plan (post-1.25) — Harden & Adopt" 섹션 + last_updated 2026-07-23→2026-07-24 + source_files에 .github/actions/validate/action.yml·.github/workflows/ci.yml 추가)
+- summary:
+  - 외부 3자 공개-저장소 심층분석(2026-07-24)을 입력으로, measure-first 라인(Gate 27까지 완료)·global-reach 프로그램과 조화시키고 zero-dep 정체성 제약 안에서 post-1.25 발전 로드맵을 작성했다. 3개 트랙: A(엔지니어링 위생·공급망 견고화 — action version:latest 고정·Node 내장 커버리지·CodeQL/SBOM·CODEOWNERS·lint 입장), B(거버넌스 완성 — Gate 20 review 워크플로 결정·MCP 접근경계 문서), C(도입 자산 — 예제/픽스처·규모별 가이드·아키텍처 다이어그램·벤치 CI 가드).
+  - 두 정체성 결정(커버리지=nyc/c8 아닌 Node 내장; lint=zero-dep 유지 vs 범위 한정 devDep)을 조용히 처리하지 않고 명시적 결정 지점으로 노출했다(권장: 둘 다 zero-dep 보존). Gate 20은 리포트가 독립적으로 최상위 기능 격차로 지목 + 내부 오랜 초안-미승인 → 이 라인의 헤드라인으로 수용 권장.
+  - 전부 부가적·opt-in·무런타임 의존성·1.0.0 계약 불변. **허위 승인 메타 미기입**: 신규 게이트는 모두 PROPOSED이며 유지보수자 승인 대기(코드 전 GATE_REVIEW 범위 결정 규율). README 성능 헤드라인 금지 유지(chars/4 프록시).
+- evidence:
+  - .github/actions/validate/action.yml (version 기본값 "latest" — 11행, 리포트 #8)
+  - .github/workflows/ci.yml (Node 20+ 매트릭스 — 내장 커버리지 경로 성립)
+  - GATE_REVIEW.md (Gate 20 proposed_for_next)
+- caveats:
+  - 로드맵은 방향 제안일 뿐 승인이 아니다. 각 기능 게이트는 코드 전에 유지보수자가 GATE_REVIEW에 accepted를 남겨야 한다.
+  - 에이전트 편집이라 ROADMAP 두 문서는 needs_review 유지(이미 needs_review). 커밋/푸시는 사용자 지시 대기.
+
 ## 2026-07-23 - 1.25.0 릴리스: D(스킬 간소화 + 안전한 --refresh) + 문서 현행화 + 버전 범프
 - changed:
   - src/commands/skills.js (feature/fix/docs-sync 런타임 맵[liveWikiMapSection]·manifest 압축·bootstrap 스냅샷 유지; content-hash 마커[withGeneratedMarker/isManagedUnmodified, node:crypto]; --refresh 로직)

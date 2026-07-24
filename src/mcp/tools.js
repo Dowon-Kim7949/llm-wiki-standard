@@ -190,6 +190,14 @@ export const TOOL_DEFS = [
     inputSchema: schema({ cwd: cwdProp, domain: domainProp, goal: goalProp, type: typeProp, profiles: profilesProp, lang: langProp })
   },
   {
+    name: "review",
+    title: "Review queue (read-only)",
+    description:
+      "Read-only. Risk-rank the needs_review documents (never-enriched / thin / no-evidence / broken-link first) with a per-doc quality + evidence summary so a human can spot-check the backlog. This exposes ONLY the review LIST — promotion to verified stays a human CLI action (review --approve) and is never available over MCP. Restricted/sensitive docs are excluded unless includeSensitive is set.",
+    command: "review",
+    inputSchema: schema({ cwd: cwdProp, includeSensitive: includeSensitiveProp })
+  },
+  {
     name: "prepare",
     title: "Prepare a task",
     description:

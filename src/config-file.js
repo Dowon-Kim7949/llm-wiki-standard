@@ -86,6 +86,15 @@ export async function loadProjectConfig(cwd) {
     }
   }
 
+  // Default reviewer name for `review --approve` (Gate 20): stamped into
+  // reviewed_by when no explicit --reviewer is given. A string only; the command
+  // still refuses to stamp when neither this, --reviewer, nor git user.name resolves.
+  if ("reviewer" in parsed || "reviewedBy" in parsed) {
+    const reviewerValue = "reviewer" in parsed ? parsed.reviewer : parsed.reviewedBy;
+    if (typeof reviewerValue !== "string") errors.push(`${CONFIG_FILENAME}: "reviewer" must be a string.`);
+    else config.reviewer = reviewerValue;
+  }
+
   // Language selection. `lang` = human-facing findings/explain prose (Gate 27);
   // `docLanguage` = generated wiki document content + agent doc-writing instructions.
   // Both are validated to en|ko so a typo becomes a config error like any other.
@@ -134,6 +143,10 @@ export function mergeConfigIntoOptions(options, config) {
   }
   if (config.templates && (!options.templates || Object.keys(options.templates).length === 0)) {
     options.templates = { ...config.templates };
+  }
+  // CLI --reviewer wins; config reviewer only fills an unset value.
+  if (options.reviewer == null && typeof config.reviewer === "string") {
+    options.reviewer = config.reviewer;
   }
 
   return options;

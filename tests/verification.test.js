@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { detectFrontendDomains } from "../src/commands/domains.js";
 import { enrichmentChecklist } from "../src/commands/scans.js";
-import { audit, checkRunCommand, detectDomainDirectories, doctor, domainDisplayName, driftCommand, driftTargets, evidenceTier, explainCommand, fixCommand, getDocCommand, getRelatedCommand, graphCommand, handoffCommand, impactCommand, initCommand, listDocsCommand, migrateCommand, nextCommand, normalizeDomainSlug, onboardCommand, planDomainDocs, prepareCommand, promptCommand, quickstartCommand, releaseNotesCommand, searchDocsCommand, statsCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "../src/commands.js";
+import { audit, checkRunCommand, detectDomainDirectories, doctor, domainDisplayName, driftCommand, driftTargets, evidenceTier, explainCommand, fixCommand, getDocCommand, getRelatedCommand, graphCommand, handoffCommand, impactCommand, initCommand, listDocsCommand, migrateCommand, nextCommand, normalizeDomainSlug, onboardCommand, planDomainDocs, prepareCommand, promptCommand, quickstartCommand, releaseNotesCommand, reviewCommand, searchDocsCommand, statsCommand, statusCommand, validateCommand, validateFrontmatterCommand } from "../src/commands.js";
 import { parseArgs } from "../src/cli.js";
 import { writeReport, renderHtmlDashboard, renderOutputFile, printResult } from "../src/report.js";
 import * as api from "../src/index.js";
@@ -1928,10 +1928,131 @@ test("finding registry: every rule has a well-formed explanation (guards new rul
   }
   for (const rule of [
     "evidence.symbol_unverified", "evidence.section_unverified", "evidence.ungrounded",
-    "run.doc_gap", "run.log_missing", "run.unvalidated", "run.manifest_missing", "run.manifest_invalid"
+    "run.doc_gap", "run.log_missing", "run.unvalidated", "run.manifest_missing", "run.manifest_invalid",
+    "review.reviewer_unresolved", "review.confirmation_required"
   ]) {
     assert.ok(FINDING_EXPLANATIONS[rule], `${rule} is registered`);
   }
+});
+
+test("Gate 20: review list mode risk-ranks needs_review docs and is read-only", async () => {
+  const cwd = await makeProject("review-list-");
+  await writeJson(path.join(cwd, "package.json"), { name: "rev" });
+  await writeWikiDoc(cwd, "index.md", "LLM-WIKI Index", "Entry point.");
+  // log.md exists so the default `related: docs/llm-wiki/log.md` resolves for the clean doc.
+  await writeWikiDoc(cwd, "log.md", "Change Log", "Change log.");
+  await writeWikiDocWithSourceFiles(cwd, "clean.md", "Clean Doc", "Fully written, source-backed content.", ["package.json"]);
+  // A broken related link produces a related.missing warning, raising this doc's risk.
+  await writeWikiDocWithRelated(cwd, "risky.md", "Risky Doc", "Body.", ["docs/llm-wiki/does-not-exist.md"]);
+
+  const before = await readFile(path.join(cwd, "docs", "llm-wiki", "clean.md"), { encoding: "utf8" });
+  const options = api.normalizeOptions({ cwd, format: "text" });
+  const result = await reviewCommand(options);
+
+  assert.equal(result.command, "review");
+  assert.equal(result.mode, "list");
+  assert.equal(result.result, "pass");
+  assert.ok(result.needsReview >= 3, "lists every needs_review content doc");
+  const byPath = new Map(result.documents.map((doc) => [doc.path, doc]));
+  const risky = byPath.get("docs/llm-wiki/risky.md");
+  const clean = byPath.get("docs/llm-wiki/clean.md");
+  assert.ok(risky && clean, "both docs are in the review list");
+  assert.ok(risky.riskScore > clean.riskScore, "a doc with a broken-link finding outranks a clean, source-backed doc");
+  const paths = result.documents.map((doc) => doc.path);
+  assert.ok(paths.indexOf("docs/llm-wiki/risky.md") < paths.indexOf("docs/llm-wiki/clean.md"), "higher risk sorts first");
+  assert.ok(result.documents.every((doc) => typeof doc.approvable === "boolean" && typeof doc.riskScore === "number"));
+  // Read-only: list mode writes nothing.
+  const after = await readFile(path.join(cwd, "docs", "llm-wiki", "clean.md"), { encoding: "utf8" });
+  assert.equal(after, before, "review list mode never writes");
+});
+
+test("Gate 20: review --approve stamps verified + review metadata, preserving last_updated and body", async () => {
+  const cwd = await makeProject("review-approve-");
+  await writeJson(path.join(cwd, "package.json"), { name: "rev" });
+  await writeWikiDoc(cwd, "index.md", "LLM-WIKI Index", "Entry point.");
+  await writeWikiDocWithSourceFiles(cwd, "approve-me.md", "Approve Me", "Real, source-backed content ready for sign-off.", ["package.json"]);
+
+  const options = api.normalizeOptions({ cwd, approve: ["docs/llm-wiki/approve-me.md"], reviewer: "Test Reviewer" });
+  const result = await reviewCommand(options);
+
+  assert.equal(result.mode, "approve");
+  assert.equal(result.result, "pass");
+  assert.deepEqual(result.approved, ["docs/llm-wiki/approve-me.md"]);
+  assert.equal(result.reviewer, "Test Reviewer");
+
+  const after = await readFile(path.join(cwd, "docs", "llm-wiki", "approve-me.md"), { encoding: "utf8" });
+  assert.match(after, /status: verified/, "status promoted to verified");
+  assert.match(after, /reviewed_by: Test Reviewer/, "reviewed_by stamped from --reviewer");
+  assert.match(after, /reviewed_at: \d{4}-\d{2}-\d{2}/, "reviewed_at stamped with today");
+  assert.match(after, /last_updated: 2026-07-02/, "last_updated (content date) is preserved, not bumped");
+  assert.ok(after.includes("Real, source-backed content ready for sign-off."), "body content is untouched");
+});
+
+test("Gate 20: review --approve refuses a doc with blocking findings and never auto-verifies", async () => {
+  const cwd = await makeProject("review-blocked-");
+  await writeJson(path.join(cwd, "package.json"), { name: "rev" });
+  await writeWikiDoc(cwd, "index.md", "LLM-WIKI Index", "Entry point.");
+  // A missing required frontmatter field (project) yields a frontmatter.required error.
+  await writeWikiDocAt(cwd, "blocked.md", "Blocked Doc", "Body.", (base) => base.replace(/project: fixture\n/, ""));
+
+  const options = api.normalizeOptions({ cwd, approve: ["docs/llm-wiki/blocked.md"], reviewer: "R" });
+  const result = await reviewCommand(options);
+
+  assert.deepEqual(result.approved, []);
+  assert.ok(result.refused.some((entry) => entry.path === "docs/llm-wiki/blocked.md" && /blocking findings/.test(entry.reason)));
+  const after = await readFile(path.join(cwd, "docs", "llm-wiki", "blocked.md"), { encoding: "utf8" });
+  assert.match(after, /status: needs_review/, "a doc with blocking findings is never promoted");
+});
+
+test("Gate 20: review --approve-all requires an explicit --yes confirmation", async () => {
+  const cwd = await makeProject("review-all-");
+  await writeJson(path.join(cwd, "package.json"), { name: "rev" });
+  await writeWikiDoc(cwd, "index.md", "LLM-WIKI Index", "Entry point.");
+  await writeWikiDocWithSourceFiles(cwd, "a.md", "Doc A", "Content A.", ["package.json"]);
+  await writeWikiDocWithSourceFiles(cwd, "b.md", "Doc B", "Content B.", ["package.json"]);
+
+  // Without --yes: refuses and writes nothing.
+  const noYes = await reviewCommand(api.normalizeOptions({ cwd, approveAll: true, reviewer: "R" }));
+  assert.equal(noYes.result, "fail");
+  assert.ok(noYes.findings.some((finding) => finding.rule === "review.confirmation_required"));
+  assert.deepEqual(noYes.approved, []);
+  assert.match(await readFile(path.join(cwd, "docs", "llm-wiki", "a.md"), { encoding: "utf8" }), /status: needs_review/);
+
+  // With --yes: promotes every approvable needs_review doc.
+  const yes = await reviewCommand(api.normalizeOptions({ cwd, approveAll: true, yes: true, reviewer: "R" }));
+  assert.equal(yes.result, "pass");
+  assert.ok(yes.approved.includes("docs/llm-wiki/a.md") && yes.approved.includes("docs/llm-wiki/b.md"));
+  assert.match(await readFile(path.join(cwd, "docs", "llm-wiki", "a.md"), { encoding: "utf8" }), /status: verified/);
+});
+
+test("Gate 20: review --approve refuses an already-verified doc (idempotent)", async () => {
+  const cwd = await makeProject("review-idem-");
+  await writeJson(path.join(cwd, "package.json"), { name: "rev" });
+  await writeWikiDoc(cwd, "index.md", "LLM-WIKI Index", "Entry point.");
+  await writeWikiDocWithSourceFiles(cwd, "doc.md", "Doc", "Content.", ["package.json"]);
+  await reviewCommand(api.normalizeOptions({ cwd, approve: ["docs/llm-wiki/doc.md"], reviewer: "R" }));
+  const second = await reviewCommand(api.normalizeOptions({ cwd, approve: ["docs/llm-wiki/doc.md"], reviewer: "R" }));
+  assert.deepEqual(second.approved, []);
+  assert.ok(second.refused.some((entry) => entry.path === "docs/llm-wiki/doc.md" && /already verified/.test(entry.reason)));
+});
+
+test("Gate 20: parseArgs wires review flags and rejects --approve + --approve-all together", () => {
+  const approve = parseArgs(["review", "--approve", "docs/llm-wiki/a.md", "--approve", "b.md", "--reviewer", "Me"]);
+  assert.equal(approve.command, "review");
+  assert.deepEqual(approve.options.approve, ["docs/llm-wiki/a.md", "b.md"]);
+  assert.equal(approve.options.reviewer, "Me");
+  assert.equal(approve.errors.length, 0);
+
+  const comma = parseArgs(["review", "--approve", "a.md,b.md"]);
+  assert.deepEqual(comma.options.approve, ["a.md", "b.md"], "a comma-separated --approve value expands to multiple targets");
+
+  const all = parseArgs(["review", "--approve-all", "--yes"]);
+  assert.equal(all.options.approveAll, true);
+  assert.equal(all.options.yes, true);
+  assert.equal(all.errors.length, 0);
+
+  const conflict = parseArgs(["review", "--approve", "a.md", "--approve-all"]);
+  assert.ok(conflict.errors.some((error) => /cannot be used together/.test(error)));
 });
 
 test("Gate 26: check-run skips external changedSource and strips locators when matching", async () => {
@@ -3535,7 +3656,7 @@ test("programmatic API exposes a frozen command map mirroring the CLI surface", 
   const expected = [
     "doctor", "validate", "validate-frontmatter", "monorepo", "status", "next", "explain",
     "audit", "quickstart", "handoff", "prompt", "init", "migrate", "fix",
-    "drift", "impact", "check-run", "graph", "stats", "list-docs", "search-docs", "get-doc",
+    "drift", "impact", "check-run", "review", "graph", "stats", "list-docs", "search-docs", "get-doc",
     "get-related", "onboard", "prepare", "release-notes"
   ];
 
