@@ -1,0 +1,20 @@
+# EditorConfig — https://editorconfig.org
+# The project deliberately ships zero dependencies AND zero devDependencies, so
+# there is no linter/formatter dependency. Style is enforced by review; this file
+# records the conventions so editors apply them automatically (see CONTRIBUTING.md).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.md]
+# Markdown can use trailing whitespace meaningfully (hard line breaks).
+trim_trailing_whitespace = false
+
+[*.{yml,yaml,json}]
+indent_size = 2

@@ -64,11 +64,15 @@
   },
   "scripts": {
     "test": "node --test tests/*.test.js",
+    "test:coverage": "node --test --experimental-test-coverage tests/*.test.js",
+    "lint": "node scripts/lint-syntax.mjs",
     "verify": "node --test tests/*.test.js && node bin/llm-wiki.js validate-frontmatter",
     "doctor": "node bin/llm-wiki.js doctor",
     "audit": "node bin/llm-wiki.js audit",
     "validate": "node bin/llm-wiki.js validate",
-    "validate-frontmatter": "node bin/llm-wiki.js validate-frontmatter"
+    "validate-frontmatter": "node bin/llm-wiki.js validate-frontmatter",
+    "sbom": "npm sbom --sbom-format cyclonedx",
+    "bench": "node bench/run.js"
   },
   "engines": {
     "node": ">=18.18.0"

@@ -40,6 +40,9 @@ Useful scripts:
 | `npm run doctor` | Environment / project diagnostics |
 | `npm run audit` | Full LLM-WIKI audit of this repo |
 | `npm run validate-frontmatter` | Validate wiki frontmatter contracts |
+| `npm run lint` | Zero-dep syntax gate — `node --check` over every source file (no linter dependency) |
+| `npm run test:coverage` | Tests with Node's built-in coverage (`node --test --experimental-test-coverage`, Node 20+) |
+| `npm run sbom` | Generate a CycloneDX SBOM (`npm sbom`) for supply-chain review |
 
 Run the CLI directly during development with `node bin/llm-wiki.js <command>`.
 
@@ -72,6 +75,24 @@ before changing code or docs.
 - Keep tests deterministic and platform-independent.
 - `npm test` (and `npm run verify`) must pass before you open a PR. CI runs the
   full matrix.
+
+## Quality gates & dependencies
+
+This project keeps **zero runtime AND zero dev dependencies** — a deliberate
+identity, not an oversight. Two consequences for contributors:
+
+- **Style is enforced by review, not by a linter dependency.** There is no
+  ESLint/Prettier. `npm run lint` is a `node --check` syntax gate over the source
+  (`scripts/lint-syntax.mjs`), and `.editorconfig` captures the whitespace rules.
+  Match the surrounding code's style; reviewers flag deviations.
+- **Coverage uses the Node built-in.** `npm run test:coverage`
+  (`node --test --experimental-test-coverage`, Node 20+) — not `nyc`/`c8`. It is
+  reported, not gated, so a coverage tool never becomes a dependency.
+
+Please do **not** add a runtime or dev dependency (or a lockfile entry) without a
+strong, discussed reason — it would break the advertised zero-dependency stance
+the project is known for. Supply-chain review: `npm run sbom` emits a CycloneDX
+SBOM, and a GitHub-native CodeQL workflow scans on push/PR.
 
 ## Commit & pull request flow
 

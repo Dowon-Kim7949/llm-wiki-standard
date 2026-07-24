@@ -1,0 +1,37 @@
+name: CodeQL
+
+# GitHub-native static analysis. Uses the github/codeql-action (a GitHub Action,
+# not an npm package), so it adds no runtime or dev dependency and preserves the
+# project's zero-dependency stance.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: "27 3 * * 1"  # weekly, Monday 03:27 UTC
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze (JavaScript)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

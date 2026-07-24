@@ -46,6 +46,9 @@ jobs:
         run: |
           node -e "const p=require('./package.json'); if (p.name !== 'llm-wiki-governance') { console.error('Unexpected package name:', p.name); process.exit(1); }"
 
+      - name: Lint (zero-dependency syntax gate)
+        run: node scripts/lint-syntax.mjs
+
       - name: Run tests
         run: node --test tests/*.test.js
 
@@ -90,3 +93,24 @@ jobs:
           npx --no-install llm-wiki doctor
           npx --no-install llm-wiki init --dry-run --type library
           npx --no-install llm-wiki validate-frontmatter
+
+  coverage:
+    name: "Coverage (informational, non-blocking) · Node 22"
+    needs: verify
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      # Coverage via the Node built-in test runner (Node 20+), NOT nyc/c8 — this
+      # keeps the zero-dependency / zero-devDependency stance. Reported for
+      # visibility; non-blocking (continue-on-error) so it never gates CI.
+      - name: Report test coverage
+        run: node --test --experimental-test-coverage tests/*.test.js

@@ -40,6 +40,9 @@ npm test             # node --test tests/*.test.js
 | `npm run doctor` | 환경·프로젝트 진단 |
 | `npm run audit` | 이 저장소의 전체 LLM-WIKI 감사 |
 | `npm run validate-frontmatter` | wiki frontmatter 계약 검증 |
+| `npm run lint` | zero-dep 문법 게이트 — 모든 소스에 `node --check`(linter 의존성 없음) |
+| `npm run test:coverage` | Node 내장 커버리지로 테스트(`node --test --experimental-test-coverage`, Node 20+) |
+| `npm run sbom` | 공급망 검토용 CycloneDX SBOM 생성(`npm sbom`) |
 
 개발 중에는 `node bin/llm-wiki.js <command>`로 CLI를 직접 실행할 수 있습니다.
 
@@ -72,6 +75,24 @@ npm test             # node --test tests/*.test.js
 - 테스트는 결정적이고 플랫폼 독립적으로 유지하세요.
 - PR을 열기 전에 `npm test`(및 `npm run verify`)가 통과해야 합니다. CI가 전체
   매트릭스를 실행합니다.
+
+## 품질 게이트 & 의존성
+
+이 프로젝트는 **런타임 AND 개발 의존성 모두 0**을 유지합니다 — 실수가 아니라
+의도된 정체성입니다. 기여자에게 두 가지 함의가 있습니다:
+
+- **스타일은 linter 의존성이 아니라 리뷰로 강제합니다.** ESLint/Prettier가
+  없습니다. `npm run lint`는 소스에 대한 `node --check` 문법 게이트이고
+  (`scripts/lint-syntax.mjs`), `.editorconfig`가 공백 규칙을 담습니다. 주변
+  코드의 스타일을 따르세요 — 리뷰어가 이탈을 지적합니다.
+- **커버리지는 Node 내장을 씁니다.** `npm run test:coverage`
+  (`node --test --experimental-test-coverage`, Node 20+) — `nyc`/`c8`가 아닙니다.
+  게이트가 아니라 보고용이라 커버리지 도구가 의존성이 되지 않습니다.
+
+강력히 논의된 이유 없이 런타임·개발 의존성(또는 lockfile 항목)을 **추가하지
+마세요** — 이 프로젝트의 정체성인 zero-dependency 입장을 깨뜨립니다. 공급망 검토:
+`npm run sbom`이 CycloneDX SBOM을 내고, GitHub 네이티브 CodeQL 워크플로가 push/PR에서
+스캔합니다.
 
 ## 커밋 & PR 흐름
 

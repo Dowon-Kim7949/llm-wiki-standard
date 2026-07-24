@@ -1,0 +1,8 @@
+# Code owners for llm-wiki-governance.
+#
+# The maintainer reviews and approves all changes. Note that promoting an
+# LLM-WIKI document to `verified` is a separate, human-only sign-off in the tool
+# itself (see GATE_REVIEW.md "Review Workflow Scope Decision" and MAINTAINERS.md);
+# CODEOWNERS governs PR review, not wiki verification.
+
+* @Dowon-Kim7949

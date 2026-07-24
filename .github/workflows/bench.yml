@@ -1,0 +1,38 @@
+# Opt-in benchmark run — INFORMATIONAL ONLY, never a release gate.
+#
+# The bench/ harness measures a chars/4 token PROXY, not real model tokens, so its
+# numbers must never fail a build or become a README/marketing headline. This job
+# therefore runs ONLY on manual dispatch and a weekly schedule (never on push/PR),
+# and it never asserts a threshold — it just re-runs the proxy against the frozen
+# baseline and surfaces the delta for a human to read. See docs/llm-wiki/BENCHMARK.md
+# for the honest methodology and why headline claims stay forbidden.
+name: Benchmark (proxy, informational)
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Weekly, Mondays 06:00 UTC. Cosmetic drift watch, not a gate.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - name: Run proxy benchmark vs frozen baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "NOTE: chars/4 proxy — informational only, NOT a measured token count and NOT a release gate." | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          # `--against` runs the harness and prints token deltas vs the prior results json.
+          node bench/run.js --against bench/results/baseline.json | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
